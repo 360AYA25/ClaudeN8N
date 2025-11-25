@@ -19,6 +19,9 @@ ClaudeN8N/
 ├── .env.example                 # Environment template
 ├── .mcp.json                    # MCP server configuration
 │
+├── .claude/
+│   └── CLAUDE.md                # Claude Code instructions (auto-loaded)
+│
 ├── docs/
 │   ├── INDEX.md                 # Documentation index
 │   ├── ARCHITECTURE.md          # System architecture

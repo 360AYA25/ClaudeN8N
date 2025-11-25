@@ -11,12 +11,17 @@ ClaudeN8N is a knowledge base and toolkit for n8n workflow automation with Claud
 │                      ClaudeN8N Project                       │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  ┌─────────────────┐     ┌─────────────────────────────┐   │
-│  │   Claude Code   │────▶│   Knowledge Base (docs/)    │   │
-│  └────────┬────────┘     │  - LEARNINGS.md (solutions) │   │
-│           │              │  - PATTERNS.md (patterns)   │   │
-│           │              │  - N8N-RESOURCES.md (links) │   │
-│           │              └─────────────────────────────┘   │
+│  ┌─────────────────┐                                       │
+│  │   Claude Code   │◄── .claude/CLAUDE.md (instructions)   │
+│  └────────┬────────┘                                       │
+│           │                                                 │
+│           ▼                                                 │
+│  ┌─────────────────────────────┐                           │
+│  │   Knowledge Base (docs/)    │                           │
+│  │  - LEARNINGS.md (solutions) │                           │
+│  │  - PATTERNS.md (patterns)   │                           │
+│  │  - N8N-RESOURCES.md (links) │                           │
+│  └─────────────────────────────┘                           │
 │           │                                                 │
 │           ▼                                                 │
 │  ┌─────────────────┐                                       │
@@ -98,10 +103,11 @@ The project uses n8n-mcp server for:
 
 ```
 1. User request → Claude Code
-2. Claude Code → Read PATTERNS.md (find best approach)
-3. Claude Code → n8n-mcp (create workflow)
-4. n8n-mcp → n8n API
-5. Workflow created → User verification
+2. Claude Code ← .claude/CLAUDE.md (auto-loaded instructions)
+3. Claude Code → Read PATTERNS.md (find best approach)
+4. Claude Code → n8n-mcp (create workflow)
+5. n8n-mcp → n8n API
+6. Workflow created → User verification
 ```
 
 ### Debugging Workflows
@@ -117,6 +123,7 @@ The project uses n8n-mcp server for:
 
 | File | Purpose | Updated |
 |------|---------|---------|
+| .claude/CLAUDE.md | Claude Code instructions (auto-loaded) | On workflow changes |
 | LEARNINGS.md | Document problems & solutions | On each issue |
 | LEARNINGS-INDEX.md | Fast pattern lookup | With LEARNINGS.md |
 | PATTERNS.md | Proven reusable solutions | When new pattern found |

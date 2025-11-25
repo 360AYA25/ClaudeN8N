@@ -16,6 +16,12 @@
 | [PATTERNS.md](learning/PATTERNS.md) | Proven solution patterns |
 | [N8N-RESOURCES.md](learning/N8N-RESOURCES.md) | n8n resources & links |
 
+## Claude Code Config
+
+| File | Description |
+|------|-------------|
+| [.claude/CLAUDE.md](../.claude/CLAUDE.md) | Project instructions (auto-loaded) |
+
 ## Quick Links
 
 - [README](../README.md) - Project overview
