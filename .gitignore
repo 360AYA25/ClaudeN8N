@@ -5,6 +5,11 @@
 CREDENTIALS.env
 *.credentials
 
+# MCP Config (contains API keys!)
+.mcp.json
+.mcp.json.full
+.mcp.json.*
+
 # OS
 .DS_Store
 Thumbs.db

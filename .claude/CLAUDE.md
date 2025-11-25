@@ -125,6 +125,33 @@ Task(agent=researcher, prompt="Search alternative solutions per blueprint")
 3. **Snapshot**: Builder saves snapshot before destructive changes
 4. **Regression Check**: QA marks regressions, Builder can rollback
 
+## MCP Configuration
+
+### Files
+| File | Purpose |
+|------|---------|
+| `.mcp.json` | Active config (n8n-mcp only) |
+| `.mcp.json.full` | Full config with all MCPs (for quick enable) |
+
+### Available MCPs (in .mcp.json.full)
+| MCP | Purpose | When to Enable |
+|-----|---------|----------------|
+| `n8n-mcp` | n8n workflow operations | **Always ON** |
+| `notion` | Notion API | When working with Notion |
+| `gemini-cli` | Gemini AI | When need alternative AI |
+| `supabase` | Direct Supabase access | When need DB operations |
+
+### Quick Switch
+```bash
+# Enable all MCPs
+cp .mcp.json.full .mcp.json
+
+# Restore minimal (n8n only)
+# Edit .mcp.json, keep only n8n-mcp
+```
+
+**Note:** `.mcp.json*` files contain API keys - NEVER commit to git!
+
 ## Knowledge Base
 
 Before n8n work, check:
