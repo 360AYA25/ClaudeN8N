@@ -1,0 +1,31 @@
+{
+  "id": null,
+  "user_request": "",
+  "goal": "",
+  "operation": "new",
+  "stage": "planning",
+  "cycle_count": 0,
+  "constraints": [],
+  "assumptions": [],
+  "services": [],
+  "credentials_required": [],
+  "blueprint": null,
+  "research_findings": null,
+  "workflow": null,
+  "qa_report": null,
+  "memory": {
+    "issues_history": [],
+    "fixes_applied": [],
+    "regressions": []
+  },
+  "edit_scope": [],
+  "errors": [],
+  "fixes_tried": [],
+  "worklog": [],
+  "agent_log": [],
+  "last_attempt_notes": "",
+  "finalized": {
+    "status": false,
+    "at": null
+  }
+}

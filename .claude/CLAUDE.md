@@ -1,62 +1,142 @@
-# ClaudeN8N Project Instructions
+# 6-Agent n8n Orchestration System
 
-## Project Overview
+> Pure Claude system for n8n workflow automation
 
-Knowledge base and toolkit for n8n workflow automation with Claude Code.
+## System Overview
 
-## Before Working with n8n
+| Agent | Model | Role | MCP Tools |
+|-------|-------|------|-----------|
+| orchestrator | sonnet | Route + coordinate loops | list_workflows, get_workflow |
+| architect | opus | Complex planning, L3 escalation | search_*, get_*, WebSearch |
+| researcher | sonnet | Fast node/template search | search_nodes, search_templates, get_node |
+| **builder** | **opus** | **ONLY writer**: create/update/autofix | create_workflow, update_*, autofix_*, validate_* |
+| qa | haiku | Validate + test, NO fixes | validate_*, trigger_webhook, get_execution |
+| analyst | opus | Read-only audit, writes learnings | get_workflow, executions (READ-ONLY) |
 
-**ALWAYS check knowledge base first:**
+## Routing Rules
 
-1. **Quick lookup** (98% token savings):
-   ```
-   Read: docs/learning/LEARNINGS-INDEX.md
-   ```
+### Complexity Detection
+```
+SIMPLE (3-10 tool calls):
+- Single service integration
+- Known patterns in LEARNINGS.md
+- Clear requirements
+→ Flow: Researcher → Builder → QA
 
-2. **Find solution by keyword**:
-   ```
-   Grep: "keyword" in docs/learning/LEARNINGS.md
-   ```
+COMPLEX (10+ tool calls):
+- Multi-service (3+)
+- Unknown patterns, needs research
+- L3 escalation (3+ failed attempts)
+→ Flow: Architect → Researcher → Builder → QA
+```
 
-3. **Find pattern**:
-   ```
-   Grep: "Pattern" in docs/learning/PATTERNS.md
-   ```
+### Decision Table
+| Trigger | Route To | Reason |
+|---------|----------|--------|
+| Create workflow | researcher → builder | Standard flow |
+| Fix error (known) | builder direct | L1 quick fix |
+| Fix error (unknown) | researcher → builder | L2 research needed |
+| 3+ fix failures | architect | L3 re-plan |
+| Architecture question | architect | Deep planning |
+| "Why did this fail?" | analyst | Post-mortem |
 
-## Knowledge Base Files
+## 4-Level Escalation
 
-| File | Use For |
-|------|---------|
-| `docs/learning/LEARNINGS-INDEX.md` | Fast lookup (read FIRST) |
-| `docs/learning/LEARNINGS.md` | Detailed solutions (1700+ lines) |
-| `docs/learning/PATTERNS.md` | Proven workflow patterns (1600+ lines) |
-| `docs/learning/N8N-RESOURCES.md` | External links & search tips |
+| Level | Trigger | Action |
+|-------|---------|--------|
+| **L1** | Simple error, known pattern | Builder direct fix |
+| **L2** | Unknown error | Researcher → Builder |
+| **L3** | 3+ failed attempts | Architect re-plan |
+| **L4** | Blocked, needs decision | Report to user |
 
-## MCP Tools
+## QA Loop (max 3 cycles)
 
-When n8n-mcp server is connected, use these tools:
-- `mcp__n8n-mcp__*` - workflow CRUD, node config, execution
+```
+Builder creates → QA validates
+  ├─ PASS → Done
+  └─ FAIL → Builder fix (edit_scope) → QA re-validates
+              └─ 3 failures → L3 Architect
+```
 
-## Workflow Creation Checklist
+## Hard Rules (Permission Matrix)
 
-Before creating/modifying n8n workflows:
+| Action | Orch | Arch | Res | Build | QA | Analyst |
+|--------|:----:|:----:|:---:|:-----:|:--:|:-------:|
+| Create/Update workflow | - | - | - | **YES** | - | - |
+| Autofix | - | - | - | **YES** | - | - |
+| Delete workflow | - | - | - | **YES** | - | - |
+| Validate (final) | - | - | - | pre | **YES** | - |
+| Activate/Test | - | - | - | - | **YES** | - |
+| Search nodes/templates | - | YES | YES | - | - | - |
+| WebSearch | - | YES | - | - | - | - |
+| Task (delegate) | **YES** | - | - | - | - | - |
+| Write LEARNINGS.md | - | - | - | - | - | **YES** |
 
-1. Check PATTERNS.md for "Pattern 0: Smart Workflow Creation"
-2. Search LEARNINGS.md for similar problems
-3. Use n8n-mcp tools (not manual JSON editing)
-4. Validate with n8n-mcp validation tools
+**Key:** Only Builder mutates. Only Orchestrator delegates. Only Analyst writes learnings.
 
-## Token Economy
+## run_state Protocol
 
-- Use LEARNINGS-INDEX.md for lookups (not full file)
-- Index + targeted read = ~1,000 tokens
-- Full file read = ~50,000 tokens
-- **Savings: 98%**
+### Location
+`memory/run_state.json` - All agents read/write (analyst: read-only + learnings)
 
-## Adding New Knowledge
+### Stage Flow
+`planning → research → build → validate → test → complete | blocked`
 
-When solving new n8n problems:
+### Merge Rules (Orchestrator applies)
+| Type | Rule | Examples |
+|------|------|----------|
+| Objects | Shallow merge (agent overwrites) | blueprint, workflow, qa_report |
+| Arrays (append) | Always append, never replace | errors, fixes_tried, memory.* |
+| Arrays (replace) | Replace entirely | edit_scope, workflow.nodes |
+| Stage | Only moves forward | planning → research (never back) |
 
-1. Add entry to `docs/learning/LEARNINGS.md`
-2. Update `docs/learning/LEARNINGS-INDEX.md` with keywords
-3. If reusable pattern found → add to `docs/learning/PATTERNS.md`
+## Task Call Examples
+
+### Simple Flow
+```
+Task(agent=researcher, prompt="Find nodes for Supabase insert")
+→ returns research_findings
+Task(agent=builder, prompt="Create workflow using research_findings")
+→ returns workflow
+Task(agent=qa, prompt="Validate and test workflow")
+→ returns qa_report
+```
+
+### Fix Loop
+```
+Task(agent=builder, prompt="Fix issues. edit_scope=[node_123]. qa_report={...}")
+→ returns updated workflow
+Task(agent=qa, prompt="Re-validate workflow")
+→ returns qa_report (cycle 2/3)
+```
+
+### L3 Escalation
+```
+Task(agent=architect, prompt="Re-plan after 3 failures. errors=[...], fixes_tried=[...]")
+→ returns new blueprint
+Task(agent=researcher, prompt="Search alternative solutions per blueprint")
+→ continues normal flow
+```
+
+## Safety Rules
+
+1. **Wipe Protection**: If removing >50% nodes → STOP, escalate to user
+2. **edit_scope**: Builder only touches nodes in QA's edit_scope
+3. **Snapshot**: Builder saves snapshot before destructive changes
+4. **Regression Check**: QA marks regressions, Builder can rollback
+
+## Knowledge Base
+
+Before n8n work, check:
+1. `docs/learning/LEARNINGS-INDEX.md` - Quick pattern lookup
+2. `docs/learning/LEARNINGS.md` - Detailed solutions
+3. `docs/learning/PATTERNS.md` - Proven workflows
+
+## Skills (Auto-loaded per agent)
+
+| Skill | Agents | Content |
+|-------|--------|---------|
+| `n8n/patterns` | architect, researcher, builder, analyst | Critical patterns, common errors |
+| `n8n/node-configs` | architect, builder | Node configuration examples |
+| `n8n/validation` | qa | Validation rules, error classification |
+| `n8n/audit` | analyst | Log analysis, root cause templates |

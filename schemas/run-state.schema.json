@@ -1,0 +1,263 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "run_state",
+  "description": "State object passed between agents in the 6-agent orchestration system",
+  "type": "object",
+  "required": ["id", "user_request", "stage"],
+  "properties": {
+    "id": {
+      "type": ["string", "null"],
+      "description": "UUID for this execution"
+    },
+    "user_request": {
+      "type": "string",
+      "description": "Original user request"
+    },
+    "goal": {
+      "type": "string",
+      "description": "Parsed goal from user request"
+    },
+    "operation": {
+      "enum": ["new", "patch"],
+      "default": "new",
+      "description": "Create new workflow or patch existing"
+    },
+    "stage": {
+      "enum": ["planning", "research", "build", "validate", "test", "complete", "blocked"],
+      "description": "Current stage in the workflow"
+    },
+    "cycle_count": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Number of QA cycles completed"
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "User-defined constraints"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Assumptions made by agents"
+    },
+    "services": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Services involved (supabase, slack, etc.)"
+    },
+    "credentials_required": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Credentials needed for workflow"
+    },
+
+    "blueprint": {
+      "type": "object",
+      "description": "Architect's workflow plan",
+      "properties": {
+        "services": { "type": "array" },
+        "pattern": { "type": "string" },
+        "nodes_needed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "role": { "type": "string" },
+              "key_params": { "type": "object" }
+            }
+          }
+        },
+        "template_refs": { "type": "array" },
+        "risks": { "type": "array" },
+        "build_steps": { "type": "array" },
+        "credentials_required": { "type": "array" }
+      }
+    },
+
+    "research_findings": {
+      "type": "object",
+      "description": "Researcher's findings",
+      "properties": {
+        "nodes_found": { "type": "array" },
+        "templates_found": { "type": "array" },
+        "patterns_applicable": { "type": "array" },
+        "recommendation": { "type": "string" },
+        "ready_for_builder": { "type": "boolean" },
+        "excluded": {
+          "type": "array",
+          "description": "Already tried solutions to exclude"
+        }
+      }
+    },
+
+    "workflow": {
+      "type": "object",
+      "description": "Builder's workflow output",
+      "properties": {
+        "id": { "type": ["string", "null"] },
+        "name": { "type": ["string", "null"] },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "parameters": { "type": "object" },
+              "_meta": {
+                "type": "object",
+                "description": "QA annotations",
+                "properties": {
+                  "status": { "enum": ["ok", "warning", "error"] },
+                  "error": { "type": "string" },
+                  "suggested_fix": { "type": "string" },
+                  "evidence": { "type": "string" },
+                  "fix_attempts": { "type": "array" },
+                  "snapshot_before_fix": { "type": "object" },
+                  "regression_caused_by": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "connections": { "type": "object" },
+        "graph_hash": { "type": ["string", "null"] },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": { "type": "string" },
+              "mcp_tool": { "type": "string" },
+              "node_id": { "type": "string" },
+              "result": { "type": "string" },
+              "timestamp": { "type": "string" }
+            }
+          }
+        },
+        "validation_passed": { "type": "boolean" },
+        "created_or_updated": { "enum": ["created", "updated"] }
+      }
+    },
+
+    "qa_report": {
+      "type": "object",
+      "description": "QA validation results",
+      "properties": {
+        "validation_status": {
+          "enum": ["passed", "passed_with_warnings", "failed", null]
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "node_id": { "type": "string" },
+              "node_name": { "type": "string" },
+              "severity": { "enum": ["error", "warning"] },
+              "message": { "type": "string" },
+              "evidence": { "type": "string" },
+              "suggested_fix": { "type": "string" }
+            }
+          }
+        },
+        "failure_source": {
+          "enum": ["implementation", "analysis", "unknown", null]
+        },
+        "activation_result": { "type": ["string", "null"] },
+        "test_result": {
+          "type": ["object", "null"],
+          "properties": {
+            "execution_id": { "type": "string" },
+            "status": { "type": "string" },
+            "error_message": { "type": "string" }
+          }
+        },
+        "edit_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Node IDs that Builder can modify"
+        },
+        "ready_for_deploy": { "type": ["boolean", "null"] }
+      }
+    },
+
+    "memory": {
+      "type": "object",
+      "description": "Persistent history for Analyst",
+      "properties": {
+        "issues_history": {
+          "type": "array",
+          "description": "ALL issues from ALL QA cycles"
+        },
+        "fixes_applied": {
+          "type": "array",
+          "description": "ALL fixes ever applied"
+        },
+        "regressions": {
+          "type": "array",
+          "description": "Issues caused by fixes"
+        }
+      }
+    },
+
+    "edit_scope": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Current nodes Builder can modify"
+    },
+    "errors": {
+      "type": "array",
+      "description": "Append-only error log"
+    },
+    "fixes_tried": {
+      "type": "array",
+      "description": "Append-only fixes log"
+    },
+    "worklog": {
+      "type": "array",
+      "description": "High-level cycle summaries",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ts": { "type": "string" },
+          "cycle": { "type": "integer" },
+          "agent": { "type": "string" },
+          "action": { "type": "string" },
+          "outcome": { "type": "string" },
+          "nodes_changed": { "type": "array" },
+          "qa_status": { "type": "string" }
+        }
+      }
+    },
+    "agent_log": {
+      "type": "array",
+      "description": "Detailed agent action log",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ts": { "type": "string" },
+          "agent": { "type": "string" },
+          "action": { "type": "string" },
+          "details": { "type": "object" }
+        }
+      }
+    },
+    "last_attempt_notes": {
+      "type": "string",
+      "description": "What failed in last cycle"
+    },
+
+    "finalized": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "boolean" },
+        "at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  }
+}
