@@ -1,0 +1,54 @@
+{
+  "id": null,
+  "user_request": "",
+  "goal": "",
+  "stage": "init",
+  "operation": null,
+  "cycle_count": 0,
+  "constraints": [],
+  "assumptions": [],
+  "services": [],
+  "credentials_required": [],
+  "blueprint": {
+    "summary": "",
+    "complexity": null,
+    "nodes": [],
+    "connections": [],
+    "execution_steps": []
+  },
+  "research_findings": {
+    "patterns": [],
+    "node_versions": [],
+    "recommended_workflow_structure": null
+  },
+  "workflow": {
+    "id": null,
+    "name": null,
+    "nodes": [],
+    "connections": {},
+    "graph_hash": null,
+    "actions": []
+  },
+  "qa_report": {
+    "validation_status": null,
+    "issues": [],
+    "failure_source": null,
+    "activation_result": null,
+    "test_result": null
+  },
+  "memory": {
+    "issues_history": [],
+    "fixes_applied": [],
+    "regressions": []
+  },
+  "edit_scope": [],
+  "errors": [],
+  "fixes_tried": [],
+  "worklog": [],
+  "last_attempt_notes": "",
+  "agent_log": [],
+  "finalized": {
+    "status": false,
+    "at": null
+  }
+}

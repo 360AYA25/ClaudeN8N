@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "run_state",
+  "type": "object",
+  "required": ["id", "user_request", "stage"],
+  "properties": {
+    "id": { "type": ["string", "null"] },
+    "user_request": { "type": "string" },
+    "goal": { "type": "string" },
+    "operation": { "enum": ["new", "patch"], "default": "new" },
+    "stage": {
+      "enum": ["planning", "research", "build", "validate", "test", "complete", "blocked"]
+    },
+    "cycle_count": { "type": "integer", "minimum": 0 },
+    "constraints": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "services": { "type": "array", "items": { "type": "string" } },
+    "credentials_required": { "type": "array", "items": { "type": "string" } },
+
+    "blueprint": { "type": "object", "properties": {
+      "services": { "type": "array" },
+      "pattern": { "type": "string" },
+      "nodes_needed": { "type": "array" },
+      "template_refs": { "type": "array" },
+      "risks": { "type": "array" },
+      "build_steps": { "type": "array" },
+      "credentials_required": { "type": "array" }
+    }},
+
+    "research_findings": { "type": "object", "properties": {
+      "nodes_found": { "type": "array" },
+      "templates_found": { "type": "array" },
+      "patterns_applicable": { "type": "array" },
+      "recommendation": { "type": "string" },
+      "ready_for_builder": { "type": "boolean" },
+      "excluded": { "type": "array" }
+    }},
+
+    "workflow": { "type": "object", "properties": {
+      "id": { "type": ["string", "null"] },
+      "name": { "type": ["string", "null"] },
+      "nodes": { "type": "array" },
+      "connections": { "type": "object" },
+      "graph_hash": { "type": ["string", "null"] },
+      "actions": { "type": "array" }
+    }},
+
+    "qa_report": { "type": "object", "properties": {
+      "validation_status": { "enum": ["passed", "passed_with_warnings", "failed", null] },
+      "issues": { "type": "array" },
+      "failure_source": { "enum": ["implementation", "analysis", "unknown", null] },
+      "activation_result": { "type": ["string", "null"] },
+      "test_result": { "type": ["object", "null"] },
+      "edit_scope": { "type": "array" },
+      "ready_for_deploy": { "type": ["boolean", "null"] }
+    }},
+
+    "memory": { "type": "object", "properties": {
+      "issues_history": { "type": "array" },
+      "fixes_applied": { "type": "array" },
+      "regressions": { "type": "array" }
+    }},
+
+    "edit_scope": { "type": "array" },
+    "errors": { "type": "array" },
+    "fixes_tried": { "type": "array" },
+    "worklog": { "type": "array" },
+    "last_attempt_notes": { "type": "string" },
+    "agent_log": { "type": "array" },
+
+    "finalized": { "type": "object", "properties": {
+      "status": { "type": "boolean" },
+      "at": { "type": ["string", "null"], "format": "date-time" }
+    }}
+  }
+}

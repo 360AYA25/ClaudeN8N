@@ -1,0 +1,68 @@
+{
+  "id": null,
+  "user_request": "",
+  "goal": "",
+  "operation": "new",
+  "stage": "planning",
+  "cycle_count": 0,
+  "constraints": [],
+  "assumptions": [],
+  "services": [],
+  "credentials_required": [],
+
+  "blueprint": {
+    "services": [],
+    "pattern": "",
+    "nodes_needed": [],
+    "template_refs": [],
+    "risks": [],
+    "build_steps": [],
+    "credentials_required": []
+  },
+
+  "research_findings": {
+    "nodes_found": [],
+    "templates_found": [],
+    "patterns_applicable": [],
+    "recommendation": "",
+    "ready_for_builder": false,
+    "excluded": []
+  },
+
+  "workflow": {
+    "id": null,
+    "name": null,
+    "nodes": [],
+    "connections": {},
+    "graph_hash": null,
+    "actions": []
+  },
+
+  "qa_report": {
+    "validation_status": null,
+    "issues": [],
+    "failure_source": null,
+    "activation_result": null,
+    "test_result": null,
+    "edit_scope": [],
+    "ready_for_deploy": false
+  },
+
+  "memory": {
+    "issues_history": [],
+    "fixes_applied": [],
+    "regressions": []
+  },
+
+  "edit_scope": [],
+  "errors": [],
+  "fixes_tried": [],
+  "worklog": [],
+  "last_attempt_notes": "",
+  "agent_log": [],
+
+  "finalized": {
+    "status": false,
+    "at": null
+  }
+}

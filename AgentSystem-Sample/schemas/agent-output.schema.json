@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "agent_output",
+  "type": "object",
+  "properties": {
+    "run_state": { "$ref": "./run-state.schema.json" },
+    "commentary": { "type": "string", "description": "Свободный текст агентa (кратко)" },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tool": { "type": "string" },
+          "result": { "type": "string" },
+          "ts": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "required": ["run_state"]
+}
