@@ -159,11 +159,14 @@ Before n8n work, check:
 2. `docs/learning/LEARNINGS.md` - Detailed solutions
 3. `docs/learning/PATTERNS.md` - Proven workflows
 
-## Skills (Auto-loaded per agent)
+## Skills (Auto-loaded from czlonkowski/n8n-skills)
 
-| Skill | Agents | Content |
-|-------|--------|---------|
-| `n8n/patterns` | architect, researcher, builder, analyst | Critical patterns, common errors |
-| `n8n/node-configs` | architect, builder | Node configuration examples |
-| `n8n/validation` | qa | Validation rules, error classification |
-| `n8n/audit` | analyst | Log analysis, root cause templates |
+| Skill | Purpose |
+|-------|---------|
+| `n8n-mcp-tools-expert` | MCP tool selection, nodeType formats, validation profiles |
+| `n8n-workflow-patterns` | 5 architectural patterns from 2,653+ templates |
+| `n8n-validation-expert` | Error interpretation, false positive handling |
+| `n8n-node-configuration` | Operation-aware setup, property dependencies |
+| `n8n-expression-syntax` | {{}} syntax, $json/$node/$now variables |
+| `n8n-code-javascript` | Data access patterns, 10 production patterns |
+| `n8n-code-python` | Standard library, external lib workarounds |
