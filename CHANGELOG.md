@@ -2,11 +2,13 @@
 
 All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
 
-## [Unreleased]
+## [2.1.0] - 2025-11-26
+
+### Context Optimization (~65K tokens saved)
 
 ### Added
-- Context optimization: file-based results for Builder and QA
-- Context optimization: index-first reading protocol for Researcher
+- File-based results for Builder and QA
+- Index-first reading protocol for Researcher
 - `memory/agent_results/` directory for full workflow/QA results
 - Write tool for Builder and QA agents
 
@@ -16,6 +18,9 @@ All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
 - Researcher reads LEARNINGS-INDEX.md first (~20K tokens saved)
 - Schema: added `node_count`, `full_result_file` to workflow
 - Schema: added `error_count`, `warning_count`, `full_report_file` to qa_report
+
+### Commits
+- `f7ef405` feat: add context optimization (~65K tokens saved)
 
 ---
 
@@ -31,8 +36,6 @@ Complete architecture redesign from complexity-based routing to unified 4-phase 
 - Extended `blueprint`: `base_workflow_id`, `action`, `changes_required`
 - Extended `research_findings`: `fit_score`, `popularity`, `existing_workflows`
 - Extended `errors`: `severity`, `fixable`
-- False Positive rules for QA validator
-- FP tracking (`fp_stats`) in qa_report
 - Skill distribution by agent in CLAUDE.md
 
 ### Changed
@@ -40,6 +43,38 @@ Complete architecture redesign from complexity-based routing to unified 4-phase 
 - Architect: NO MCP tools (pure planner)
 - Researcher: does ALL search (local → existing → templates → nodes)
 - Key principle: "Modify existing > Build new"
+
+### False Positive Rules (`54a3d9e`)
+QA validator improvements to reduce false positives:
+
+**New sections in qa.md:**
+- **Code Node** — skip expression validation for `jsCode`/`pythonCode` (it's JS, not n8n expression!)
+- **Set Node** — check `mode` before validation (`raw` → jsonOutput, `manual` → assignments)
+- **Error Handling** — don't warn on `continueOnFail`/`onError` (intentional error routing)
+
+**FP Tracking in qa_report:**
+```json
+{
+  "fp_stats": {
+    "total_issues": 28,
+    "confirmed_issues": 20,
+    "false_positives": 8,
+    "fp_rate": 28.5,
+    "fp_categories": {
+      "jsCode_as_expression": 5,
+      "set_raw_mode": 2,
+      "continueOnFail_intentional": 1
+    }
+  }
+}
+```
+
+**Safety Guards** — added FP Filter (apply FP rules before counting errors)
+
+Now QA:
+- Applies FP rules BEFORE final report
+- Tracks `fp_rate` to measure improvements
+- Categorizes FP by type
 
 ### Commits
 - `5f3696d` docs: add learnings from test run
