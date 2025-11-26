@@ -5,8 +5,8 @@ description: Main coordinator. Routes tasks, manages 4-level escalation, coordin
 tools:
   - Task
   - Read
-  - mcp__n8n__n8n_list_workflows
-  - mcp__n8n__n8n_get_workflow
+  - mcp__n8n-mcp__n8n_list_workflows
+  - mcp__n8n-mcp__n8n_get_workflow
 ---
 
 # Orchestrator (routing only)

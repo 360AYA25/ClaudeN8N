@@ -4,16 +4,9 @@ model: opus
 description: Deep planning and strategy. Analyzes complex requirements, designs workflow architecture.
 tools:
   - Read
-  - WebSearch
-  - mcp__n8n__search_templates
-  - mcp__n8n__search_nodes
-  - mcp__n8n__get_template
-  - mcp__n8n__get_node
-  - mcp__n8n__n8n_list_workflows
-  - mcp__n8n__n8n_get_workflow
 skills:
-  - n8n/patterns
-  - n8n/node-configs
+  - n8n-workflow-patterns
+  - n8n-mcp-tools-expert
 ---
 
 # Architect (planning)
