@@ -2,6 +2,33 @@
 
 All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
 
+## [2.2.0] - 2025-11-26
+
+### 5-Phase Flow (Implementation Stage)
+
+After user approves decision, Researcher does deep dive on HOW to build.
+
+### Added
+- **Phase 4: IMPLEMENTATION** between decision and build
+- `implementation` stage in run_state
+- `build_guidance` field with:
+  - `learnings_applied` - Learning IDs applied (L-015, L-042, etc.)
+  - `patterns_applied` - Pattern IDs applied (P-003, etc.)
+  - `node_configs` - Detailed node configurations from get_node
+  - `expression_examples` - Ready-to-use n8n expressions
+  - `warnings` - API limits, RLS checks, rate limits
+  - `code_snippets` - Code node snippets if needed
+- Implementation Research Protocol in researcher.md
+
+### Changed
+- 4-phase → 5-phase flow
+- Stage flow: `clarification → research → decision → implementation → build → ...`
+
+### Commits
+- `1f9f99b` feat: add implementation stage (5-phase flow)
+
+---
+
 ## [2.1.0] - 2025-11-26
 
 ### Context Optimization (~65K tokens saved)
