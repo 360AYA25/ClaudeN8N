@@ -4,58 +4,63 @@
 
 ## System Overview
 
-| Agent | Model | Role | MCP Tools |
-|-------|-------|------|-----------|
-| orchestrator | sonnet | Route + coordinate loops | list_workflows, get_workflow |
-| architect | opus | Complex planning, L3 escalation | search_*, get_*, WebSearch |
-| researcher | sonnet | Fast node/template search | search_nodes, search_templates, get_node |
-| **builder** | **opus** | **ONLY writer**: create/update/autofix | create_workflow, update_*, autofix_*, validate_* |
-| qa | haiku | Validate + test, NO fixes | validate_*, trigger_webhook, get_execution |
-| analyst | opus | Read-only audit, writes learnings | get_workflow, executions (READ-ONLY) |
+| Agent | Model | Role | MCP Tools | Skills |
+|-------|-------|------|-----------|--------|
+| orchestrator | sonnet | Route + coordinate loops | list_workflows, get_workflow | — |
+| architect | opus | 4-phase dialog + planning | **NONE** (Read only) | workflow-patterns, mcp-tools-expert |
+| researcher | sonnet | Search with scoring | search_*, get_*, list_workflows | mcp-tools-expert, node-configuration |
+| **builder** | **opus** | **ONLY writer** | create_*, update_*, autofix_*, validate_* | node-config, expression, code-js, code-py |
+| qa | haiku | Validate + test, NO fixes | validate_*, trigger_*, executions | validation-expert, mcp-tools-expert |
+| analyst | opus | Read-only audit | get_workflow, executions, versions | workflow-patterns, validation-expert |
 
-## Routing Rules
+---
 
-### Complexity Detection
+## 4-PHASE UNIFIED FLOW (No Complexity Detection!)
+
 ```
-SIMPLE (3-10 tool calls):
-- Single service integration
-- Known patterns in LEARNINGS.md
-- Clear requirements
-→ Flow: Researcher → Builder → QA
+PHASE 1: CLARIFICATION
+├── User request → Architect
+├── Architect ←→ User (диалог)
+└── Output: requirements
 
-COMPLEX (10+ tool calls):
-- Multi-service (3+)
-- Unknown patterns, needs research
-- L3 escalation (3+ failed attempts)
-→ Flow: Architect → Researcher → Builder → QA
+PHASE 2: RESEARCH
+├── Architect → Orchestrator → Researcher
+├── Search: local → existing → templates → nodes
+└── Output: research_findings (fit_score, popularity)
+
+PHASE 3: DECISION
+├── Researcher → Orchestrator → Architect
+├── Architect ←→ User (выбор варианта)
+├── Key principle: Modify existing > Build new
+└── Output: decision + blueprint
+
+PHASE 4: BUILD
+├── Architect → Orchestrator → Builder → QA
+├── QA Loop: max 3 cycles, then blocked
+└── Output: completed workflow
 ```
 
-### Decision Table
-| Trigger | Route To | Reason |
-|---------|----------|--------|
-| Create workflow | researcher → builder | Standard flow |
-| Fix error (known) | builder direct | L1 quick fix |
-| Fix error (unknown) | researcher → builder | L2 research needed |
-| 3+ fix failures | architect | L3 re-plan |
-| Architecture question | architect | Deep planning |
-| "Why did this fail?" | analyst | Post-mortem |
+### Stage Transitions
+```
+clarification → research → decision → build → validate → test → complete
+                                                    ↓
+                                                 blocked (after 3 QA fails)
+```
 
-## 4-Level Escalation
+## Escalation Levels
 
 | Level | Trigger | Action |
 |-------|---------|--------|
-| **L1** | Simple error, known pattern | Builder direct fix |
+| **L1** | Simple error | Builder direct fix |
 | **L2** | Unknown error | Researcher → Builder |
-| **L3** | 3+ failed attempts | Architect re-plan |
-| **L4** | Blocked, needs decision | Report to user |
+| **L3** | 3+ failures | stage="blocked" |
+| **L4** | Blocked | Report to user + Analyst post-mortem |
 
 ## QA Loop (max 3 cycles)
 
 ```
-Builder creates → QA validates
-  ├─ PASS → Done
-  └─ FAIL → Builder fix (edit_scope) → QA re-validates
-              └─ 3 failures → L3 Architect
+QA fail → Builder fix (edit_scope) → QA → repeat
+After 3 fails → stage="blocked" → report to user
 ```
 
 ## Hard Rules (Permission Matrix)
@@ -67,12 +72,12 @@ Builder creates → QA validates
 | Delete workflow | - | - | - | **YES** | - | - |
 | Validate (final) | - | - | - | pre | **YES** | - |
 | Activate/Test | - | - | - | - | **YES** | - |
-| Search nodes/templates | - | YES | YES | - | - | - |
-| WebSearch | - | YES | - | - | - | - |
+| Search nodes/templates | - | - | **YES** | - | - | - |
+| List/Get workflows | YES | - | **YES** | YES | YES | YES |
 | Task (delegate) | **YES** | - | - | - | - | - |
 | Write LEARNINGS.md | - | - | - | - | - | **YES** |
 
-**Key:** Only Builder mutates. Only Orchestrator delegates. Only Analyst writes learnings.
+**Key:** Only Builder mutates. Only Orchestrator delegates. Architect has NO MCP tools.
 
 ## run_state Protocol
 
@@ -80,29 +85,40 @@ Builder creates → QA validates
 `memory/run_state.json` - All agents read/write (analyst: read-only + learnings)
 
 ### Stage Flow
-`planning → research → build → validate → test → complete | blocked`
+`clarification → research → decision → build → validate → test → complete | blocked`
 
 ### Merge Rules (Orchestrator applies)
 | Type | Rule | Examples |
 |------|------|----------|
-| Objects | Shallow merge (agent overwrites) | blueprint, workflow, qa_report |
+| Objects | Shallow merge (agent overwrites) | requirements, research_request, decision, blueprint, workflow, qa_report |
 | Arrays (append) | Always append, never replace | errors, fixes_tried, memory.* |
 | Arrays (replace) | Replace entirely | edit_scope, workflow.nodes |
-| Stage | Only moves forward | planning → research (never back) |
+| Stage | Only moves forward | clarification → research (never back) |
 
 ## Task Call Examples
 
-### Simple Flow
+### 4-Phase Flow
 ```
-Task(agent=researcher, prompt="Find nodes for Supabase insert")
-→ returns research_findings
-Task(agent=builder, prompt="Create workflow using research_findings")
+# Phase 1: Clarification
+Task(agent=architect, prompt="Clarify requirements with user")
+→ returns requirements
+
+# Phase 2: Research
+Task(agent=researcher, prompt="Search for solutions per research_request")
+→ returns research_findings (fit_score, popularity, existing_workflows)
+
+# Phase 3: Decision
+Task(agent=architect, prompt="Present options to user, get decision")
+→ returns decision + blueprint
+
+# Phase 4: Build
+Task(agent=builder, prompt="Build workflow per blueprint")
 → returns workflow
 Task(agent=qa, prompt="Validate and test workflow")
 → returns qa_report
 ```
 
-### Fix Loop
+### QA Fix Loop
 ```
 Task(agent=builder, prompt="Fix issues. edit_scope=[node_123]. qa_report={...}")
 → returns updated workflow
@@ -110,12 +126,11 @@ Task(agent=qa, prompt="Re-validate workflow")
 → returns qa_report (cycle 2/3)
 ```
 
-### L3 Escalation
+### L4 Post-mortem
 ```
-Task(agent=architect, prompt="Re-plan after 3 failures. errors=[...], fixes_tried=[...]")
-→ returns new blueprint
-Task(agent=researcher, prompt="Search alternative solutions per blueprint")
-→ continues normal flow
+# After stage="blocked"
+Task(agent=analyst, prompt="Analyze why this failed")
+→ returns root_cause, proposed_learnings
 ```
 
 ## Safety Rules
@@ -170,3 +185,13 @@ Before n8n work, check:
 | `n8n-expression-syntax` | {{}} syntax, $json/$node/$now variables |
 | `n8n-code-javascript` | Data access patterns, 10 production patterns |
 | `n8n-code-python` | Standard library, external lib workarounds |
+
+### Skill Distribution by Agent
+
+| Agent | Skills | When to Invoke |
+|-------|--------|---------------|
+| **Architect** | workflow-patterns, mcp-tools-expert | Discussing patterns, formulating research_request |
+| **Researcher** | mcp-tools-expert, node-configuration | Before MCP calls, analyzing node configs |
+| **Builder** | node-configuration, expression-syntax, code-javascript, code-python | Creating/modifying nodes, writing expressions/code |
+| **QA** | validation-expert, mcp-tools-expert | Interpreting errors, choosing validation tools |
+| **Analyst** | workflow-patterns, validation-expert | Analyzing patterns, classifying errors |
