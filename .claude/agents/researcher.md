@@ -32,11 +32,17 @@ Before ANY search, invoke skills:
 ## Search Protocol (STRICT ORDER!)
 
 ```
-STEP 1: LOCAL FIRST (экономия API calls)
-├── docs/learning/LEARNINGS-INDEX.md  → быстрый lookup по keywords
-├── docs/learning/LEARNINGS.md        → детальные решения
-├── docs/learning/PATTERNS.md         → proven workflows
+STEP 1: LOCAL FIRST (экономия API calls + токенов!)
+├── docs/learning/LEARNINGS-INDEX.md  → СНАЧАЛА INDEX! (~500 tokens)
+├── docs/learning/LEARNINGS.md        → ТОЛЬКО нужные секции (по ID из INDEX)
+├── docs/learning/PATTERNS.md         → ТОЛЬКО релевантные паттерны
 └── memory/learnings.md               → runtime learnings
+
+⚠️ INDEX-FIRST PROTOCOL:
+1. Read LEARNINGS-INDEX.md first
+2. Find relevant IDs (e.g., "L-042", "P-015")
+3. Read ONLY those sections from LEARNINGS.md
+4. DO NOT read full files! Saves ~20K tokens
 
 STEP 2: EXISTING WORKFLOWS (приоритет modify!)
 ├── n8n_list_workflows                → список всех workflows в инстансе

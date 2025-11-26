@@ -4,6 +4,7 @@ model: haiku
 description: Validates workflows and runs tests. Reports errors but does NOT fix.
 tools:
   - Read
+  - Write
   - mcp__n8n-mcp__validate_workflow
   - mcp__n8n-mcp__n8n_validate_workflow
   - mcp__n8n-mcp__n8n_trigger_webhook_workflow
@@ -41,17 +42,28 @@ Before ANY validation, invoke skills:
 3. **Test** - If webhook: trigger with test payload, check execution
 4. **Report** - Return full qa_report to Orchestrator
 
-## Output → `run_state.qa_report`
+## Output Protocol (Context Optimization!)
+
+### Step 1: Write FULL report to file
+```
+memory/agent_results/qa_report_{run_id}.json
+```
+
+### Step 2: Return SUMMARY to run_state.qa_report
 ```json
 {
   "validation_status": "passed|passed_with_warnings|failed",
-  "issues": [{ "node_id": "...", "severity": "error|warning", "message": "...", "evidence": "..." }],
-  "activation_result": "success|failed|skipped",
-  "test_result": { "execution_id": "...", "status": "...", "error_message": "..." },
+  "error_count": 3,
+  "warning_count": 5,
   "edit_scope": ["node_id_1", "node_id_2"],
-  "ready_for_deploy": true
+  "ready_for_deploy": true,
+  "full_report_file": "memory/agent_results/qa_report_{run_id}.json"
 }
 ```
+
+**DO NOT include full issues array in run_state!** → saves ~15K tokens
+
+Builder reads full report from file when fixing.
 
 ## Annotation Protocol
 1. Read workflow from run_state

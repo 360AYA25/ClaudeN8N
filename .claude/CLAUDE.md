@@ -140,6 +140,21 @@ Task(agent=analyst, prompt="Analyze why this failed")
 3. **Snapshot**: Builder saves snapshot before destructive changes
 4. **Regression Check**: QA marks regressions, Builder can rollback
 
+## Context Optimization
+
+### File-Based Results (saves ~45K tokens)
+| Agent | Full Result | run_state Summary |
+|-------|-------------|-------------------|
+| Builder | `memory/agent_results/workflow_{id}.json` | id, name, node_count, graph_hash |
+| QA | `memory/agent_results/qa_report_{id}.json` | status, error_count, edit_scope |
+
+### Index-First Reading (saves ~20K tokens)
+Researcher MUST:
+1. Read `LEARNINGS-INDEX.md` first (~500 tokens)
+2. Find relevant IDs (L-042, P-015)
+3. Read ONLY those sections from full files
+4. **NEVER** read full LEARNINGS.md directly
+
 ## MCP Configuration
 
 ### Files

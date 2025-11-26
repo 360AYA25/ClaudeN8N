@@ -168,10 +168,12 @@
 
     "workflow": {
       "type": "object",
-      "description": "Builder's workflow output",
+      "description": "Builder's workflow output (summary only, full in file)",
       "properties": {
         "id": { "type": ["string", "null"] },
         "name": { "type": ["string", "null"] },
+        "node_count": { "type": "integer", "description": "Number of nodes (summary)" },
+        "full_result_file": { "type": "string", "description": "Path to full workflow JSON" },
         "nodes": {
           "type": "array",
           "items": {
@@ -219,11 +221,14 @@
 
     "qa_report": {
       "type": "object",
-      "description": "QA validation results",
+      "description": "QA validation results (summary only, full in file)",
       "properties": {
         "validation_status": {
           "enum": ["passed", "passed_with_warnings", "failed", null]
         },
+        "error_count": { "type": "integer", "description": "Number of errors (summary)" },
+        "warning_count": { "type": "integer", "description": "Number of warnings (summary)" },
+        "full_report_file": { "type": "string", "description": "Path to full QA report JSON" },
         "issues": {
           "type": "array",
           "items": {

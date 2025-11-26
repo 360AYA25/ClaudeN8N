@@ -4,6 +4,7 @@ model: opus
 description: Creates and modifies n8n workflows. ONLY agent that mutates workflows.
 tools:
   - Read
+  - Write
   - mcp__n8n-mcp__n8n_create_workflow
   - mcp__n8n-mcp__n8n_update_partial_workflow
   - mcp__n8n-mcp__n8n_update_full_workflow
@@ -49,19 +50,27 @@ Before ANY build/fix, invoke skills:
 6. Update `workflow.graph_hash` and `worklog`/`agent_log`
 7. Stage: `build`
 
-## Output → `run_state.workflow`
+## Output Protocol (Context Optimization!)
+
+### Step 1: Write FULL workflow to file
+```
+memory/agent_results/workflow_{run_id}.json
+```
+
+### Step 2: Return SUMMARY to run_state.workflow
 ```json
 {
   "id": "workflow_id",
   "name": "My Workflow",
-  "nodes": [...],
-  "connections": {...},
+  "node_count": 5,
   "graph_hash": "abc123",
-  "actions": [{ "action": "create", "mcp_tool": "...", "result": "...", "timestamp": "..." }],
   "validation_passed": true,
-  "created_or_updated": "created"
+  "created_or_updated": "created",
+  "full_result_file": "memory/agent_results/workflow_{run_id}.json"
 }
 ```
+
+**DO NOT include full nodes/connections in run_state!** → saves ~30K tokens
 
 ## Safety Guards
 
