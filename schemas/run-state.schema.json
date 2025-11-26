@@ -23,8 +23,8 @@
       "description": "Create new workflow or patch existing"
     },
     "stage": {
-      "enum": ["planning", "research", "build", "validate", "test", "complete", "blocked"],
-      "description": "Current stage in the workflow"
+      "enum": ["clarification", "research", "decision", "build", "validate", "test", "complete", "blocked"],
+      "description": "Current stage in the 4-phase workflow"
     },
     "cycle_count": {
       "type": "integer",
@@ -53,10 +53,47 @@
       "description": "Credentials needed for workflow"
     },
 
+    "requirements": {
+      "type": "object",
+      "description": "Architect Phase 1: Clarified requirements",
+      "properties": {
+        "services": { "type": "array", "items": { "type": "string" } },
+        "credentials_available": { "type": "array", "items": { "type": "string" } },
+        "credentials_needed": { "type": "array", "items": { "type": "string" } },
+        "trigger": { "enum": ["webhook", "schedule", "manual"] },
+        "input_format": { "type": "string" },
+        "output_action": { "type": "string" },
+        "error_handling": { "enum": ["retry", "notify", "ignore"] }
+      }
+    },
+
+    "research_request": {
+      "type": "object",
+      "description": "Architect Phase 2: Request for Researcher",
+      "properties": {
+        "services": { "type": "array", "items": { "type": "string" } },
+        "trigger_type": { "type": "string" },
+        "search_existing": { "type": "boolean", "default": true },
+        "keywords": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "decision": {
+      "type": "object",
+      "description": "Architect Phase 3: User decision on approach",
+      "properties": {
+        "chosen": { "type": "string", "description": "template_id or workflow_id" },
+        "action": { "enum": ["modify", "build_new"] },
+        "reason": { "type": "string" }
+      }
+    },
+
     "blueprint": {
       "type": "object",
-      "description": "Architect's workflow plan",
+      "description": "Architect Phase 4: Final build plan",
       "properties": {
+        "base_workflow_id": { "type": ["string", "null"], "description": "Existing workflow to modify" },
+        "action": { "enum": ["modify", "build_new"] },
         "services": { "type": "array" },
         "pattern": { "type": "string" },
         "nodes_needed": {
@@ -70,6 +107,7 @@
             }
           }
         },
+        "changes_required": { "type": "array", "items": { "type": "string" } },
         "template_refs": { "type": "array" },
         "risks": { "type": "array" },
         "build_steps": { "type": "array" },
@@ -79,13 +117,48 @@
 
     "research_findings": {
       "type": "object",
-      "description": "Researcher's findings",
+      "description": "Researcher's findings with scoring",
       "properties": {
+        "local_patterns_found": { "type": "array", "items": { "type": "string" } },
+        "templates_found": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "fit_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "popularity": {
+                "type": "object",
+                "properties": {
+                  "views": { "type": "integer" },
+                  "downloads": { "type": "integer" }
+                }
+              },
+              "complexity": { "enum": ["simple", "medium", "complex"] },
+              "modification_needed": { "type": "string" },
+              "missing_from_request": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "existing_workflows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "fit_score": { "type": "integer" },
+              "can_modify": { "type": "boolean" },
+              "modification_needed": { "type": "string" }
+            }
+          }
+        },
         "nodes_found": { "type": "array" },
-        "templates_found": { "type": "array" },
-        "patterns_applicable": { "type": "array" },
         "recommendation": { "type": "string" },
+        "build_vs_modify": { "enum": ["modify", "build_new"] },
         "ready_for_builder": { "type": "boolean" },
+        "ripple_targets": { "type": "array", "items": { "type": "string" } },
         "excluded": {
           "type": "array",
           "description": "Already tried solutions to exclude"
@@ -212,7 +285,17 @@
     },
     "errors": {
       "type": "array",
-      "description": "Append-only error log"
+      "description": "Append-only error log",
+      "items": {
+        "type": "object",
+        "properties": {
+          "node_id": { "type": "string" },
+          "message": { "type": "string" },
+          "severity": { "enum": ["critical", "medium", "low"] },
+          "fixable": { "type": "boolean" },
+          "timestamp": { "type": "string" }
+        }
+      }
     },
     "fixes_tried": {
       "type": "array",
