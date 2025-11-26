@@ -32,7 +32,7 @@ Launch the multi-agent system to create, modify, or fix n8n workflows.
 
 ---
 
-## 4-PHASE FLOW (Unified)
+## 5-PHASE FLOW (Unified)
 
 **No complexity detection!** All requests follow the same flow:
 
@@ -53,8 +53,13 @@ PHASE 3: DECISION
 ├── Modify existing > Build new
 └── Output: decision + blueprint
 
-PHASE 4: BUILD
-├── Architect → Orchestrator → Builder → QA
+PHASE 4: IMPLEMENTATION
+├── Architect → Orchestrator → Researcher (deep dive)
+├── Study: learnings → patterns → node configs
+└── Output: build_guidance (gotchas, configs, warnings)
+
+PHASE 5: BUILD
+├── Researcher → Orchestrator → Builder → QA
 ├── QA Loop: max 3 cycles, then blocked
 └── Output: completed workflow
 ```
@@ -91,7 +96,8 @@ Each agent receives full `run_state`:
 - `research_request` (from Architect Phase 2)
 - `research_findings` (from Researcher)
 - `decision` (from Architect Phase 3)
-- `blueprint` (from Architect Phase 4)
+- `blueprint` (from Architect Phase 3)
+- `build_guidance` (from Researcher Phase 4 - gotchas, node configs, warnings)
 - `workflow` (from Builder)
 - `qa_report` (from QA)
 - `edit_scope` (nodes to modify)
@@ -100,9 +106,9 @@ Each agent receives full `run_state`:
 ## Stage Transitions
 
 ```
-clarification → research → decision → build → validate → test → complete
-                                                    ↓
-                                                 blocked (after 3 QA fails)
+clarification → research → decision → implementation → build → validate → test → complete
+                                                                    ↓
+                                                                 blocked (after 3 QA fails)
 ```
 
 ## QA Loop (max 3 cycles)

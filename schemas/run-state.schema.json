@@ -23,8 +23,8 @@
       "description": "Create new workflow or patch existing"
     },
     "stage": {
-      "enum": ["clarification", "research", "decision", "build", "validate", "test", "complete", "blocked"],
-      "description": "Current stage in the 4-phase workflow"
+      "enum": ["clarification", "research", "decision", "implementation", "build", "validate", "test", "complete", "blocked"],
+      "description": "Current stage in the 5-phase workflow"
     },
     "cycle_count": {
       "type": "integer",
@@ -112,6 +112,66 @@
         "risks": { "type": "array" },
         "build_steps": { "type": "array" },
         "credentials_required": { "type": "array" }
+      }
+    },
+
+    "build_guidance": {
+      "type": "object",
+      "description": "Researcher Phase Implementation: Detailed build instructions after decision",
+      "properties": {
+        "learnings_applied": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Learning IDs applied (L-015, L-042, etc.)"
+        },
+        "patterns_applied": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Pattern IDs applied (P-003, P-007, etc.)"
+        },
+        "node_configs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "description": "n8n-nodes-base.webhook etc." },
+              "key_params": { "type": "object", "description": "Required parameters from get_node" },
+              "gotchas": { "type": "array", "items": { "type": "string" }, "description": "Common mistakes to avoid" },
+              "example_config": { "type": "object", "description": "Working config example" }
+            }
+          },
+          "description": "Detailed node configurations from get_node research"
+        },
+        "expression_examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "context": { "type": "string" },
+              "expression": { "type": "string" },
+              "explanation": { "type": "string" }
+            }
+          },
+          "description": "n8n expression examples for this workflow"
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "API limits, RLS checks, rate limits, etc."
+        },
+        "code_snippets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "node_role": { "type": "string" },
+              "language": { "enum": ["javascript", "python"] },
+              "code": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          },
+          "description": "Code node snippets if needed"
+        }
       }
     },
 

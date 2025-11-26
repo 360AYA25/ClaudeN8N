@@ -15,7 +15,7 @@
 
 ---
 
-## 4-PHASE UNIFIED FLOW (No Complexity Detection!)
+## 5-PHASE UNIFIED FLOW (No Complexity Detection!)
 
 ```
 PHASE 1: CLARIFICATION
@@ -34,17 +34,22 @@ PHASE 3: DECISION
 ├── Key principle: Modify existing > Build new
 └── Output: decision + blueprint
 
-PHASE 4: BUILD
-├── Architect → Orchestrator → Builder → QA
+PHASE 4: IMPLEMENTATION
+├── Architect → Orchestrator → Researcher (deep dive)
+├── Study: learnings → patterns → node configs
+└── Output: build_guidance (gotchas, configs, warnings)
+
+PHASE 5: BUILD
+├── Researcher → Orchestrator → Builder → QA
 ├── QA Loop: max 3 cycles, then blocked
 └── Output: completed workflow
 ```
 
 ### Stage Transitions
 ```
-clarification → research → decision → build → validate → test → complete
-                                                    ↓
-                                                 blocked (after 3 QA fails)
+clarification → research → decision → implementation → build → validate → test → complete
+                                                                    ↓
+                                                                 blocked (after 3 QA fails)
 ```
 
 ## Escalation Levels
@@ -97,7 +102,7 @@ After 3 fails → stage="blocked" → report to user
 
 ## Task Call Examples
 
-### 4-Phase Flow
+### 5-Phase Flow
 ```
 # Phase 1: Clarification
 Task(agent=architect, prompt="Clarify requirements with user")
@@ -111,8 +116,12 @@ Task(agent=researcher, prompt="Search for solutions per research_request")
 Task(agent=architect, prompt="Present options to user, get decision")
 → returns decision + blueprint
 
-# Phase 4: Build
-Task(agent=builder, prompt="Build workflow per blueprint")
+# Phase 4: Implementation
+Task(agent=researcher, prompt="Deep dive on HOW to build per blueprint")
+→ returns build_guidance (learnings, patterns, node_configs, warnings)
+
+# Phase 5: Build
+Task(agent=builder, prompt="Build workflow per blueprint + build_guidance")
 → returns workflow
 Task(agent=qa, prompt="Validate and test workflow")
 → returns qa_report

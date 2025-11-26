@@ -63,6 +63,57 @@ STEP 4: NODES (если нужны новые)
 - `complexity` = node_count < 5 → simple, < 15 → medium, else complex
 - `popularity` = views + downloads (from template metadata)
 
+## Implementation Research Protocol (stage: implementation)
+
+**Trigger:** After user approves decision (stage = `implementation`)
+**Goal:** Deep dive on HOW to build → `build_guidance` for Builder
+
+```
+STEP 1: LEARNINGS DEEP DIVE
+├── Read LEARNINGS-INDEX.md → find ALL relevant IDs
+├── Read THOSE sections from LEARNINGS.md
+└── Extract: gotchas, working configs, warnings
+
+STEP 2: PATTERNS ANALYSIS
+├── Read PATTERNS.md → find matching patterns
+└── Extract: proven node sequences, connection patterns
+
+STEP 3: NODE DEEP DIVE (for each node in blueprint)
+├── get_node(nodeType, detail="standard", includeExamples=true)
+├── Extract: key_params, required fields, gotchas
+└── Note: typeVersion, breaking changes if relevant
+
+STEP 4: EXPRESSION EXAMPLES (if needed)
+├── Search learnings for expression patterns
+└── Prepare ready-to-use examples
+```
+
+## Output → `run_state.build_guidance`
+
+```json
+{
+  "learnings_applied": ["L-015: Webhook path format", "L-042: Set node raw mode"],
+  "patterns_applied": ["P-003: Webhook → Process → Respond"],
+  "node_configs": [
+    {
+      "type": "n8n-nodes-base.webhook",
+      "key_params": { "httpMethod": "POST", "path": "/my-endpoint" },
+      "gotchas": ["path must start with /", "responseMode for sync response"],
+      "example_config": { "..." }
+    }
+  ],
+  "expression_examples": [
+    { "context": "Access webhook body", "expression": "{{ $json.body.field }}", "explanation": "..." }
+  ],
+  "warnings": ["Telegram API rate limit: 30 msg/sec", "Supabase RLS check required"],
+  "code_snippets": [
+    { "node_role": "Data transformer", "language": "javascript", "code": "...", "notes": "..." }
+  ]
+}
+```
+
+**After build_guidance written:** Set stage → `build`
+
 ## Output → `run_state.research_findings`
 
 ```json
