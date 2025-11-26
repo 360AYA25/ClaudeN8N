@@ -63,10 +63,63 @@ Before ANY validation, invoke skills:
    - `evidence: "where found"`
 4. **Check REGRESSIONS**: if node was "ok" and became "error" → mark `regression_caused_by`
 
+## False Positive Rules (SKIP THESE!)
+
+### 1. Code Node - Skip Expression Validation
+```
+IF node.type === 'n8n-nodes-base.code'
+THEN skip expression validation for:
+  - jsCode field (it's JavaScript, NOT n8n expression!)
+  - pythonCode field
+
+❌ WRONG: "Expression format error! Missing ={{" on `const x = items[0]`
+✅ RIGHT: This is JavaScript code, not expression
+```
+
+### 2. Set Node - Check Mode First
+```
+IF setNode.parameters.mode === 'raw'
+THEN validate: jsonOutput field
+ELSE validate: assignments array
+
+❌ WRONG: "Set node has no fields configured!" (when mode=raw)
+✅ RIGHT: Check jsonOutput for raw mode, assignments for manual mode
+```
+
+### 3. Error Handling - Don't Warn on continueOnFail
+```
+IF node.onError === 'continueErrorOutput' OR continueOnFail === true
+THEN this is intentional error handling, not missing config
+
+❌ WRONG: "Node will fail silently!"
+✅ RIGHT: Error output is routed intentionally
+```
+
+## FP Tracking (ADD TO qa_report!)
+
+```json
+{
+  "fp_stats": {
+    "total_issues": 28,
+    "confirmed_issues": 20,
+    "false_positives": 8,
+    "fp_rate": 28.5,
+    "fp_categories": {
+      "jsCode_as_expression": 5,
+      "set_raw_mode": 2,
+      "continueOnFail_intentional": 1
+    }
+  }
+}
+```
+
+After validation, SELF-CHECK for FP patterns before reporting!
+
 ## Safety Guards
 
 1. **Regression Check** - node was "ok" → became "error"? Mark `regression_caused_by`
 2. **Cycle Throttle** - same issues_hash 3 times → stage="blocked"
+3. **FP Filter** - apply FP rules above before counting errors
 
 ## Hard Rules
 - **NEVER** fix errors (Builder does this)

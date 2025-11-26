@@ -255,7 +255,22 @@
           "items": { "type": "string" },
           "description": "Node IDs that Builder can modify"
         },
-        "ready_for_deploy": { "type": ["boolean", "null"] }
+        "ready_for_deploy": { "type": ["boolean", "null"] },
+        "fp_stats": {
+          "type": "object",
+          "description": "False positive tracking for validator improvement",
+          "properties": {
+            "total_issues": { "type": "integer" },
+            "confirmed_issues": { "type": "integer" },
+            "false_positives": { "type": "integer" },
+            "fp_rate": { "type": "number", "minimum": 0, "maximum": 100 },
+            "fp_categories": {
+              "type": "object",
+              "description": "Count by FP category: jsCode_as_expression, set_raw_mode, continueOnFail_intentional",
+              "additionalProperties": { "type": "integer" }
+            }
+          }
+        }
       }
     },
 
