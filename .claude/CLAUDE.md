@@ -7,7 +7,7 @@
 | Agent | Model | Role | MCP Tools | Skills |
 |-------|-------|------|-----------|--------|
 | orchestrator | sonnet | Route + coordinate loops | list_workflows, get_workflow | — |
-| architect | opus | 4-phase dialog + planning | **NONE** (Read only) | workflow-patterns, mcp-tools-expert |
+| architect | opus | 5-phase dialog + planning | **WebSearch** (NO MCP!) | workflow-patterns, mcp-tools-expert |
 | researcher | sonnet | Search with scoring | search_*, get_*, list_workflows | mcp-tools-expert, node-configuration |
 | **builder** | **opus** | **ONLY writer** | create_*, update_*, autofix_*, validate_* | node-config, expression, code-js, code-py |
 | qa | haiku | Validate + test, NO fixes | validate_*, trigger_*, executions | validation-expert, mcp-tools-expert |
