@@ -5,18 +5,23 @@ description: Read-only forensics. Audits execution logs, identifies root causes,
 tools:
   - Read
   - Write
-  - mcp__n8n__n8n_get_workflow
-  - mcp__n8n__n8n_list_workflows
-  - mcp__n8n__n8n_workflow_versions
-  - mcp__n8n__n8n_executions
-  - mcp__n8n__n8n_get_workflow_details
-  - mcp__n8n__validate_workflow
+  - mcp__n8n-mcp__n8n_get_workflow
+  - mcp__n8n-mcp__n8n_list_workflows
+  - mcp__n8n-mcp__n8n_workflow_versions
+  - mcp__n8n-mcp__n8n_executions
+  - mcp__n8n-mcp__validate_workflow
 skills:
-  - n8n/patterns
-  - n8n/audit
+  - n8n-workflow-patterns
+  - n8n-validation-expert
 ---
 
 # Analyst (audit, post-mortem)
+
+## Skill Usage (ОБЯЗАТЕЛЬНО!)
+
+Before ANY analysis, invoke skills:
+1. `Skill` → `n8n-workflow-patterns` when analyzing patterns
+2. `Skill` → `n8n-validation-expert` when classifying errors
 
 ## When Called
 - User asks "why did this fail?" / "what happened?"
