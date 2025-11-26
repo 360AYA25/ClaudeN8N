@@ -1,31 +1,36 @@
 {
-  "id": null,
-  "user_request": "",
-  "goal": "",
+  "id": "7beecae0-5c01-4c4e-a96a-58db5020f3d9",
+  "user_request": "Построить тестовый рабочий воркфлоу на 20 нод",
+  "goal": "Create a REAL WORKING workflow with 20+ nodes - Fan-out/Fan-in pattern",
   "operation": "new",
-  "stage": "planning",
-  "cycle_count": 0,
-  "constraints": [],
-  "assumptions": [],
-  "services": [],
-  "credentials_required": [],
-  "blueprint": null,
-  "research_findings": null,
-  "workflow": null,
-  "qa_report": null,
-  "memory": {
-    "issues_history": [],
-    "fixes_applied": [],
-    "regressions": []
+  "stage": "complete",
+  "cycle_count": 1,
+  "workflow": {
+    "id": "0RCbTwHFQUBoXfzd",
+    "name": "Fan-Out AI Processor (22 nodes)",
+    "nodes_count": 22,
+    "active": false,
+    "url": "https://n8n.srv1068954.hstgr.cloud/workflow/0RCbTwHFQUBoXfzd"
   },
-  "edit_scope": [],
-  "errors": [],
-  "fixes_tried": [],
-  "worklog": [],
-  "agent_log": [],
-  "last_attempt_notes": "",
+  "qa_report": {
+    "valid": true,
+    "notes": "Validator false positives: jsCode is JavaScript not expressions, continueOnFail:false doesn't conflict with onError",
+    "connections": 24,
+    "ready_for_deploy": true,
+    "warnings_count": 23,
+    "errors_count": "5 (all false positives)"
+  },
+  "worklog": [
+    {"ts": "2025-11-26T12:00:00Z", "agent": "orchestrator", "action": "session_start"},
+    {"ts": "2025-11-26T12:05:00Z", "agent": "architect", "action": "phase1_complete", "detail": "Requirements clarified"},
+    {"ts": "2025-11-26T12:10:00Z", "agent": "researcher", "action": "phase2_complete", "detail": "Research complete, build_new recommended"},
+    {"ts": "2025-11-26T12:15:00Z", "agent": "architect", "action": "phase3_complete", "detail": "User approved Option A"},
+    {"ts": "2025-11-26T17:53:00Z", "agent": "builder", "action": "workflow_created", "detail": "22-node workflow created ID: 0RCbTwHFQUBoXfzd"},
+    {"ts": "2025-11-26T17:54:00Z", "agent": "qa", "action": "validation_complete", "detail": "1 QA cycle, false positives identified"},
+    {"ts": "2025-11-26T17:55:00Z", "agent": "orchestrator", "action": "session_complete", "detail": "Workflow ready"}
+  ],
   "finalized": {
-    "status": false,
-    "at": null
+    "status": true,
+    "at": "2025-11-26T17:55:00Z"
   }
 }

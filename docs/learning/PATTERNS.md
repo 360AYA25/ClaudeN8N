@@ -1673,3 +1673,243 @@ curl "https://PROJECT.supabase.co/rest/v1/foodtracker_entries?limit=1" | jq .
 ---
 
 **Add new anti-patterns when you discover common mistakes!**
+
+---
+
+## Pattern 32: 🤖 Multi-Provider AI with Response Normalization (Fan-Out/Fan-In)
+
+**When to use:**
+- Calling multiple AI/API providers in parallel for comparison
+- Need unified response format from heterogeneous sources
+- Building resilient multi-source data pipelines
+- A/B testing different providers
+
+**Problem:**
+Different API providers return different response structures. You need to:
+1. Call them in parallel (fan-out)
+2. Normalize responses to common format
+3. Merge results (fan-in)
+4. Handle partial failures gracefully
+
+**Solution - Fan-Out/Fan-In Pattern with Normalization:**
+
+### Architecture Overview:
+
+```
+Trigger → Split Items → Switch (by index)
+                           ↓
+              ┌────────────┼────────────┐
+              ↓            ↓            ↓
+          Provider A   Provider B   Provider C
+          (Weather)    (Joke)       (Quote)
+              ↓            ↓            ↓
+          Normalize A  Normalize B  Normalize C
+              └────────────┼────────────┘
+                           ↓
+                    Merge Results
+                           ↓
+                    Format Response
+```
+
+### Code Template:
+
+**Step 1: Split into parallel items**
+```javascript
+// Code node: Generate items for each provider
+return [
+  {json: {provider: 'weather', index: 0}},
+  {json: {provider: 'joke', index: 1}},
+  {json: {provider: 'quote', index: 2}},
+  {json: {provider: 'data', index: 3}}
+];
+```
+
+**Step 2: Switch by provider index**
+```javascript
+{
+  "type": "n8n-nodes-base.switch",
+  "parameters": {
+    "rules": {
+      "rules": [
+        {
+          "conditions": {"conditions": [{"leftValue": "={{ $json.index }}", "rightValue": 0, "operator": {"type": "number", "operation": "equals"}}]},
+          "output": 0, "renameOutput": true, "outputLabel": "Weather"
+        },
+        {
+          "conditions": {"conditions": [{"leftValue": "={{ $json.index }}", "rightValue": 1, "operator": {"type": "number", "operation": "equals"}}]},
+          "output": 1, "renameOutput": true, "outputLabel": "Joke"
+        },
+        {
+          "conditions": {"conditions": [{"leftValue": "={{ $json.index }}", "rightValue": 2, "operator": {"type": "number", "operation": "equals"}}]},
+          "output": 2, "renameOutput": true, "outputLabel": "Quote"
+        },
+        {
+          "conditions": {"conditions": [{"leftValue": "={{ $json.index }}", "rightValue": 3, "operator": {"type": "number", "operation": "equals"}}]},
+          "output": 3, "renameOutput": true, "outputLabel": "Data"
+        }
+      ]
+    },
+    "options": {"fallbackOutput": "extra"}
+  }
+}
+```
+
+**Step 3: Normalize each provider response**
+```javascript
+// Normalize Weather API response
+const raw = $json;
+return [{
+  json: {
+    provider: 'weather',
+    success: !raw.error,
+    data: raw.error ? null : {
+      title: `Weather: ${raw.location?.name || 'Unknown'}`,
+      content: `${raw.current?.temp_c}°C, ${raw.current?.condition?.text || 'N/A'}`,
+      source: 'weatherapi.com'
+    },
+    error: raw.error?.message || null
+  }
+}];
+
+// Normalize Joke API response
+const raw = $json;
+return [{
+  json: {
+    provider: 'joke',
+    success: !raw.error,
+    data: raw.error ? null : {
+      title: 'Random Joke',
+      content: raw.setup ? `${raw.setup} - ${raw.punchline}` : raw.joke || 'No joke found',
+      source: 'official-joke-api'
+    },
+    error: raw.error?.message || null
+  }
+}];
+```
+
+**Step 4: Merge all results**
+```javascript
+{
+  "type": "n8n-nodes-base.merge",
+  "typeVersion": 3,
+  "parameters": {
+    "mode": "combine",
+    "combinationMode": "multiplex"
+  }
+}
+```
+
+**Step 5: Format final response**
+```javascript
+const allItems = $input.all();
+const successful = allItems.filter(i => i.json.success);
+const failed = allItems.filter(i => !i.json.success);
+
+return [{
+  json: {
+    total_providers: allItems.length,
+    successful: successful.length,
+    failed: failed.length,
+    results: successful.map(i => i.json.data),
+    errors: failed.map(i => ({provider: i.json.provider, error: i.json.error})),
+    timestamp: new Date().toISOString()
+  }
+}];
+```
+
+### Normalized Response Schema:
+
+```typescript
+interface NormalizedResponse {
+  provider: string;      // 'weather' | 'joke' | 'quote' | 'data'
+  success: boolean;      // Did the call succeed?
+  data: {
+    title: string;       // Human-readable title
+    content: string;     // Main content/value
+    source: string;      // Attribution
+  } | null;
+  error: string | null;  // Error message if failed
+}
+```
+
+### Critical Rules:
+
+| Rule | Why |
+|------|-----|
+| `continueOnFail: true` on HTTP nodes | One failure shouldn't block others |
+| Same output schema for all normalizers | Merge and format work uniformly |
+| Include `provider` in normalized response | Know which source each result came from |
+| Handle both success and error in normalizer | Don't let errors propagate as crashes |
+
+### Error Handling Pattern:
+
+```javascript
+// In each HTTP Request node:
+"continueOnFail": true,
+"onError": "continueRegularOutput"
+
+// In normalizer - check for error:
+const raw = $json;
+if (raw.error || raw.statusCode >= 400) {
+  return [{
+    json: {
+      provider: 'weather',
+      success: false,
+      data: null,
+      error: raw.error?.message || `HTTP ${raw.statusCode}`
+    }
+  }];
+}
+// Normal processing...
+```
+
+### Connection Pattern:
+
+```javascript
+"connections": {
+  "Split Items": {"main": [[{"node": "Switch", "type": "main", "index": 0}]]},
+  "Switch": {
+    "main": [
+      [{"node": "Weather API", "type": "main", "index": 0}],
+      [{"node": "Joke API", "type": "main", "index": 0}],
+      [{"node": "Quote API", "type": "main", "index": 0}],
+      [{"node": "Data API", "type": "main", "index": 0}]
+    ]
+  },
+  "Weather API": {"main": [[{"node": "Normalize Weather", "type": "main", "index": 0}]]},
+  "Joke API": {"main": [[{"node": "Normalize Joke", "type": "main", "index": 0}]]},
+  "Quote API": {"main": [[{"node": "Normalize Quote", "type": "main", "index": 0}]]},
+  "Data API": {"main": [[{"node": "Normalize Data", "type": "main", "index": 0}]]},
+  "Normalize Weather": {"main": [[{"node": "Merge Results", "type": "main", "index": 0}]]},
+  "Normalize Joke": {"main": [[{"node": "Merge Results", "type": "main", "index": 0}]]},
+  "Normalize Quote": {"main": [[{"node": "Merge Results", "type": "main", "index": 0}]]},
+  "Normalize Data": {"main": [[{"node": "Merge Results", "type": "main", "index": 0}]]},
+  "Merge Results": {"main": [[{"node": "Format Response", "type": "main", "index": 0}]]}
+}
+```
+
+### Use Cases:
+
+1. **Multi-AI Comparison**: Call OpenAI, Anthropic, Gemini in parallel, compare responses
+2. **Data Enrichment**: Query multiple databases, merge results
+3. **API Redundancy**: Primary fails → secondary data available
+4. **A/B Testing**: Route requests to different providers, track performance
+
+### Token/Cost Optimization:
+
+```javascript
+// Only call expensive providers when needed:
+if ($json.requires_ai) {
+  // Route to AI branch
+} else {
+  // Route to cheaper/cached branch
+}
+```
+
+### Success Metrics:
+
+- Fan-Out: 4 parallel providers in ~1.5 seconds (vs 6+ seconds sequential)
+- Resilience: 3/4 providers fail → still returns 1 result
+- Maintainability: Add new provider = add 2 nodes (HTTP + Normalize)
+
+**Tags:** #n8n #fan-out #fan-in #normalization #multi-provider #parallel-processing #api-integration #resilience

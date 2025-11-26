@@ -34,12 +34,12 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 39
+- **Total Entries:** 41
 - **Categories:** 10
 - **Node Types Covered:** 15+
-- **Error Types Cataloged:** 20+
-- **File Size:** 1,757 lines (~50,000 tokens)
-- **Index Size:** ~500 tokens (99% reduction)
+- **Error Types Cataloged:** 22+
+- **File Size:** 2,285 lines (~65,000 tokens)
+- **Index Size:** ~600 tokens (99% reduction)
 
 ---
 
@@ -57,7 +57,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Notion** | 6 | 890-1050 | Filters, dates, properties, page objects, timezone |
 | **Memory (AI Agent)** | 2 | 1639-1683 | Session ID, context passing, customKey |
 | **Code Node** | 2 | 1570-1602 | IF routing, regex escaping |
-| **Switch Node** | 1 | 1415-1441 | Data flow after routing |
+| **Switch Node** | 2 | 1415-1441, 2145-2279 | Data flow after routing, fan-out patterns |
 | **IF Node** | 1 | 1570-1586 | Debugging, Code Node fallback |
 | **AI Agent** | 3 | 1639-1683 | Parameters, clarification, tools, memory |
 | **Generic (MCP)** | 8 | 190-890 | Workflow creation, modification, validation, debugging |
@@ -81,18 +81,20 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Status Code Handling** | 2 | HTTP Request, continueOnFail | 1528-1710 |
 | **Partial Update Deletion** | 1 | n8n API Critical | 1602-1639 |
 | **MCP Server Issues** | 2 | stdio vs WebSocket, Migration | 1117-1163, 1729+ |
+| **False Positives** | 1 | Validation, continueOnFail+onError | 2051-2143 |
+| **Fan-Out Routing** | 1 | Switch Node, Multi-Way | 2145-2279 |
 
 ### By Category (from Quick Index)
 
 | Category | Lines | Entries | Focus Areas |
 |----------|-------|---------|-------------|
 | Agent Standardization | 70-190 | 1 | Template v2.0, English-only, changelog |
-| n8n Workflows | 190-890 | 15 | Creation, modification, validation, debugging, partial updates |
+| n8n Workflows | 190-890, 2145-2279 | 16 | Creation, modification, validation, debugging, partial updates, fan-out |
 | Notion Integration | 890-1020 | 6 | Filters, dates, properties, timezone, page objects |
 | Supabase Database | 1020-1130 | 5 | Schema, RLS, RPC, insert/update, get vs getAll |
 | Telegram Bot | 1130-1190 | 2 | Webhooks, message handling, parameters |
 | Git & GitHub | 1190-1250 | 3 | Monorepo, PRs, pull/rebase, secrets |
-| Error Handling | 1250-1340 | 3 | continueOnFail, 404 handling, validation |
+| Error Handling | 1250-1340, 2051-2143 | 4 | continueOnFail, 404 handling, validation, false positives |
 | AI Agents | 1340-1440 | 3 | Parameters, tools, prompts, memory, clarification |
 | HTTP Requests | 1440-1530 | 2 | Error handling, credentials, status codes |
 | MCP Server | 1500-1757 | 1 | stdio, WebSocket, migration |
@@ -130,6 +132,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-11-26 | FP-003: continueOnFail + onError Defense-in-Depth | 2051 | Error Handling |
+| 2025-11-26 | NC-003: Switch Node Multi-Way Routing | 2145 | n8n Workflows |
 | 2025-11-12 | Set v3.4 Expression Syntax ={{ | 285 | n8n Workflows |
 | 2025-11-11 | PM Validators Pre-Flight Checks | 172 | n8n Workflows |
 | 2025-11-09 | Memory node "No session ID found" | 1661 | AI Agents |
@@ -138,8 +142,6 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | 2025-11-08 | RPC function signatures verification | 1394 | Supabase |
 | 2025-11-08 | AI Agent clarification behavior | 1639 | AI Agents |
 | 2025-11-01 | Unified Template for Subagents | 64 | Agent Standardization |
-| 2025-10-27 | FoodTracker Debugging Session | 490 | n8n Workflows |
-| 2025-10-27 | Supabase schema checks | 1336 | Supabase |
 
 ---
 
@@ -190,7 +192,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `notion` → Lines: 890-1020, 1229-1336
 - `memory` OR `ai agent` → Lines: 1639-1683, 1661-1683
 - `code node` → Lines: 1570-1602, 1586-1602
-- `switch` → Lines: 1415-1441
+- `switch` → Lines: 1415-1441, 2145-2279
 - `if node` → Lines: 1570-1586
 
 ### Error Keywords
@@ -204,7 +206,9 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `timezone` → Lines: 1268-1286
 - `null` → Lines: 1229-1248
 - `partial update` → Lines: 1602-1639, 871-1094
-- `continueonerror` OR `continueonarefail` → Lines: 1528-1710
+- `continueonerror` OR `continueonarefail` → Lines: 1528-1710, 2051-2143
+- `false positive` OR `defense-in-depth` → Lines: 2051-2143
+- `fan-out` OR `fan-in` OR `multi-way` → Lines: 2145-2279
 
 ### Operation Keywords
 - `create workflow` → Lines: 730-871, 661-686
@@ -257,7 +261,7 @@ node scripts/generate-learnings-index.js
 
 ---
 
-**Last Updated:** 2025-11-17
-**Version:** 1.0.0
+**Last Updated:** 2025-11-26
+**Version:** 1.1.0
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent

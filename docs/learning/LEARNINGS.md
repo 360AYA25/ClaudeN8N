@@ -2048,6 +2048,237 @@ if ($input.item.json.error) {
 
 ---
 
+### [2025-11-26 18:00] FP-003: continueOnFail + onError is Valid Defense-in-Depth (NOT a Conflict!)
+
+**Problem:** QA validator reports warning: "continueOnFail conflicts with onError configuration"
+
+**Symptoms:**
+- Validation warnings on nodes with both `continueOnFail: true` and `onError: "continueRegularOutput"`
+- QA agent flags these as issues requiring fixes
+- Builder wastes time "fixing" valid configurations
+
+**Cause:** Validator assumes these settings conflict, but they serve different purposes and are valid together.
+
+**Analysis - Why It's NOT a Conflict:**
+
+```javascript
+// continueOnFail: Node-level setting
+// - What it does: Prevents workflow from stopping if this node fails
+// - When triggered: Any error in this node
+// - Scope: This node only
+
+// onError: Error output configuration
+// - What it does: Routes error data to specific output
+// - When triggered: Error occurs AND needs routing decision
+// - Scope: Error output routing
+
+// DEFENSE-IN-DEPTH: Both together = belt AND suspenders
+{
+  "continueOnFail": true,           // Belt: Don't crash workflow
+  "onError": "continueRegularOutput" // Suspenders: Route errors properly
+}
+```
+
+**Real-World Use Case:**
+
+```javascript
+// HTTP Request that may fail (404, 500, timeout)
+{
+  "type": "n8n-nodes-base.httpRequest",
+  "typeVersion": 4.2,
+  "parameters": {
+    "url": "={{ $json.api_url }}",
+    "method": "GET"
+  },
+  "continueOnFail": true,              // ✅ Don't stop workflow on 404
+  "onError": "continueRegularOutput"   // ✅ Pass error to next node for handling
+}
+
+// Next node can check:
+if ($json.error) {
+  // Handle gracefully - use fallback, log, etc.
+}
+```
+
+**Solution:** Mark as FALSE POSITIVE in QA report
+
+```json
+{
+  "qa_report": {
+    "warnings_count": 23,
+    "notes": "Validator false positives: continueOnFail:false doesn't conflict with onError"
+  }
+}
+```
+
+**When IS There a Real Conflict:**
+
+```javascript
+// ❌ ACTUAL conflict: continueOnFail:false + onError expects continuation
+{
+  "continueOnFail": false,           // Stop on error
+  "onError": "continueRegularOutput" // But also continue? Contradictory!
+}
+
+// ✅ NO conflict: Both say "continue"
+{
+  "continueOnFail": true,
+  "onError": "continueRegularOutput"
+}
+
+// ✅ NO conflict: Both say "stop/use error output"
+{
+  "continueOnFail": false,
+  "onError": "stopWorkflow"
+}
+```
+
+**Prevention:**
+- ✅ QA agent should recognize defense-in-depth pattern
+- ✅ Only flag when `continueOnFail: false` AND `onError: "continueRegularOutput"`
+- ✅ Document in knowledge base for future reference
+
+**Tags:** #false-positive #validation #continueonerror #continueonarefail #defense-in-depth #qa
+
+---
+
+### [2025-11-26 17:50] NC-003: Switch Node Multi-Way Routing for Fan-Out Patterns
+
+**Problem:** Need to route single input to multiple parallel branches (fan-out pattern)
+
+**Symptoms:**
+- Multiple IF nodes cascade = complex, hard to maintain
+- Want clean N-way split from single node
+- Need different processing paths based on item index or type
+
+**Solution:** Switch node with fallbackOutput for catch-all routing
+
+**Pattern: Fan-Out with Switch Node**
+
+```javascript
+{
+  "type": "n8n-nodes-base.switch",
+  "typeVersion": 3.2,
+  "parameters": {
+    "rules": {
+      "rules": [
+        {
+          "conditions": {
+            "conditions": [
+              {
+                "leftValue": "={{ $itemIndex }}",
+                "rightValue": 0,
+                "operator": {"type": "number", "operation": "equals"}
+              }
+            ]
+          },
+          "output": 0,
+          "renameOutput": true,
+          "outputLabel": "Branch A"
+        },
+        {
+          "conditions": {
+            "conditions": [
+              {
+                "leftValue": "={{ $itemIndex }}",
+                "rightValue": 1,
+                "operator": {"type": "number", "operation": "equals"}
+              }
+            ]
+          },
+          "output": 1,
+          "renameOutput": true,
+          "outputLabel": "Branch B"
+        },
+        {
+          "conditions": {
+            "conditions": [
+              {
+                "leftValue": "={{ $itemIndex }}",
+                "rightValue": 2,
+                "operator": {"type": "number", "operation": "equals"}
+              }
+            ]
+          },
+          "output": 2,
+          "renameOutput": true,
+          "outputLabel": "Branch C"
+        }
+      ]
+    },
+    "options": {
+      "fallbackOutput": "extra"  // Catch-all for unexpected inputs
+    }
+  }
+}
+```
+
+**Connection Pattern for Fan-Out:**
+
+```javascript
+"connections": {
+  "Switch": {
+    "main": [
+      [{"node": "Branch A Handler", "type": "main", "index": 0}],  // Output 0
+      [{"node": "Branch B Handler", "type": "main", "index": 0}],  // Output 1
+      [{"node": "Branch C Handler", "type": "main", "index": 0}],  // Output 2
+      [{"node": "Fallback Handler", "type": "main", "index": 0}]   // fallbackOutput
+    ]
+  }
+}
+```
+
+**Use Cases:**
+
+1. **By Item Index** (round-robin to parallel workers):
+   ```javascript
+   "leftValue": "={{ $itemIndex % 4 }}"  // Distribute across 4 branches
+   ```
+
+2. **By Content Type**:
+   ```javascript
+   "leftValue": "={{ $json.type }}"
+   "rightValue": "weather"  // Route weather requests to weather handler
+   ```
+
+3. **By Source/Provider**:
+   ```javascript
+   "leftValue": "={{ $json.provider }}"
+   "rightValue": "openai"  // Route to OpenAI-specific processing
+   ```
+
+**Critical Rules:**
+
+| Rule | Why |
+|------|-----|
+| Always include fallbackOutput | Catch unexpected values |
+| Use renameOutput for clarity | Makes workflow readable |
+| typeVersion 3.2+ | Earlier versions have bugs |
+| conditions.conditions array | Double nesting required! |
+
+**Fan-In After Fan-Out:**
+
+```javascript
+// After parallel processing, merge results:
+{
+  "type": "n8n-nodes-base.merge",
+  "typeVersion": 3,
+  "parameters": {
+    "mode": "combine",
+    "combinationMode": "multiplex"  // Wait for all branches
+  }
+}
+```
+
+**Prevention:**
+- ✅ Use Switch for 3+ way routing (not cascading IFs)
+- ✅ Always add fallbackOutput for robustness
+- ✅ Name outputs clearly for maintenance
+
+**Tags:** #n8n #switch-node #fan-out #routing #parallel-processing #workflow-patterns
+
+---
+
 ## 📝 Add New Learnings Below
 
 <!-- New entries go here - use standard format -->

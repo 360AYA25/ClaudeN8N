@@ -116,12 +116,17 @@ After 3 fails → stage="blocked" → report to user
 
 ### `--test` (Quick health check)
 Tests each agent can be invoked:
-- Orchestrator: can read run_state
-- Researcher: can search nodes
-- Builder: can validate (no create)
-- QA: can validate (no trigger)
-- Architect: can search templates
-- Analyst: can read logs
+
+| Agent | Test | MCP Tools |
+|-------|------|-----------|
+| Orchestrator | read run_state | list/get workflows |
+| Architect | read files + skills | **NO MCP!** |
+| Researcher | search nodes/templates | full search |
+| Builder | validate node config | mutations |
+| QA | list workflows + executions | testing |
+| Analyst | read executions | read-only |
+
+**IMPORTANT:** Architect has NO MCP tools - only Read + Skills!
 
 ### `--test full` (Integration test)
 Creates a test workflow end-to-end:
