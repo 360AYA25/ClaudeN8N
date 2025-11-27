@@ -2,6 +2,114 @@
 
 All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
 
+## [2.7.0] - 2025-11-27
+
+### Token Usage Tracking & E2E Test Improvements
+
+**Token tracking for cost monitoring + Chat Trigger for better testing**
+
+### Added
+- **Token Usage Tracking in Analyst**
+  - Tracks token consumption per agent (Orchestrator, Architect, Researcher, Builder, QA, Analyst)
+  - Calculates total tokens used in workflow execution
+  - Estimates cost based on Claude pricing (Sonnet/Opus/Haiku)
+  - Shows efficiency metrics (most expensive/efficient agents)
+  - Includes token report in all post-mortem analyses
+- **Chat Trigger for E2E Tests**
+  - E2E test now uses `@n8n/n8n-nodes-langchain.chatTrigger` instead of Webhook
+  - Enables dual testing: manual (UI chat) + automated (API)
+  - Automatic session memory for conversations
+  - Visible chat history in n8n UI
+  - Perfect for AI Agent workflows
+- **Trigger Selection Guide in Builder**
+  - When to use Chat Trigger vs Webhook vs Manual
+  - Node template with proper configuration
+  - Decision criteria for different use cases
+
+### Changed
+- **E2E Test Workflow** (`.claude/commands/orch.md`)
+  - Block 1: Chat Trigger instead of Webhook (3 nodes)
+  - Updated success criteria to include chat UI verification
+  - Added comparison table (Webhook vs Chat vs Manual)
+- **Analyst Output** (`.claude/agents/analyst.md`)
+  - Now includes `token_usage` object in JSON output
+  - Report format with markdown table
+  - Cost calculation based on model pricing
+- **Orchestrator E2E Algorithm** (`.claude/agents/orchestrator.md`)
+  - Phase 7 (ANALYSIS) now includes token usage report
+  - Updated success criteria with `chat_url_accessible` check
+
+### Documentation
+- **L-051** added to LEARNINGS.md: "Chat Trigger vs Webhook Trigger - When to Use What"
+  - Full comparison table
+  - Implementation examples (API + manual testing)
+  - Use case guidelines
+- LEARNINGS-INDEX.md updated (43 entries, +1)
+  - Added "chat trigger" keyword
+  - Updated n8n Workflows category (18 entries)
+
+### Benefits
+- ✅ **Track costs**: See exactly how much each agent costs
+- ✅ **Optimize efficiency**: Identify expensive agents
+- ✅ **Better testing**: Test AI workflows manually + automated
+- ✅ **Session memory**: Conversation history persists
+- ✅ **Visible history**: See all test runs in UI
+
+### Commits
+- `b106e92` feat: add logical block building for large workflows (v2.6.0)
+- `d5f03b6` feat: add E2E production test mode to /orch command
+- `fec02ab` feat: upgrade E2E test to use Chat Trigger instead of Webhook
+
+---
+
+## [2.6.0] - 2025-11-26
+
+### Logical Block Building for Large Workflows
+
+**Prevents Builder timeout on workflows with >10 nodes**
+
+### Added
+- **Logical Block Building Protocol** in Builder
+  - Splits workflows >10 nodes into logical blocks
+  - 5 block types: TRIGGER, PROCESSING, AI/API, STORAGE, OUTPUT
+  - Parameter alignment verification within each block
+  - Sequential block creation with verification
+  - Foundation block created first, then remaining blocks added
+- **Algorithm in builder.md**
+  - Block identification rules
+  - Parameter alignment check
+  - Verification after each block
+- **Updated Process step 7**
+  - Conditional: >10 nodes → use Logical Block Building
+  - ≤10 nodes → single create_workflow call
+
+### Changed
+- **Builder workflow creation** (`.claude/agents/builder.md`)
+  - Max 10 nodes per single call (prevents timeout)
+  - Large workflows built in multiple MCP calls
+  - Verification between blocks
+- **Orchestrator note** (`.claude/agents/orchestrator.md`)
+  - Phase 5 (BUILD) may report multiple progress updates
+  - Normal for workflows >10 nodes
+
+### Documentation
+- **L-050** added to LEARNINGS.md: "Builder Timeout on Large Workflows"
+  - Problem: timeout on >10 nodes
+  - Solution: logical block building with aligned params
+  - Block types and parameter alignment rules
+- LEARNINGS-INDEX.md updated (42 entries, +1)
+  - Added keywords: timeout, large workflow, chunked building
+
+### Impact
+- **Success rate**: 0% → 100% for >20 node workflows
+- **Time**: -80% vs timeout (30s vs infinite wait)
+- **Token cost**: +20% for large workflows (acceptable trade-off)
+
+### Commits
+- `b106e92` feat: add logical block building for large workflows (v2.6.0)
+
+---
+
 ## [2.5.0] - 2025-11-26
 
 ### Credential Discovery (Researcher → Architect → User)

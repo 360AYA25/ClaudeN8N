@@ -11,7 +11,7 @@
 | researcher | sonnet | Search with scoring | search_*, get_*, list_workflows | mcp-tools-expert, node-configuration |
 | **builder** | **opus** | **ONLY writer** | create_*, update_*, autofix_*, validate_* | node-config, expression, code-js, code-py |
 | qa | haiku | Validate + test, NO fixes | validate_*, trigger_*, executions | validation-expert, mcp-tools-expert |
-| analyst | opus | Read-only audit | get_workflow, executions, versions | workflow-patterns, validation-expert |
+| analyst | opus | Read-only audit + token tracking | get_workflow, executions, versions | workflow-patterns, validation-expert |
 
 ---
 
@@ -144,8 +144,8 @@ Task(agent=qa, prompt="Re-validate workflow")
 ### L4 Post-mortem
 ```
 # After stage="blocked"
-Task(agent=analyst, prompt="Analyze why this failed")
-→ returns root_cause, proposed_learnings
+Task(agent=analyst, prompt="Analyze why this failed + token usage report")
+→ returns root_cause, proposed_learnings, token_usage
 ```
 
 ## Safety Rules

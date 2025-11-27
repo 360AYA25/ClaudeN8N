@@ -46,10 +46,73 @@ Before ANY analysis, invoke skills:
 7. Propose learning for `memory/learnings.md`
 8. **DO NOT FIX** - analysis and recommendations only
 
+## Token Usage Tracking
+
+**ALWAYS include token usage in analysis report:**
+
+### How to Calculate:
+```javascript
+// Read from run_state.agent_log
+const tokenUsage = {
+  orchestrator: 0,
+  architect: 0,
+  researcher: 0,
+  builder: 0,
+  qa: 0,
+  analyst: 0
+};
+
+// Parse agent_log entries - each entry has token count
+run_state.agent_log.forEach(entry => {
+  if (entry.tokens) {
+    tokenUsage[entry.agent] += entry.tokens;
+  }
+});
+
+// Calculate total
+const total = Object.values(tokenUsage).reduce((a, b) => a + b, 0);
+
+// Estimate cost (Claude pricing)
+// Sonnet: $3 per 1M input, $15 per 1M output
+// Opus: $15 per 1M input, $75 per 1M output
+// Haiku: $0.25 per 1M input, $1.25 per 1M output
+const cost = calculateCost(tokenUsage);
+```
+
+### Report Format:
+```markdown
+## 💰 Token Usage Report
+
+| Agent | Model | Tokens | Cost |
+|-------|-------|--------|------|
+| Orchestrator | Sonnet | 2,500 | $0.01 |
+| Architect | Opus | 5,000 | $0.08 |
+| Researcher | Sonnet | 8,000 | $0.02 |
+| Builder | Opus | 12,000 | $0.18 |
+| QA | Haiku | 3,000 | $0.00 |
+| Analyst | Opus | 4,000 | $0.06 |
+| **TOTAL** | — | **34,500** | **$0.35** |
+
+**Efficiency:**
+- Most expensive: Builder (35% of total)
+- Most efficient: QA (9% of total)
+- Average per agent: 5,750 tokens
+```
+
 ## Output
 ```json
 {
   "timeline": [{ "agent": "...", "action": "...", "result": "...", "timestamp": "..." }],
+  "token_usage": {
+    "orchestrator": 2500,
+    "architect": 5000,
+    "researcher": 8000,
+    "builder": 12000,
+    "qa": 3000,
+    "analyst": 4000,
+    "total": 34500,
+    "cost_usd": 0.35
+  },
   "root_cause": { "what": "...", "why": "...", "evidence": ["..."] },
   "failure_source": "implementation|analysis|unknown",
   "recommendation": { "assignee": "researcher|builder|user", "action": "...", "risk": "low|medium|high" },

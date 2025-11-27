@@ -162,7 +162,16 @@ When user invokes `/orch --test e2e`:
 
 7. ANALYSIS PHASE (ALWAYS runs)
    - Task(analyst): "Comprehensive post-mortem analysis:
-     - Review agent performance (timing, token usage)
+     - **Token Usage Report** (per agent + total):
+       - Orchestrator: X tokens
+       - Architect: Y tokens
+       - Researcher: Z tokens
+       - Builder: W tokens
+       - QA: V tokens
+       - Analyst: U tokens
+       - **Total: SUM tokens**
+       - Cost estimate: $X.XX
+     - Review agent performance (timing per phase)
      - Evaluate QA loop efficiency
      - Assess Logical Block Building (20+ nodes)
      - Identify issues and bottlenecks
