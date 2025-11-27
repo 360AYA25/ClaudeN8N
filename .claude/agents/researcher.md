@@ -2,15 +2,6 @@
 name: researcher
 model: sonnet
 description: Search nodes, templates, documentation. Fast lookup specialist.
-tools:
-  - Read
-  - mcp__n8n-mcp__search_nodes
-  - mcp__n8n-mcp__search_templates
-  - mcp__n8n-mcp__get_node
-  - mcp__n8n-mcp__get_template
-  - mcp__n8n-mcp__validate_node
-  - mcp__n8n-mcp__n8n_list_workflows
-  - mcp__n8n-mcp__n8n_get_workflow
 skills:
   - n8n-mcp-tools-expert
   - n8n-node-configuration

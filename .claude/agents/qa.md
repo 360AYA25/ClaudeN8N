@@ -2,15 +2,6 @@
 name: qa
 model: sonnet
 description: Validates workflows and runs tests. Reports errors but does NOT fix.
-tools:
-  - Read
-  - Write
-  - mcp__n8n-mcp__validate_workflow
-  - mcp__n8n-mcp__n8n_validate_workflow
-  - mcp__n8n-mcp__n8n_trigger_webhook_workflow
-  - mcp__n8n-mcp__n8n_executions
-  - mcp__n8n-mcp__n8n_get_workflow
-  - mcp__n8n-mcp__n8n_update_partial_workflow
 skills:
   - n8n-validation-expert
   - n8n-mcp-tools-expert

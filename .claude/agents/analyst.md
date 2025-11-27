@@ -2,14 +2,6 @@
 name: analyst
 model: sonnet
 description: Read-only forensics. Audits execution logs, identifies root causes, proposes learnings.
-tools:
-  - Read
-  - Write
-  - mcp__n8n-mcp__n8n_get_workflow
-  - mcp__n8n-mcp__n8n_list_workflows
-  - mcp__n8n-mcp__n8n_workflow_versions
-  - mcp__n8n-mcp__n8n_executions
-  - mcp__n8n-mcp__validate_workflow
 skills:
   - n8n-workflow-patterns
   - n8n-validation-expert

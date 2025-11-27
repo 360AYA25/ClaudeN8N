@@ -2,17 +2,6 @@
 name: builder
 model: claude-opus-4-5-20251101
 description: Creates and modifies n8n workflows. ONLY agent that mutates workflows.
-tools:
-  - Read
-  - Write
-  - mcp__n8n-mcp__n8n_create_workflow
-  - mcp__n8n-mcp__n8n_update_partial_workflow
-  - mcp__n8n-mcp__n8n_update_full_workflow
-  - mcp__n8n-mcp__n8n_autofix_workflow
-  - mcp__n8n-mcp__validate_workflow
-  - mcp__n8n-mcp__validate_node
-  - mcp__n8n-mcp__get_node
-  - mcp__n8n-mcp__n8n_get_workflow
 skills:
   - n8n-node-configuration
   - n8n-expression-syntax
