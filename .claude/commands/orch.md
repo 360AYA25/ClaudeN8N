@@ -20,6 +20,7 @@ Launch the multi-agent system to create, modify, or fix n8n workflows.
 /orch --test              # Test all agents
 /orch --test agent:builder  # Test specific agent
 /orch --test full         # Full system test
+/orch --test e2e          # End-to-End production test (20+ nodes)
 ```
 
 ## Parameters
@@ -147,6 +148,164 @@ Creates a test workflow end-to-end:
 3. Triggers test webhook
 4. Cleans up (deactivates)
 
+### `--test e2e` (End-to-End Production Test) 🆕
+**Full system stress test with REAL 20+ node workflow**
+
+Creates, activates, and tests complex production-grade workflow with:
+- **20+ nodes** (triggers Logical Block Building)
+- **Multiple services** (Telegram, Supabase, OpenAI, HTTP Request)
+- **AI Agent node** with custom prompt
+- **Complex logic** (IF, Switch, Merge nodes)
+- **Real credentials** (auto-discovered from existing workflows)
+- **Full execution** (activates + triggers + monitors)
+- **Auto-fix loops** (if execution fails, Builder fixes)
+- **Analyst review** (post-mortem analysis + learnings)
+
+**Process:**
+```
+PHASE 1: DISCOVERY
+├─ Orchestrator → Researcher: Discover available credentials
+├─ Find: Telegram, Supabase, OpenAI, HTTP auth keys
+└─ Output: credentials_map
+
+PHASE 2: DESIGN & BUILD
+├─ Architect: Design 20+ node workflow blueprint
+│  ├─ Block 1: Webhook trigger (3 nodes)
+│  ├─ Block 2: Data validation with IF/Switch (5 nodes)
+│  ├─ Block 3: AI Agent processing (4 nodes)
+│  ├─ Block 4: Supabase storage (4 nodes)
+│  ├─ Block 5: HTTP Request to external API (2 nodes)
+│  └─ Block 6: Telegram notification + Response (3 nodes)
+├─ Builder: Create workflow using Logical Block Building
+├─ QA: Validate all nodes + connections
+└─ Output: workflow_id
+
+PHASE 3: ACTIVATION & EXECUTION
+├─ QA: Activate workflow
+├─ QA: Trigger test execution (webhook or manual)
+├─ Monitor: Check execution logs
+└─ Output: execution_id, status
+
+PHASE 4: VERIFICATION
+├─ QA: Read execution details
+├─ Check: All 20+ nodes executed successfully
+├─ Check: AI Agent response valid
+├─ Check: Supabase records created
+├─ Check: Telegram message sent
+└─ Output: verification_report
+
+PHASE 5: FIX LOOP (if failures)
+├─ IF execution failed:
+│  ├─ Analyst: Identify root cause from logs
+│  ├─ Researcher: Find solution in LEARNINGS.md
+│  ├─ Builder: Fix nodes (max 3 cycles)
+│  ├─ QA: Re-validate + re-execute
+│  └─ Repeat until success or blocked
+└─ Max 3 fix cycles
+
+PHASE 6: ANALYSIS & LEARNINGS
+├─ Analyst: Comprehensive post-mortem
+│  ├─ Agent performance review
+│  ├─ Token usage analysis
+│  ├─ Time per phase
+│  ├─ QA loop efficiency
+│  ├─ Logical block building effectiveness
+│  ├─ Identified issues
+│  └─ Recommendations for improvement
+├─ Analyst: Write to LEARNINGS.md (if new patterns)
+└─ Output: analysis_report.md
+```
+
+**Test Workflow Specification:**
+
+```json
+{
+  "name": "E2E Test: Multi-Service AI Workflow",
+  "description": "20+ node production test covering all agent capabilities",
+  "nodes_count": 21,
+  "blocks": [
+    {
+      "name": "Trigger",
+      "type": "foundation",
+      "nodes": [
+        "Webhook (POST /test-e2e)",
+        "Set: Parse Input",
+        "IF: Validate Required Fields"
+      ]
+    },
+    {
+      "name": "AI Processing",
+      "type": "intelligence",
+      "nodes": [
+        "AI Agent: Analyze Input",
+        "  prompt: 'You are a data validator. Check if input contains valid user data. Return JSON with validation result.'",
+        "  tools: [http_request]",
+        "Code: Parse AI Response",
+        "Switch: Route by AI Decision"
+      ]
+    },
+    {
+      "name": "Storage Operations",
+      "type": "persistence",
+      "nodes": [
+        "Supabase: Insert User Record",
+        "Supabase: Get User by ID",
+        "Set: Format User Data",
+        "IF: Check Insert Success"
+      ]
+    },
+    {
+      "name": "External API",
+      "type": "integration",
+      "nodes": [
+        "HTTP Request: GET jsonplaceholder.typicode.com/users/1",
+        "Set: Merge External Data"
+      ]
+    },
+    {
+      "name": "Notifications",
+      "type": "output",
+      "nodes": [
+        "Telegram: Send Success Message",
+        "Set: Format Response",
+        "Respond to Webhook: Return Results"
+      ]
+    }
+  ],
+  "complexity_features": [
+    "Multiple IF/Switch routing",
+    "AI Agent with tools",
+    "Database operations (insert + get)",
+    "External API calls",
+    "Error handling on all blocks",
+    "Webhook response with data"
+  ]
+}
+```
+
+**Success Criteria:**
+✅ Workflow created with 20+ nodes
+✅ All logical blocks built correctly
+✅ All credentials applied
+✅ Workflow activated
+✅ Execution completed (all nodes green)
+✅ AI Agent responded correctly
+✅ Supabase records exist
+✅ Telegram message delivered
+✅ Webhook returned 200 OK
+✅ No QA errors
+✅ Analyst report generated
+
+**Cleanup:**
+- Deactivate workflow after test
+- Delete test Supabase records
+- Keep workflow for reference (tag: "e2e-test")
+
+**Usage:**
+```bash
+/orch --test e2e
+```
+
 ### `--test agent:NAME`
 Tests specific agent in isolation:
 ```
@@ -174,7 +333,8 @@ Tests specific agent in isolation:
 
 ### Run Tests
 ```
-/orch --test full
+/orch --test full          # Simple integration test
+/orch --test e2e           # Production-grade 20+ node test
 ```
 
 ## Escalation Levels

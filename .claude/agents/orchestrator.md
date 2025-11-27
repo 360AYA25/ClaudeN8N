@@ -90,6 +90,109 @@ clarification → research → decision → implementation → build → validat
 4. Receive updated run_state, apply merge rules
 5. Advance stage based on agent output
 
+## Test Mode: E2E Production Test
+
+When user invokes `/orch --test e2e`:
+
+### Algorithm:
+```
+1. DISCOVERY PHASE
+   - Task(researcher): "Discover all available credentials"
+   - Required: Telegram, Supabase, OpenAI, HTTP auth
+   - Output: credentials_map
+
+2. DESIGN PHASE
+   - Create test specification (20+ nodes)
+   - Request: "Create production test workflow with:
+     - Webhook trigger (POST /test-e2e)
+     - Data validation (IF/Switch)
+     - AI Agent with prompt: 'You are a data validator...'
+     - Supabase operations (insert + get)
+     - HTTP Request to jsonplaceholder API
+     - Telegram notification
+     - Respond to webhook"
+   - Task(architect): Design blueprint (skip user clarification)
+   - Set: credentials_selected = credentials_map
+   - Output: blueprint with 21 nodes
+
+3. BUILD PHASE
+   - Task(researcher): Deep dive for build_guidance
+   - Task(builder): Create workflow using Logical Block Building
+   - Task(qa): Validate workflow structure
+   - Output: workflow_id
+
+4. ACTIVATION & EXECUTION PHASE
+   - Task(qa): "Activate workflow {workflow_id}"
+   - Task(qa): "Trigger test execution with payload:
+     { user: 'test', email: 'test@example.com', action: 'validate' }"
+   - Monitor execution: wait for completion
+   - Output: execution_id, status
+
+5. VERIFICATION PHASE
+   - Task(qa): "Get execution {execution_id} details"
+   - Check criteria:
+     ✓ All 21 nodes executed (no errors)
+     ✓ AI Agent response contains validation result
+     ✓ Supabase record created (check via get)
+     ✓ Telegram message sent (check execution log)
+     ✓ Webhook returned 200 OK
+   - Output: verification_report
+
+6. FIX LOOP (if verification fails)
+   - IF any check failed:
+     - cycle_count++
+     - IF cycle_count <= 3:
+       - Task(analyst): "Analyze execution logs, identify root cause"
+       - Task(researcher): "Find solution in LEARNINGS.md"
+       - Task(builder): "Fix nodes based on analysis"
+       - Task(qa): "Re-validate and re-execute"
+       - GOTO Verification Phase
+     - ELSE:
+       - stage = "blocked"
+       - Report to user
+
+7. ANALYSIS PHASE (ALWAYS runs)
+   - Task(analyst): "Comprehensive post-mortem analysis:
+     - Review agent performance (timing, token usage)
+     - Evaluate QA loop efficiency
+     - Assess Logical Block Building (20+ nodes)
+     - Identify issues and bottlenecks
+     - Generate recommendations
+     - Write new learnings to LEARNINGS.md if patterns found"
+   - Output: memory/e2e_test_analysis_{timestamp}.md
+
+8. CLEANUP
+   - Task(qa): "Deactivate workflow {workflow_id}"
+   - Add workflow tag: "e2e-test-{timestamp}"
+   - Keep workflow for reference (don't delete)
+```
+
+### Success Criteria:
+```json
+{
+  "workflow_created": true,
+  "nodes_count": 21,
+  "logical_blocks": 5,
+  "activated": true,
+  "execution_completed": true,
+  "all_nodes_success": true,
+  "ai_agent_responded": true,
+  "supabase_records_exist": true,
+  "telegram_sent": true,
+  "webhook_response": 200,
+  "qa_errors": 0,
+  "fix_cycles": 0,
+  "analyst_report_generated": true
+}
+```
+
+### Output Files:
+- `memory/run_state.json` - Full execution state
+- `memory/e2e_test_analysis_{timestamp}.md` - Analyst report
+- Workflow stays in n8n with tag "e2e-test"
+
+---
+
 ## QA Loop (max 3 cycles)
 
 ```
