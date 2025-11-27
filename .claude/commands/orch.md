@@ -153,59 +153,73 @@ Creates, activates, and tests complex production-grade workflow with:
 - **Auto-fix loops** (if execution fails, Builder fixes)
 - **Analyst review** (post-mortem analysis + learnings)
 
-**Process:**
+**Process (follows 5-PHASE FLOW!):**
+
 ```
-PHASE 1: DISCOVERY
-├─ Orchestrator → Researcher: Discover available credentials
-├─ Find: Telegram, Supabase, OpenAI, HTTP auth keys
-└─ Output: credentials_map
+1. CLARIFICATION PHASE
+   └─ Task({ agent: "architect" })
+      ├─ E2E test mode: confirm test parameters with user
+      ├─ Workflow type: Complex (20+ nodes)
+      ├─ Services: Telegram, Supabase, OpenAI, HTTP
+      ├─ Trigger: Chat Trigger (dual mode)
+      └─ Output: run_state.requirements
 
-PHASE 2: DESIGN & BUILD
-├─ Architect: Design 20+ node workflow blueprint
-│  ├─ Block 1: **Chat Trigger** (AI-optimized webhook + UI) (3 nodes)
-│  ├─ Block 2: Data validation with IF/Switch (5 nodes)
-│  ├─ Block 3: AI Agent processing (4 nodes)
-│  ├─ Block 4: Supabase storage (4 nodes)
-│  ├─ Block 5: HTTP Request to external API (2 nodes)
-│  └─ Block 6: Telegram notification + Chat Response (3 nodes)
-├─ Builder: Create workflow using Logical Block Building
-├─ QA: Validate all nodes + connections
-└─ Output: workflow_id + chat_url
+2. RESEARCH PHASE
+   └─ Task({ agent: "researcher" })
+      ├─ Find existing E2E test workflows (reuse if found)
+      ├─ Discover available credentials (Telegram, Supabase, OpenAI)
+      ├─ Search best templates for multi-service AI workflow
+      └─ Output: run_state.research_findings + credentials_discovered
 
-PHASE 3: ACTIVATION & EXECUTION
-├─ QA: Activate workflow
-├─ QA: Trigger test execution (webhook or manual)
-├─ Monitor: Check execution logs
-└─ Output: execution_id, status
+3. DECISION PHASE
+   └─ Task({ agent: "architect" })
+      ├─ Present findings to user
+      ├─ Options: A) Modify existing, B) Build new
+      ├─ In E2E test: auto-select "Build new" with all credentials
+      └─ Output: run_state.decision + credentials_selected
 
-PHASE 4: VERIFICATION
-├─ QA: Read execution details
-├─ Check: All 20+ nodes executed successfully
-├─ Check: AI Agent response valid
-├─ Check: Supabase records created
-├─ Check: Telegram message sent
-└─ Output: verification_report
+4. IMPLEMENTATION PHASE
+   └─ Task({ agent: "researcher" })
+      ├─ Deep dive for build_guidance
+      ├─ Read LEARNINGS-INDEX.md for relevant patterns
+      ├─ Get node configs: chatTrigger, aiAgent, supabase, telegram
+      ├─ Find gotchas and warnings
+      └─ Output: run_state.build_guidance
 
-PHASE 5: FIX LOOP (if failures)
-├─ IF execution failed:
-│  ├─ Analyst: Identify root cause from logs
-│  ├─ Researcher: Find solution in LEARNINGS.md
-│  ├─ Builder: Fix nodes (max 3 cycles)
-│  ├─ QA: Re-validate + re-execute
-│  └─ Repeat until success or blocked
-└─ Max 3 fix cycles
+5. BUILD PHASE
+   └─ Task({ agent: "builder" })
+      ├─ Create 21-node workflow using Logical Block Building
+      ├─ Chat Trigger (mode: webhook, public: true)
+      ├─ AI Agent, Supabase, HTTP, Telegram
+      ├─ Use credentials from run_state.credentials_selected
+      └─ Output: run_state.workflow + memory/agent_results/workflow_{id}.json
 
-PHASE 6: ANALYSIS & LEARNINGS
-├─ Analyst: Comprehensive post-mortem
-│  ├─ Agent performance review
-│  ├─ Token usage analysis
-│  ├─ Time per phase
-│  ├─ QA loop efficiency
-│  ├─ Logical block building effectiveness
-│  ├─ Identified issues
-│  └─ Recommendations for improvement
-├─ Analyst: Write to LEARNINGS.md (if new patterns)
-└─ Output: analysis_report.md
+6. VALIDATE & TEST PHASE
+   └─ Task({ agent: "qa" })
+      ├─ Validate workflow structure
+      ├─ Activate workflow
+      ├─ Trigger via Chat webhook
+      ├─ Check all 21 nodes executed
+      ├─ Verify Supabase record created
+      ├─ Verify Telegram sent
+      ├─ IF errors: edit_scope → Builder → QA (max 3 cycles)
+      └─ Output: run_state.qa_report
+
+7. ANALYSIS PHASE (ALWAYS runs)
+   └─ Task({ agent: "analyst" })
+      ├─ Token usage per agent + total
+      ├─ Cost estimate
+      ├─ Agent performance timing
+      ├─ QA loop efficiency
+      ├─ Issues and recommendations
+      ├─ Write learnings if patterns found
+      └─ Output: memory/e2e_test_analysis_{timestamp}.md
+
+8. CLEANUP
+   └─ Task({ agent: "qa" })
+      ├─ Deactivate workflow
+      ├─ Add tag "e2e-test"
+      └─ Keep workflow for reference
 ```
 
 **Test Workflow Specification:**
