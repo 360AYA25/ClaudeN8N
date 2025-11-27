@@ -1,0 +1,65 @@
+{
+  "id": "r0jPUIImzUvocrVx",
+  "name": "MCP-Test-Workflow",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {}
+    },
+    {
+      "id": "set-1",
+      "name": "Set Test Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 300],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "test-field",
+              "name": "message",
+              "type": "string",
+              "value": "MCP Test Successful!"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Test Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "6bd794ff-e1e9-40e3-95b4-c96821e5e831",
+  "versionCounter": 1,
+  "createdAt": "2025-11-27T18:40:16.904Z",
+  "updatedAt": "2025-11-27T18:40:16.904Z",
+  "_builder_meta": {
+    "created_by": "builder-agent",
+    "method": "curl POST (MCP write broken)",
+    "run_id": "2668F841-555F-4CF4-84C7-5050F0DCA968",
+    "verified_via": "mcp__n8n-mcp__n8n_get_workflow"
+  }
+}
