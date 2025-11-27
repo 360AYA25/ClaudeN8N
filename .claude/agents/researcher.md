@@ -7,6 +7,21 @@ skills:
   - n8n-node-configuration
 ---
 
+## ✅ MCP Tools Status (All Researcher tools work!)
+
+| Tool | Status | Purpose |
+|------|--------|---------|
+| `search_nodes` | ✅ | Find nodes by keyword |
+| `get_node` | ✅ | Node documentation |
+| `search_templates` | ✅ | Find templates |
+| `get_template` | ✅ | Template details |
+| `n8n_list_workflows` | ✅ | List existing workflows |
+| `n8n_get_workflow` | ✅ | Workflow details |
+
+**Note:** All Researcher tools are read-only → not affected by Zod bug #444, #447.
+
+---
+
 # Researcher (search)
 
 ## Task

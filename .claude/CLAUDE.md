@@ -16,6 +16,65 @@
 
 ---
 
+## ⚠️ MCP Bug Notice (Zod v4 #444, #447)
+
+**ALL write operations via MCP are BROKEN.** Use curl workaround.
+
+### Broken Tools (use curl!)
+| Tool | Workaround |
+|------|------------|
+| `n8n_create_workflow` | curl POST |
+| `n8n_update_full_workflow` | curl **PUT** (settings required!) |
+| `n8n_update_partial_workflow` | curl **PUT** |
+| `n8n_autofix_workflow` (apply) | Preview + curl PUT |
+| `n8n_workflow_versions` (rollback) | curl PUT |
+
+### Working Tools
+| Tool | Agent |
+|------|-------|
+| `search_nodes`, `get_node` | Researcher |
+| `search_templates`, `get_template` | Researcher |
+| `n8n_list_workflows`, `n8n_get_workflow` | All |
+| `n8n_validate_workflow`, `validate_node` | Builder, QA |
+| `n8n_autofix_workflow` (preview only) | Builder |
+| `n8n_trigger_webhook_workflow` | QA |
+| `n8n_executions` | QA, Analyst |
+| `n8n_delete_workflow` | Builder |
+
+### curl Template
+```bash
+N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')
+N8N_API_KEY=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_KEY')
+
+# Create (POST)
+curl -s -X POST "${N8N_API_URL}/api/v1/workflows" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '<WORKFLOW_JSON>'
+
+# Update (PUT — settings required!)
+curl -s -X PUT "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"...","nodes":[...],"connections":{...},"settings":{}}'
+
+# Activate only (PATCH)
+curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"active": true}'
+```
+
+### ⚠️ Connections use node.name, NOT id!
+```javascript
+// ❌ WRONG: "trigger-1": {...}
+// ✅ CORRECT: "Manual Trigger": {...}
+```
+
+**See:** `docs/MCP-BUG-RESTORE.md` for restore instructions when bug is fixed.
+
+---
+
 ## 5-PHASE UNIFIED FLOW (No Complexity Detection!)
 
 ```
@@ -75,20 +134,20 @@ After 3 fails → stage="blocked" → report to user
 
 ## Hard Rules (Permission Matrix)
 
-| Action | Arch | Res | Build | QA | Analyst |
-|--------|:----:|:---:|:-----:|:--:|:-------:|
-| Create/Update workflow | - | - | **YES** | - | - |
-| Autofix | - | - | **YES** | - | - |
-| Delete workflow | - | - | **YES** | - | - |
-| Validate (final) | - | - | pre | **YES** | - |
-| Activate/Test | - | - | - | **YES** | - |
-| Search nodes/templates | - | **YES** | - | - | - |
-| Discover credentials | - | **YES** | - | - | - |
-| Present credentials to user | **YES** | - | - | - | - |
-| List/Get workflows | - | **YES** | YES | YES | YES |
-| Write LEARNINGS.md | - | - | - | - | **YES** |
+| Action | Arch | Res | Build | QA | Analyst | Method |
+|--------|:----:|:---:|:-----:|:--:|:-------:|--------|
+| Create/Update workflow | - | - | **YES** | - | - | **curl** |
+| Autofix | - | - | **YES** | - | - | Preview MCP + **curl** |
+| Delete workflow | - | - | **YES** | - | - | MCP ✅ |
+| Validate (final) | - | - | pre | **YES** | - | MCP ✅ |
+| Activate/Test | - | - | - | **YES** | - | **curl** + MCP trigger |
+| Search nodes/templates | - | **YES** | - | - | - | MCP ✅ |
+| Discover credentials | - | **YES** | - | - | - | MCP ✅ |
+| Present credentials to user | **YES** | - | - | - | - | - |
+| List/Get workflows | - | **YES** | YES | YES | YES | MCP ✅ |
+| Write LEARNINGS.md | - | - | - | - | **YES** | File |
 
-**Key:** Only Builder mutates. Orchestrator (main context) delegates via Task. Architect has NO MCP tools.
+**Key:** Only Builder mutates via **curl** (MCP broken). Orchestrator (main context) delegates via Task. Architect has NO MCP tools.
 
 ## run_state Protocol
 

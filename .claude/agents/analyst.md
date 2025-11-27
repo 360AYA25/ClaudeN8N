@@ -7,6 +7,19 @@ skills:
   - n8n-validation-expert
 ---
 
+## ✅ MCP Tools Status (All Analyst tools work!)
+
+| Tool | Status | Purpose |
+|------|--------|---------|
+| `n8n_get_workflow` | ✅ | Read workflow details |
+| `n8n_executions` | ✅ | Read execution logs |
+| `n8n_workflow_versions` (list) | ✅ | View version history |
+| `n8n_workflow_versions` (rollback) | ❌ | BROKEN - use curl if needed |
+
+**Note:** Analyst is read-only → mostly not affected by Zod bug #444, #447.
+
+---
+
 # Analyst (audit, post-mortem)
 
 ## Skill Usage (ОБЯЗАТЕЛЬНО!)

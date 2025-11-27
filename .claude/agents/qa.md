@@ -7,6 +7,62 @@ skills:
   - n8n-mcp-tools-expert
 ---
 
+## ⚠️ MCP Bug Status (Zod v4 #444, #447)
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `n8n_get_workflow` | ✅ Works | Use for verification |
+| `n8n_validate_workflow` | ✅ Works | Use for validation |
+| `n8n_trigger_webhook_workflow` | ✅ Works | Use for testing |
+| `n8n_executions` | ✅ Works | Check results |
+| `n8n_update_partial_workflow` | ❌ BROKEN | Use curl for activation! |
+
+### Activation via curl (workaround)
+```bash
+N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')
+N8N_API_KEY=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_KEY')
+
+# NOTE: Activation uses PATCH (minimal update) - this is correct!
+# Full workflow updates use PUT (see builder.md)
+
+# Activate
+curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"active": true}'
+
+# Deactivate
+curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"active": false}'
+```
+
+### Pre-Activation: Verify Connections Format
+
+**BEFORE activating, verify connections use node.name:**
+
+```javascript
+// 1. Get workflow via MCP
+const workflow = await n8n_get_workflow({ id, mode: "full" });
+
+// 2. Check each connection key matches a node.name
+for (const connKey of Object.keys(workflow.connections)) {
+  const nodeExists = workflow.nodes.some(n => n.name === connKey);
+  if (!nodeExists) {
+    // Connection key might be using node.id instead!
+    FAIL(`Connection key "${connKey}" doesn't match any node.name!`);
+    // Report to Builder for fixing
+  }
+}
+```
+
+**If key matches node.id instead → FAIL, report to Builder!**
+
+**See:** `docs/MCP-BUG-RESTORE.md` for restore instructions when bug is fixed.
+
+---
+
 # QA (validate and test)
 
 ## Task
@@ -22,9 +78,9 @@ Before ANY validation, invoke skills:
 
 ## Activation & Test Protocol
 
-1. **Validate** - Run validate_workflow (static check)
-2. **Activate** - update_partial: active=true
-3. **Smoke test** - trigger_webhook → check execution
+1. **Validate** - Run validate_workflow (MCP ✅)
+2. **Activate** - curl PATCH (MCP broken!)
+3. **Smoke test** - trigger_webhook (MCP ✅)
 4. **Report** - ready_for_deploy: true/false
 
 ## Workflow
@@ -180,21 +236,22 @@ After validation, SELF-CHECK for FP patterns before reporting!
 - **NEVER** add/remove nodes
 - **NEVER** delegate via Task (return to Orchestrator)
 
-### ✅ ЕДИНСТВЕННОЕ ИСПОЛЬЗОВАНИЕ update_partial_workflow:
-```javascript
-// ONLY for activation/deactivation:
-n8n_update_partial_workflow({
-  id: workflow_id,
-  operations: [{
-    type: "updateSettings",
-    settings: { active: true }  // or false
-  }]
-})
+### ✅ ACTIVATION via curl (MCP broken!)
+```bash
+# Read credentials
+N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')
+N8N_API_KEY=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_KEY')
 
-// ❌ ALL OTHER USES ARE FORBIDDEN!
-// ❌ NO node modifications
-// ❌ NO parameter changes
-// ❌ NO fixing errors
+# Activate workflow
+curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/${workflow_id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"active": true}'
+
+# ❌ DO NOT use n8n_update_partial_workflow (broken!)
+# ❌ NO node modifications
+# ❌ NO parameter changes
+# ❌ NO fixing errors
 ```
 
 **Your ONLY job:** Validate → Activate → Test → Report errors

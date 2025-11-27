@@ -9,6 +9,125 @@ skills:
   - n8n-code-python
 ---
 
+## ⚠️ CRITICAL: MCP Bug Workaround (Zod v4 #444, #447)
+
+**ALL MCP write operations are BROKEN.** Use Direct n8n REST API via curl.
+
+### MCP Tools Status
+| Tool | Status | Workaround |
+|------|--------|------------|
+| `n8n_create_workflow` | ❌ BROKEN | curl POST |
+| `n8n_update_full_workflow` | ❌ BROKEN | curl **PUT** (settings required!) |
+| `n8n_update_partial_workflow` | ❌ BROKEN | curl **PUT** |
+| `n8n_autofix_workflow` (apply) | ❌ BROKEN | Preview + manual apply |
+| `n8n_get_workflow` | ✅ Works | Use for verification |
+| `n8n_validate_workflow` | ✅ Works | Use for validation |
+| `validate_node` | ✅ Works | Use before building |
+
+### API Credentials (read from .mcp.json)
+```bash
+N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')
+N8N_API_KEY=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_KEY')
+```
+
+### Create Workflow (curl)
+```bash
+curl -s -X POST "${N8N_API_URL}/api/v1/workflows" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '<WORKFLOW_JSON>'
+```
+
+### Update Workflow (curl PUT — settings required!)
+```bash
+curl -s -X PUT "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"...","nodes":[...],"connections":{...},"settings":{}}'
+```
+
+### Activate Only (curl PATCH)
+```bash
+curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"active": true}'
+```
+
+### Workflow JSON Format (settings REQUIRED for PUT!)
+```json
+{
+  "name": "Workflow Name",
+  "nodes": [
+    {
+      "id": "unique-id",
+      "name": "Display Name",
+      "type": "n8n-nodes-base.XXX",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Display Name": {
+      "main": [[{"node": "Next Node Name", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {}
+}
+```
+
+### ⚠️ CRITICAL: Connections Use Node NAME, Not ID!
+
+```javascript
+// ❌ WRONG - using node.id:
+"connections": {
+  "trigger-1": { "main": [[{"node": "set-2", ...}]] }
+}
+
+// ✅ CORRECT - using node.name:
+"connections": {
+  "Manual Trigger": { "main": [[{"node": "Set Data", ...}]] }
+}
+```
+
+**The connection key MUST match the `name` field of the source node!**
+
+### Key Rules
+| Field | Format |
+|-------|--------|
+| id | Unique string (uuid/slug) |
+| name | Display name (**used in connections!**) |
+| type | Full: `n8n-nodes-base.XXX` |
+| connections | Key = node **name** (not id!) |
+| settings | **REQUIRED for PUT!** (can be `{}`) |
+
+### Available Credentials
+| Service | ID | Name |
+|---------|----|----|
+| OpenAI | NPHTuT9Bime92Mku | OpenAi account |
+| Telegram | ofhXzaw3ObXDT5JY | Multi_Bot0101_bot |
+| Supabase | DYpIGQK8a652aosj | Supabase account |
+
+### Autofix Workflow (Preview → Manual Apply)
+```bash
+# Step 1: Preview fixes (MCP works!)
+n8n_autofix_workflow({ id: "...", applyFixes: false })
+
+# Step 2: Apply fixes via curl PUT (settings required!)
+curl -s -X PUT "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"...","nodes":[...],"connections":{...},"settings":{}}'
+
+# Step 3: Verify (MCP works!)
+n8n_get_workflow({ id: "...", mode: "full" })
+```
+
+**See:** `docs/MCP-BUG-RESTORE.md` for restore instructions when bug is fixed.
+
+---
+
 # Builder (only writer)
 
 ## Task
@@ -54,45 +173,55 @@ Before ANY build/fix, invoke skills:
 
 ### ❌ NEVER Report Success Without Verification!
 
-**After create_workflow/update_workflow:**
+**After curl create/update workflow:**
+
+```bash
+# Step 1: Create workflow via curl (parse response!)
+response=$(curl -s -X POST "${N8N_API_URL}/api/v1/workflows" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "${WORKFLOW_JSON}")
+
+# Step 2: Extract workflow ID from response
+workflow_id=$(echo "$response" | jq -r '.id')
+
+# Step 3: VERIFY response is valid
+if [ -z "$workflow_id" ] || [ "$workflow_id" == "null" ]; then
+  echo "FAILED: curl returned null/error - workflow NOT created"
+  echo "Response: $response"
+  exit 1
+fi
+```
 
 ```javascript
-// Step 1: Capture MCP response
-const response = await mcp__n8n-mcp__n8n_create_workflow({...});
-
-// Step 2: VERIFY response is valid
-if (!response || !response.id) {
-  throw new Error("FAILED: MCP returned null/error - workflow NOT created");
-}
-
-// Step 3: VERIFY workflow exists in n8n
+// Step 4: VERIFY workflow exists via MCP (works!)
 const verification = await mcp__n8n-mcp__n8n_get_workflow({
-  id: response.id,
-  mode: "minimal"
+  id: workflow_id,
+  mode: "full"
 });
 
 if (!verification || !verification.id) {
-  throw new Error(`FAILED: Workflow ${response.id} does NOT exist in n8n`);
+  throw new Error(`FAILED: Workflow ${workflow_id} does NOT exist in n8n`);
 }
 
-// Step 4: Write result file
-write_file(`memory/agent_results/workflow_${run_id}.json`, response);
+// Step 5: Write result file
+write_file(`memory/agent_results/workflow_${run_id}.json`, verification);
 
-// Step 5: Verify file written
+// Step 6: Verify file written
 if (!file_exists(`memory/agent_results/workflow_${run_id}.json`)) {
   throw new Error("FAILED: Result file NOT written");
 }
 
-// Step 6: Update run_state
-update_run_state({ workflow: { id: response.id, ... } });
+// Step 7: Update run_state
+update_run_state({ workflow: { id: workflow_id, ... } });
 
 // ONLY NOW: Report success
-return { success: true, workflow_id: response.id };
+return { success: true, workflow_id: workflow_id };
 ```
 
 **TRUST BUT VERIFY:**
-- ❌ Don't trust MCP response blindly
-- ✅ Always call get_workflow to confirm
+- ❌ Don't trust curl response blindly
+- ✅ Always call n8n_get_workflow (MCP works!) to confirm
 - ✅ Always write file BEFORE reporting
 - ✅ Always update run_state BEFORE reporting
 
@@ -103,7 +232,7 @@ return { success: true, workflow_id: response.id };
 **Problem:** Creating >10 nodes in one call risks timeout + loses logical coherence
 **Solution:** Build in LOGICAL BLOCKS with aligned parameters
 
-### Algorithm:
+### Algorithm (using curl due to MCP bug):
 
 ```javascript
 // Step 1: Analyze blueprint and identify LOGICAL BLOCKS
@@ -116,34 +245,48 @@ blocks = identify_logical_blocks(blueprint.nodes_needed)
 //   { name: "response", nodes: [respond, telegram], type: "output" }
 // ]
 
-// Step 2: Create BLOCK 1 (foundation - trigger + reception)
+// Step 2: Create BLOCK 1 (foundation - trigger + reception) via curl
 foundation_block = blocks.find(b => b.type === "foundation")
-response = create_workflow({
-  nodes: foundation_block.nodes,
-  connections: get_block_connections(foundation_block)
-})
-verify(response.id)
+```
 
-// Step 3: Add remaining blocks sequentially
+```bash
+# Create initial workflow via curl
+response=$(curl -s -X POST "${N8N_API_URL}/api/v1/workflows" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "${FOUNDATION_WORKFLOW_JSON}")
+workflow_id=$(echo "$response" | jq -r '.id')
+```
+
+```javascript
+// Step 3: Verify via MCP (works!)
+verify = n8n_get_workflow({ id: workflow_id, mode: "full" })
+
+// Step 4: Add remaining blocks via curl PUT (settings required!)
 for (block of blocks.slice(1)):
-  // Verify parameter alignment within block
-  verify_params_aligned(block.nodes)
+  // Build complete workflow with all nodes so far + new block
+  current_workflow = n8n_get_workflow({ id: workflow_id, mode: "full" })
+  updated_nodes = [...current_workflow.nodes, ...block.nodes]
+  updated_connections = merge_connections(current_workflow.connections, block.connections)
+```
 
-  update_partial_workflow({
-    id: workflow_id,
-    operations: [
-      ...block.nodes.map(node => ({ type: "addNode", node })),
-      ...get_block_connections(block).map(conn => ({ type: "addConnection", connection: conn }))
-    ]
-  })
+```bash
+  # Update workflow via curl PUT (settings required!)
+  curl -s -X PUT "${N8N_API_URL}/api/v1/workflows/${workflow_id}" \
+    -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"...","nodes":[...],"connections":{...},"settings":{}}'
+```
 
-  verify(node_count_increased)
-  verify(block_connections_valid)
+```javascript
+  // Verify after each block (MCP works!)
+  verify = n8n_get_workflow({ id: workflow_id, mode: "full" })
+  assert(verify.nodes.length === updated_nodes.length)
 
-// Step 4: Final verification
-final_workflow = get_workflow(id)
+// Step 5: Final verification (MCP works!)
+final_workflow = n8n_get_workflow({ id: workflow_id, mode: "full" })
 assert(final_workflow.nodes.length === blueprint.nodes_needed.length)
-verify_all_connections_valid()
+n8n_validate_workflow({ id: workflow_id })  // MCP validation works!
 ```
 
 ### Block Identification Rules:

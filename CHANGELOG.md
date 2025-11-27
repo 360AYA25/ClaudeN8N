@@ -2,6 +2,65 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [2.10.0] - 2025-11-27
+
+### 🔧 MCP Zod v4 Bug Workaround (Complete Implementation)
+
+**All MCP write operations broken due to Zod v4 bug (#444, #447). Implemented curl workarounds.**
+
+### Problem
+- n8n-mcp v2.26.5 has Zod validation bug
+- All write tools (`create_workflow`, `update_*`, `autofix apply`) fail
+- Read-only tools work fine
+
+### Solution: Direct n8n REST API via curl
+
+**Key Discoveries from Testing:**
+| Operation | Method | Notes |
+|-----------|--------|-------|
+| Create | POST | Works as expected |
+| Update | **PUT** (not PATCH!) | `settings: {}` required! |
+| Activate | PATCH | Minimal update only |
+| Connections | node.**name** | NOT node.id! |
+
+### Files Modified
+
+**Agents:**
+- `builder.md` — Full curl workaround, PUT for updates, settings required, connections warning
+- `qa.md` — Activation via PATCH, pre-activation connections verification
+- `researcher.md` — MCP status table (all tools work)
+- `analyst.md` — MCP status table (read-only, works)
+
+**Documentation:**
+- `CLAUDE.md` — Bug notice, permission matrix with Method column
+- `BUG/MCP-BUG-RESTORE.md` — Restore guide + fallback system instructions
+- `BUG/ZOD_BUG_WORKAROUND.md` — Full workaround guide for AI bots
+
+### curl Templates
+
+```bash
+# Create (POST)
+curl -X POST ".../api/v1/workflows" -d '<JSON>'
+
+# Update (PUT — settings required!)
+curl -X PUT ".../api/v1/workflows/{id}" -d '{"name":"...","nodes":[...],"connections":{...},"settings":{}}'
+
+# Activate (PATCH)
+curl -X PATCH ".../api/v1/workflows/{id}" -d '{"active":true}'
+```
+
+### Connections Format (CRITICAL!)
+```javascript
+// ❌ WRONG: "trigger-1": {...}
+// ✅ CORRECT: "Manual Trigger": {...}
+```
+
+### Future: Fallback System
+When bug is fixed, implement MCP-first with curl fallback for resilience.
+See `BUG/MCP-BUG-RESTORE.md` for implementation details.
+
+---
+
 ## [2.9.2] - 2025-11-27
 
 ### 🚨 CRITICAL FIX: MCP Inheritance for Agents
