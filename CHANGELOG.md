@@ -2,6 +2,44 @@
 
 All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
 
+## [2.5.0] - 2025-11-26
+
+### Credential Discovery (Researcher → Architect → User)
+
+Phase 3 now includes automatic credential discovery from existing workflows.
+
+### Added
+- **Credential Discovery Protocol** in Researcher
+  - Scans active workflows for existing credentials
+  - Extracts credentials by type (telegramApi, httpHeaderAuth, etc.)
+  - Returns `credentials_discovered` to Orchestrator
+- **Phase 3.5: Credential Selection** in Architect
+  - Receives `credentials_discovered` from Researcher
+  - Presents credentials to user grouped by service type
+  - User selects which credentials to use
+  - Saves `credentials_selected` to run_state
+- **Credential Usage** in Builder
+  - Uses `credentials_selected` when creating nodes with auth
+  - Prevents manual credential setup
+- Updated Phase 3 in `/orch` command
+  - Added credential discovery step between decision and blueprint
+
+### Changed
+- Researcher now handles credential scanning (was Architect in v2.3.0)
+- Architect remains without MCP tools (token savings maintained)
+- Stage flow: `clarification → research → decision → credentials → implementation → build → ...`
+- One-level delegation maintained (Orchestrator → agents)
+
+### Architecture
+- Based on v2.3.0 working architecture (e858f4f)
+- Credential feature from d4c8841, moved to Researcher
+- Maintains ONE-level Task delegation (no nested calls)
+
+### Commits
+- `ff19024` feat: add credential discovery to Researcher (v2.5.0)
+
+---
+
 ## [2.2.0] - 2025-11-26
 
 ### 5-Phase Flow (Implementation Stage)

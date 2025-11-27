@@ -28,11 +28,15 @@ PHASE 2: RESEARCH
 ├── Search: local → existing → templates → nodes
 └── Output: research_findings (fit_score, popularity)
 
-PHASE 3: DECISION
+PHASE 3: DECISION + CREDENTIALS
 ├── Researcher → Orchestrator → Architect
 ├── Architect ←→ User (выбор варианта)
+├── Orchestrator → Researcher (discover credentials)
+├── Researcher → Orchestrator (credentials_discovered)
+├── Orchestrator → Architect (present credentials)
+├── Architect ←→ User (select credentials)
 ├── Key principle: Modify existing > Build new
-└── Output: decision + blueprint
+└── Output: decision + blueprint + credentials_selected
 
 PHASE 4: IMPLEMENTATION
 ├── Architect → Orchestrator → Researcher (deep dive)
@@ -47,9 +51,9 @@ PHASE 5: BUILD
 
 ### Stage Transitions
 ```
-clarification → research → decision → implementation → build → validate → test → complete
-                                                                    ↓
-                                                                 blocked (after 3 QA fails)
+clarification → research → decision → credentials → implementation → build → validate → test → complete
+                                                                                  ↓
+                                                                               blocked (after 3 QA fails)
 ```
 
 ## Escalation Levels
@@ -78,6 +82,8 @@ After 3 fails → stage="blocked" → report to user
 | Validate (final) | - | - | - | pre | **YES** | - |
 | Activate/Test | - | - | - | - | **YES** | - |
 | Search nodes/templates | - | - | **YES** | - | - | - |
+| Discover credentials | - | - | **YES** | - | - | - |
+| Present credentials to user | - | **YES** | - | - | - | - |
 | List/Get workflows | YES | - | **YES** | YES | YES | YES |
 | Task (delegate) | **YES** | - | - | - | - | - |
 | Write LEARNINGS.md | - | - | - | - | - | **YES** |
