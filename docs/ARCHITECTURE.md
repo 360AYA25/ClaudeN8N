@@ -2,18 +2,72 @@
 
 ## Overview
 
-ClaudeN8N is a knowledge base and toolkit for n8n workflow automation with Claude Code.
+ClaudeN8N is a **5-Agent orchestration system** for n8n workflow automation with Claude Code.
+
+## 5-Agent System
+
+| Agent | Model | Role | MCP Tools |
+|-------|-------|------|-----------|
+| **architect** | sonnet | Planning + Dialog | WebSearch (NO MCP!) |
+| **researcher** | sonnet | Search + Discovery | search_*, get_*, list |
+| **builder** | opus 4.5 | ONLY writer | create/update/autofix |
+| **qa** | sonnet | Validate + Test | validate, trigger, exec |
+| **analyst** | sonnet | Read-only audit | get, list, versions |
+
+**Orchestrator** = main context ([orch.md](../.claude/commands/orch.md)), NOT a separate agent file.
+
+### 5-Phase Flow
+
+```
+PHASE 1: CLARIFICATION    → Architect ←→ User
+PHASE 2: RESEARCH         → Researcher (search)
+PHASE 3: DECISION + CREDS → Architect ←→ User + Researcher (discover)
+PHASE 4: IMPLEMENTATION   → Researcher (deep dive)
+PHASE 5: BUILD            → Builder → QA (max 3 cycles)
+```
+
+### Stage Flow
+
+```
+clarification → research → decision → credentials →
+implementation → build → validate → test → complete | blocked
+```
+
+### Permission Matrix
+
+| Action | Arch | Res | Build | QA | Analyst |
+|--------|:----:|:---:|:-----:|:--:|:-------:|
+| Create/Update workflow | - | - | **YES** | - | - |
+| Search nodes/templates | - | **YES** | - | - | - |
+| Activate/Test | - | - | - | **YES** | - |
+| Write LEARNINGS.md | - | - | - | - | **YES** |
+
+**Key:** Only Builder mutates. Orchestrator (main context) delegates via Task.
+
+---
 
 ## System Components
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      ClaudeN8N Project                       │
+│                    ClaudeN8N Project                         │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────────────┐                                       │
 │  │   Claude Code   │◄── .claude/CLAUDE.md (instructions)   │
 │  └────────┬────────┘                                       │
+│           │                                                 │
+│           ▼                                                 │
+│  ┌─────────────────────────────┐                           │
+│  │    5-Agent System           │                           │
+│  │  ┌──────────────────────┐   │                           │
+│  │  │ architect (sonnet)   │   │                           │
+│  │  │ researcher (sonnet)  │   │                           │
+│  │  │ builder (opus 4.5)   │   │                           │
+│  │  │ qa (sonnet)          │   │                           │
+│  │  │ analyst (sonnet)     │   │                           │
+│  │  └──────────────────────┘   │                           │
+│  └─────────────────────────────┘                           │
 │           │                                                 │
 │           ▼                                                 │
 │  ┌─────────────────────────────┐                           │
@@ -40,7 +94,7 @@ ClaudeN8N is a knowledge base and toolkit for n8n workflow automation with Claud
 
 ```
 docs/learning/
-├── LEARNINGS.md          # 1700+ lines, 39 entries
+├── LEARNINGS.md          # 1700+ lines, 39+ entries
 │   ├── Agent Standardization
 │   ├── n8n Workflows
 │   ├── Notion Integration
@@ -99,39 +153,80 @@ The project uses n8n-mcp server for:
 
 ## Data Flow
 
-### Building Workflows
+### Building Workflows (via /orch)
 
 ```
-1. User request → Claude Code
-2. Claude Code ← .claude/CLAUDE.md (auto-loaded instructions)
-3. Claude Code → Read PATTERNS.md (find best approach)
-4. Claude Code → n8n-mcp (create workflow)
-5. n8n-mcp → n8n API
-6. Workflow created → User verification
+1. User: /orch Create webhook → Claude Code
+2. Orchestrator → Architect (clarify requirements)
+3. Orchestrator → Researcher (search solutions)
+4. Orchestrator → Architect (present options to user)
+5. Orchestrator → Researcher (discover credentials)
+6. Orchestrator → Architect (user selects credentials)
+7. Orchestrator → Researcher (deep dive: learnings + patterns)
+8. Orchestrator → Builder (create workflow via n8n-mcp)
+9. Orchestrator → QA (validate + test)
+10. Success → User | Fail (3x) → Analyst post-mortem
 ```
 
 ### Debugging Workflows
 
 ```
 1. Error occurs → Claude Code
-2. Claude Code → Grep LEARNINGS.md (find solution)
-3. Solution found → Apply fix via n8n-mcp
-4. OR: Search N8N-RESOURCES.md for external help
+2. Researcher → Read LEARNINGS-INDEX.md
+3. Researcher → Read relevant sections from LEARNINGS.md
+4. Solution found → Builder applies fix via n8n-mcp
+5. QA validates fix
+6. OR: Search N8N-RESOURCES.md for external help
 ```
 
 ## File Purposes
 
 | File | Purpose | Updated |
 |------|---------|---------|
-| .claude/CLAUDE.md | Claude Code instructions (auto-loaded) | On workflow changes |
+| .claude/CLAUDE.md | System overview & agent specs | On architecture changes |
+| .claude/commands/orch.md | Orchestrator command | On flow changes |
+| .claude/agents/*.md | Agent specifications | On agent logic changes |
+| schemas/run-state.schema.json | State contract | On state structure changes |
 | LEARNINGS.md | Document problems & solutions | On each issue |
 | LEARNINGS-INDEX.md | Fast pattern lookup | With LEARNINGS.md |
 | PATTERNS.md | Proven reusable solutions | When new pattern found |
 | N8N-RESOURCES.md | External resource links | Rarely |
 
+## Context Optimization
+
+### File-Based Results (~45K tokens saved)
+
+| Agent | Full Result | run_state Summary |
+|-------|-------------|-------------------|
+| Builder | `memory/agent_results/workflow_{id}.json` | id, name, node_count, graph_hash |
+| QA | `memory/agent_results/qa_report_{id}.json` | status, error_count, edit_scope |
+
+### Index-First Reading (~20K tokens saved)
+
+Researcher protocol:
+1. Read `LEARNINGS-INDEX.md` first (~500 tokens)
+2. Find relevant IDs (L-042, P-015)
+3. Read ONLY those sections from full files
+4. **NEVER** read full LEARNINGS.md directly
+
+**Total savings: ~65K tokens per workflow**
+
+## Safety Guards
+
+1. **Wipe Protection**: If removing >50% nodes → STOP, escalate to user
+2. **edit_scope**: Builder only touches nodes in QA's edit_scope
+3. **Snapshot**: Builder saves snapshot before destructive changes
+4. **Regression Check**: QA marks regressions, Builder can rollback
+5. **QA Loop Limit**: Max 3 cycles → blocked → Analyst post-mortem
+
 ## Token Economy
 
-Using LEARNINGS-INDEX.md for lookups:
+### Using LEARNINGS-INDEX.md for lookups:
 - Full file read: ~50,000 tokens
 - Index + targeted read: ~1,000 tokens
 - **Savings: 98%**
+
+### Model Selection (Cost Optimization)
+- **Builder on Opus 4.5**: Critical generation ($3/1M input, $15/1M output)
+- **All others on Sonnet**: Dialog/search/validation ($3/1M input, $15/1M output)
+- **Cost reduced 66%** vs all-Opus system
