@@ -1,5 +1,20 @@
 # /orch — 5-Agent n8n Workflow Orchestration
 
+## 📋 Доступные режимы
+
+| Команда | Описание |
+|---------|----------|
+| `/orch <задача>` | Создать/изменить workflow |
+| `/orch --test` | Quick health check всех агентов |
+| `/orch --test agent:builder` | Тест Builder агента |
+| `/orch --test agent:qa` | Тест QA агента |
+| `/orch --test agent:researcher` | Тест Researcher агента |
+| `/orch --test agent:architect` | Тест Architect агента |
+| `/orch --test agent:analyst` | Тест Analyst агента |
+| `/orch --test e2e` | Full E2E тест — создает реальный workflow 20+ нод |
+
+---
+
 ## Overview
 Launch the multi-agent system to create, modify, or fix n8n workflows.
 
