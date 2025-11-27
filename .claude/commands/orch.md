@@ -19,7 +19,6 @@ Launch the multi-agent system to create, modify, or fix n8n workflows.
 ```
 /orch --test              # Test all agents
 /orch --test agent:builder  # Test specific agent
-/orch --test full         # Full system test
 /orch --test e2e          # End-to-End production test (20+ nodes)
 ```
 
@@ -140,13 +139,6 @@ Tests each agent can be invoked:
 | Analyst | read executions | read-only |
 
 **IMPORTANT:** Architect has NO MCP tools - only Read + Skills!
-
-### `--test full` (Integration test)
-Creates a test workflow end-to-end:
-1. Creates simple Webhook → Set → Respond workflow
-2. Validates with QA
-3. Triggers test webhook
-4. Cleans up (deactivates)
 
 ### `--test e2e` (End-to-End Production Test) 🆕
 **Full system stress test with REAL 20+ node workflow**
@@ -373,7 +365,6 @@ Tests specific agent in isolation:
 
 ### Run Tests
 ```
-/orch --test full          # Simple integration test
 /orch --test e2e           # Production-grade 20+ node test
 ```
 
