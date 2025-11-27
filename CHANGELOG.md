@@ -39,6 +39,12 @@ All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
   - Phase 7 (ANALYSIS) now includes token usage report
   - Updated success criteria with `chat_url_accessible` check
 
+### Removed
+- **`--test full` mode** removed from `/orch` command
+  - Obsolete integration test (simple 3-node workflow)
+  - Only E2E production test (`--test e2e`) remains
+  - Simplified test options for better clarity
+
 ### Documentation
 - **L-051** added to LEARNINGS.md: "Chat Trigger vs Webhook Trigger - When to Use What"
   - Full comparison table
@@ -59,6 +65,8 @@ All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
 - `b106e92` feat: add logical block building for large workflows (v2.6.0)
 - `d5f03b6` feat: add E2E production test mode to /orch command
 - `fec02ab` feat: upgrade E2E test to use Chat Trigger instead of Webhook
+- `2c8863b` feat: add token usage tracking to Analyst (v2.7.0)
+- `07f056e` refactor: remove --test full mode from /orch
 
 ---
 
