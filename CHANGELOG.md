@@ -2,6 +2,43 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [2.9.2] - 2025-11-27
+
+### 🚨 CRITICAL FIX: MCP Inheritance for Agents
+
+**Agent system was completely broken due to explicit `tools:` field blocking MCP inheritance.**
+
+### Root Cause
+Per [Anthropic docs](https://docs.anthropic.com/claude-code/agents):
+> "Omit the tools field to inherit all tools from the main thread (including MCP tools)"
+
+When `tools:` explicitly set → agents get ONLY those tools, **NO MCP inheritance!**
+
+### What Was Broken
+- All agents (builder, researcher, qa, analyst) had explicit `tools:` section
+- This **blocked** MCP tool inheritance from parent context
+- Agents failed to access `mcp__n8n-mcp__*` tools
+- Entire orchestration system non-functional
+
+### Fixed
+- **REMOVED** `tools:` section from:
+  - `builder.md` (was: 10 explicit tools)
+  - `researcher.md` (was: 8 explicit tools)
+  - `qa.md` (was: 8 explicit tools)
+  - `analyst.md` (was: 7 explicit tools)
+- **KEPT** `tools:` in `architect.md` → `[Read, Write, WebSearch]` (NO MCP by design)
+- Now agents inherit ALL tools including MCP from parent context
+
+### Related Issues
+- [Claude Code #10668](https://github.com/anthropics/claude-code/issues/10668): MCP inheritance broken in Task agents
+- [Claude Code #7296](https://github.com/anthropics/claude-code/issues/7296): User-level MCP not passed to Task agents
+- **Workaround**: Stay on Claude Code v2.0.29 (v2.0.30+ has regression)
+
+### Commits
+- `23c9f27` 🚨 CRITICAL FIX: Remove explicit tools field for MCP inheritance
+
+---
+
 ## [2.9.0] - 2025-11-27
 
 ### 6-Agent → 5-Agent Architecture Refactor
