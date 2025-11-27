@@ -1,36 +1,59 @@
 {
-  "id": "7beecae0-5c01-4c4e-a96a-58db5020f3d9",
-  "user_request": "Построить тестовый рабочий воркфлоу на 20 нод",
-  "goal": "Create a REAL WORKING workflow with 20+ nodes - Fan-out/Fan-in pattern",
-  "operation": "new",
-  "stage": "complete",
-  "cycle_count": 1,
-  "workflow": {
-    "id": "0RCbTwHFQUBoXfzd",
-    "name": "Fan-Out AI Processor (22 nodes)",
-    "nodes_count": 22,
-    "active": false,
-    "url": "https://n8n.srv1068954.hstgr.cloud/workflow/0RCbTwHFQUBoXfzd"
-  },
-  "qa_report": {
-    "valid": true,
-    "notes": "Validator false positives: jsCode is JavaScript not expressions, continueOnFail:false doesn't conflict with onError",
-    "connections": 24,
-    "ready_for_deploy": true,
-    "warnings_count": 23,
-    "errors_count": "5 (all false positives)"
-  },
+  "id": "e2e-test-2025-11-27T13-11-43-555Z",
+  "user_request": "/orch --test e2e",
+  "goal": "E2E Production Test: Create and test 20+ node multi-service AI workflow",
+  "operation": "e2e_test",
+  "stage": "build",
+  "cycle_count": 0,
+  "test_mode": "e2e_production",
   "worklog": [
-    {"ts": "2025-11-26T12:00:00Z", "agent": "orchestrator", "action": "session_start"},
-    {"ts": "2025-11-26T12:05:00Z", "agent": "architect", "action": "phase1_complete", "detail": "Requirements clarified"},
-    {"ts": "2025-11-26T12:10:00Z", "agent": "researcher", "action": "phase2_complete", "detail": "Research complete, build_new recommended"},
-    {"ts": "2025-11-26T12:15:00Z", "agent": "architect", "action": "phase3_complete", "detail": "User approved Option A"},
-    {"ts": "2025-11-26T17:53:00Z", "agent": "builder", "action": "workflow_created", "detail": "22-node workflow created ID: 0RCbTwHFQUBoXfzd"},
-    {"ts": "2025-11-26T17:54:00Z", "agent": "qa", "action": "validation_complete", "detail": "1 QA cycle, false positives identified"},
-    {"ts": "2025-11-26T17:55:00Z", "agent": "orchestrator", "action": "session_complete", "detail": "Workflow ready"}
+    {
+      "ts": "2025-11-27T13:11:43.555Z",
+      "agent": "orchestrator",
+      "action": "e2e_test_start",
+      "detail": "Starting E2E production test with 20+ nodes"
+    },
+    {
+      "ts": "2025-11-27T13:13:10.662Z",
+      "agent": "researcher",
+      "action": "discovery_complete",
+      "detail": "Found all 4 required credentials"
+    },
+    {
+      "ts": "2025-11-27T13:16:13.822Z",
+      "agent": "architect",
+      "action": "design_complete",
+      "detail": "Blueprint created: 21 nodes, 6 logical blocks"
+    }
   ],
   "finalized": {
-    "status": true,
-    "at": "2025-11-26T17:55:00Z"
+    "status": false
+  },
+  "credentials_discovered": {
+    "telegram": {
+      "found": true,
+      "credential_id": "ofhXzaw3ObXDT5JY",
+      "credential_name": "Multi_Bot0101_bot"
+    },
+    "supabase": {
+      "found": true,
+      "credential_id": "DYpIGQK8a652aosj",
+      "credential_name": "Supabase account"
+    },
+    "openai": {
+      "found": true,
+      "credential_id": "NPHTuT9Bime92Mku",
+      "credential_name": "OpenAi account"
+    },
+    "http": {
+      "found": true,
+      "notes": "Public API - no auth needed"
+    }
+  },
+  "blueprint": {
+    "workflow_name": "E2E Test: Multi-Service AI Workflow",
+    "nodes_count": 21,
+    "blocks": 6,
+    "description": "21-node production test: Chat Trigger, AI Agent, Supabase, HTTP, Telegram, Error handling"
   }
 }
