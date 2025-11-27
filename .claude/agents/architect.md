@@ -98,6 +98,38 @@ Returns to Orchestrator → delegates to Researcher.
 }
 ```
 
+Returns to Orchestrator → Orchestrator delegates to Researcher for credential discovery.
+
+### PHASE 3.5: Credential Selection (диалог с user)
+
+После получения `credentials_discovered` от Researcher:
+- Показывает найденные credentials сгруппированные по типу
+- User выбирает какие credentials использовать
+
+**Example presentation:**
+```
+🔑 Найдены credentials:
+
+TELEGRAM:
+  [1] Telegram Bot Token (id: cred_123)
+  [2] Test Bot (id: cred_456)
+
+SUPABASE:
+  [1] Supabase Header Auth (id: cred_789)
+
+Какие использовать для нового workflow?
+```
+
+**Output → `run_state.credentials_selected`**
+```json
+{
+  "telegramApi": { "id": "cred_123", "name": "Telegram Bot Token" },
+  "httpHeaderAuth": { "id": "cred_789", "name": "Supabase Header Auth" }
+}
+```
+
+Returns to Orchestrator → Architect proceeds to finalize blueprint.
+
 ### PHASE 4: Finalize Blueprint
 
 Создаёт детальный blueprint для Builder:
@@ -134,4 +166,4 @@ Always prefer modifying existing workflows/templates over building from scratch.
 - **ALLOWED:** Read + WebSearch (NO MCP tools!)
 
 ## Stage Transitions
-`clarification` → `research` → `decision` → `build` (handoff to Builder)
+`clarification` → `research` → `decision` → `credentials` → `build` (handoff to Builder)

@@ -114,6 +114,64 @@ STEP 4: EXPRESSION EXAMPLES (if needed)
 
 **After build_guidance written:** Set stage → `build`
 
+## Credential Discovery Protocol (Phase 3)
+
+**Trigger:** Called by Orchestrator for credential discovery (after user approves decision)
+**Goal:** Find existing credentials → return to Orchestrator → Architect presents to user
+
+### Step 1: Scan Active Workflows
+```javascript
+n8n_list_workflows({ limit: 50, active: true })
+```
+
+### Step 2: Extract Credentials from Each
+For each workflow:
+```javascript
+n8n_get_workflow({ id: xxx, mode: "full" })
+
+// Extract credentials from nodes
+for each node in workflow.nodes:
+  if node.credentials:
+    collect {
+      type: credType,      // "telegramApi", "httpHeaderAuth"
+      id: credInfo.id,     // "rDcjW0UFczbmWtVq"
+      name: credInfo.name, // "Telegram Bot Token"
+      nodeType: node.type  // "n8n-nodes-base.telegram"
+    }
+```
+
+### Step 3: Group by Credential Type
+```javascript
+// Group discovered credentials by type
+credentials_discovered = {
+  "telegramApi": [
+    { "id": "cred_123", "name": "Main Telegram Bot", "nodeType": "n8n-nodes-base.telegram" },
+    { "id": "cred_456", "name": "Test Bot", "nodeType": "n8n-nodes-base.telegram" }
+  ],
+  "httpHeaderAuth": [
+    { "id": "cred_789", "name": "Supabase Header Auth", "nodeType": "n8n-nodes-base.httpRequest" }
+  ]
+}
+```
+
+### Step 4: Return to Orchestrator
+**Output → `run_state.credentials_discovered`**
+```json
+{
+  "credentials_discovered": {
+    "telegramApi": [
+      { "id": "cred_123", "name": "Main Telegram Bot", "nodeType": "n8n-nodes-base.telegram" }
+    ],
+    "httpHeaderAuth": [
+      { "id": "cred_789", "name": "Supabase Auth", "nodeType": "n8n-nodes-base.httpRequest" }
+    ]
+  }
+}
+```
+
+**Note:** Researcher DOES NOT interact with user - just scans and returns findings!
+Orchestrator will pass this to Architect, who presents options to user.
+
 ## Output → `run_state.research_findings`
 
 ```json

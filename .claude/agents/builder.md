@@ -50,6 +50,31 @@ Before ANY build/fix, invoke skills:
 6. Update `workflow.graph_hash` and `worklog`/`agent_log`
 7. Stage: `build`
 
+## Credential Usage (ОБЯЗАТЕЛЬНО!)
+
+**ALWAYS** use `run_state.credentials_selected` when creating nodes with credentials:
+
+```json
+// run_state.credentials_selected:
+{
+  "telegramApi": { "id": "xxx", "name": "Telegram Bot Token" },
+  "httpHeaderAuth": { "id": "yyy", "name": "Supabase Header Auth" }
+}
+
+// When creating Telegram node:
+{
+  "type": "n8n-nodes-base.telegram",
+  "credentials": {
+    "telegramApi": {
+      "id": "xxx",
+      "name": "Telegram Bot Token"
+    }
+  }
+}
+```
+
+**If credential not in `credentials_selected`** → Report to Orchestrator that credential selection is missing.
+
 ## Output Protocol (Context Optimization!)
 
 ### Step 1: Write FULL workflow to file

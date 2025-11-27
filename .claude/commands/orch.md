@@ -47,11 +47,15 @@ PHASE 2: RESEARCH
 ├── Search: local → existing → templates → nodes
 └── Output: research_findings (fit_score, popularity)
 
-PHASE 3: DECISION
+PHASE 3: DECISION + CREDENTIALS
 ├── Researcher → Orchestrator → Architect
 ├── Architect ←→ User (выбор варианта)
+├── Orchestrator → Researcher (discover credentials)
+├── Researcher → Orchestrator (credentials_discovered)
+├── Orchestrator → Architect (present credentials)
+├── Architect ←→ User (select credentials)
 ├── Modify existing > Build new
-└── Output: decision + blueprint
+└── Output: decision + blueprint + credentials_selected
 
 PHASE 4: IMPLEMENTATION
 ├── Architect → Orchestrator → Researcher (deep dive)
@@ -97,6 +101,8 @@ Each agent receives full `run_state`:
 - `research_findings` (from Researcher)
 - `decision` (from Architect Phase 3)
 - `blueprint` (from Architect Phase 3)
+- `credentials_discovered` (from Researcher Phase 3 - scanned from existing workflows)
+- `credentials_selected` (from Architect Phase 3 - user-chosen credentials)
 - `build_guidance` (from Researcher Phase 4 - gotchas, node configs, warnings)
 - `workflow` (from Builder)
 - `qa_report` (from QA)
