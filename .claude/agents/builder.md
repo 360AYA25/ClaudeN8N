@@ -48,7 +48,17 @@ Before ANY build/fix, invoke skills:
 4. Autofix: preview first; if removes >50% nodes → STOP, report
 5. After edits: `validate_workflow`; record result in `workflow.actions`
 6. Update `workflow.graph_hash` and `worklog`/`agent_log`
-7. **CRITICAL: Verify creation before reporting success** (see Verification Protocol below)
+7. **CRITICAL: Verify creation before reporting success**
+   a. IF blueprint.nodes_needed.length > 10:
+      - Use Logical Block Building Protocol (see below)
+      - Analyze and identify logical blocks
+      - Create foundation block first (trigger + reception)
+      - Add remaining blocks sequentially
+      - Verify parameter alignment within each block
+      - Verify connections after each block
+   b. ELSE (≤10 nodes):
+      - Create entire workflow in one call
+   c. Always verify final result (see Verification Protocol)
 8. Stage: `build`
 
 ## Verification Protocol (MANDATORY!)
@@ -96,6 +106,112 @@ return { success: true, workflow_id: response.id };
 - ✅ Always call get_workflow to confirm
 - ✅ Always write file BEFORE reporting
 - ✅ Always update run_state BEFORE reporting
+
+## Logical Block Building Protocol
+
+### Trigger: blueprint.nodes_needed.length > 10
+
+**Problem:** Creating >10 nodes in one call risks timeout + loses logical coherence
+**Solution:** Build in LOGICAL BLOCKS with aligned parameters
+
+### Algorithm:
+
+```javascript
+// Step 1: Analyze blueprint and identify LOGICAL BLOCKS
+blocks = identify_logical_blocks(blueprint.nodes_needed)
+// Returns: [
+//   { name: "trigger", nodes: [webhook], type: "foundation" },
+//   { name: "processing", nodes: [set1, set2, if], type: "transform" },
+//   { name: "ai", nodes: [openai, code], type: "intelligence" },
+//   { name: "storage", nodes: [supabase1, supabase2], type: "persistence" },
+//   { name: "response", nodes: [respond, telegram], type: "output" }
+// ]
+
+// Step 2: Create BLOCK 1 (foundation - trigger + reception)
+foundation_block = blocks.find(b => b.type === "foundation")
+response = create_workflow({
+  nodes: foundation_block.nodes,
+  connections: get_block_connections(foundation_block)
+})
+verify(response.id)
+
+// Step 3: Add remaining blocks sequentially
+for (block of blocks.slice(1)):
+  // Verify parameter alignment within block
+  verify_params_aligned(block.nodes)
+
+  update_partial_workflow({
+    id: workflow_id,
+    operations: [
+      ...block.nodes.map(node => ({ type: "addNode", node })),
+      ...get_block_connections(block).map(conn => ({ type: "addConnection", connection: conn }))
+    ]
+  })
+
+  verify(node_count_increased)
+  verify(block_connections_valid)
+
+// Step 4: Final verification
+final_workflow = get_workflow(id)
+assert(final_workflow.nodes.length === blueprint.nodes_needed.length)
+verify_all_connections_valid()
+```
+
+### Block Identification Rules:
+
+```javascript
+function identify_logical_blocks(nodes) {
+  // Group by function/purpose:
+
+  1. TRIGGER block (always first):
+     - Webhook, Schedule, Manual Trigger
+     - Max 3 nodes (trigger + initial validation)
+
+  2. DATA PROCESSING block:
+     - Set, IF, Switch, Merge nodes
+     - Grouped by shared parameters (same data structure)
+     - Max 5-7 nodes per block
+
+  3. AI/EXTERNAL API block:
+     - OpenAI, HTTP Request, Code nodes
+     - Grouped by same API/service
+     - Max 3-4 nodes (heavy operations)
+
+  4. STORAGE block:
+     - Database writes (Supabase, Postgres)
+     - File operations
+     - Grouped by same database/storage
+     - Max 5 nodes
+
+  5. RESPONSE/OUTPUT block:
+     - Respond to Webhook, Telegram, Email
+     - Always last
+     - Max 3-4 nodes
+}
+```
+
+### Parameter Alignment Check:
+
+```javascript
+function verify_params_aligned(block_nodes) {
+  // Within each block, verify:
+
+  - All Set nodes use same data structure
+  - All HTTP requests to same base URL
+  - All database writes to same table/schema
+  - All AI nodes use same model/settings
+
+  // Example:
+  block = {
+    nodes: [
+      { type: "Set", params: { mode: "manual", values: [...] } },
+      { type: "Set", params: { mode: "manual", values: [...] } }  // Same mode!
+    ]
+  }
+
+  // If params don't align → split into separate blocks
+}
+```
 
 ## Credential Usage (ОБЯЗАТЕЛЬНО!)
 

@@ -169,6 +169,85 @@ ls .claude/agents/*.md | wc -l
 
 ## n8n Workflows
 
+## L-050: Builder Timeout on Large Workflows
+
+**Category:** Performance / Architecture
+**Severity:** HIGH
+**Date:** 2025-11-26
+
+### Problem
+Builder times out when creating workflows with >10 nodes in single create_workflow call.
+
+**Symptoms:**
+- Builder starts reading run_state
+- Builder plans workflow in memory
+- Builder freezes before calling MCP
+- No workflow created
+- No error message
+
+**Root Cause:**
+- Agent SDK has token/time limits per agent session
+- Workflows with >10 nodes exceed these limits
+- Builder tries to process entire JSON in memory
+- Timeout occurs during planning phase
+- Additionally: Large workflows lose logical coherence in single call
+
+### Solution: Logical Block Building
+
+**Pattern:**
+```javascript
+// Step 1: Identify logical blocks
+const blocks = identify_logical_blocks(blueprint.nodes_needed);
+// Groups nodes by function: trigger, processing, AI, storage, output
+
+// Step 2: Create foundation block (trigger + reception)
+const foundation = create_workflow({
+  nodes: blocks.foundation.nodes,
+  connections: blocks.foundation.connections
+});
+
+// Step 3: Add each logical block sequentially
+for (const block of [blocks.processing, blocks.ai, blocks.storage, blocks.output]) {
+  // Verify parameter alignment within block
+  verify_params_aligned(block.nodes);
+
+  update_partial_workflow({
+    id: foundation.id,
+    operations: [
+      ...block.nodes.map(n => ({ type: "addNode", node: n })),
+      ...block.connections.map(c => ({ type: "addConnection", connection: c }))
+    ]
+  });
+}
+```
+
+**Block Types:**
+1. **TRIGGER** (foundation): Webhook/Schedule + validation (max 3 nodes)
+2. **PROCESSING**: Set/IF/Switch with aligned parameters (max 5-7 nodes)
+3. **AI/API**: OpenAI/HTTP with same service (max 3-4 nodes)
+4. **STORAGE**: Database writes to same schema (max 5 nodes)
+5. **OUTPUT**: Response/notifications (max 3-4 nodes)
+
+**Parameter Alignment:**
+- Within each block, all nodes must share compatible parameters
+- Example: All Set nodes use same mode (manual/raw)
+- Example: All HTTP requests to same base URL
+- Example: All Supabase writes to same table
+
+### When to Use
+- Workflow has >10 nodes in blueprint
+- Any workflow that can be logically divided
+- When parameters need to be aligned across related nodes
+
+### Example
+See builder.md → "Logical Block Building Protocol"
+
+### Related
+- L-045: Context window optimization
+- P-012: Large workflow patterns
+
+---
+
 ### [2025-11-18 16:00] 🔄 Cascading Parameter Changes - CRITICAL for Workflow Debugging
 
 **Problem:** Changed a parameter in upstream node (e.g., HTTP Request response format), but forgot to update downstream nodes that depend on that parameter.

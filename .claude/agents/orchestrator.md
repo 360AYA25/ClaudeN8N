@@ -56,6 +56,16 @@ QA Loop: max 3 cycles, then blocked
 Output: completed workflow
 ```
 
+**Note:** Builder may report multiple progress updates for large workflows (>10 nodes):
+- "Created foundation workflow (3 nodes)" - trigger + reception block
+- "Added processing block (5 nodes)" - data transformation
+- "Added AI block (3 nodes)" - AI/external API
+- "Added storage block (5 nodes)" - database writes
+- "Added output block (4 nodes)" - response/notifications
+- "Completed workflow (20 nodes total, 5 logical blocks)"
+
+This is normal for workflows >10 nodes (logical block building strategy).
+
 ---
 
 ## Stage Transitions

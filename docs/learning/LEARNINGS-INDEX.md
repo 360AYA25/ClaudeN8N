@@ -34,7 +34,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 41
+- **Total Entries:** 42
 - **Categories:** 10
 - **Node Types Covered:** 15+
 - **Error Types Cataloged:** 22+
@@ -89,7 +89,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | Category | Lines | Entries | Focus Areas |
 |----------|-------|---------|-------------|
 | Agent Standardization | 70-190 | 1 | Template v2.0, English-only, changelog |
-| n8n Workflows | 190-890, 2145-2279 | 16 | Creation, modification, validation, debugging, partial updates, fan-out |
+| n8n Workflows | 170-890, 2145-2279 | 17 | Creation, modification, validation, debugging, partial updates, fan-out, large workflows |
 | Notion Integration | 890-1020 | 6 | Filters, dates, properties, timezone, page objects |
 | Supabase Database | 1020-1130 | 5 | Schema, RLS, RPC, insert/update, get vs getAll |
 | Telegram Bot | 1130-1190 | 2 | Webhooks, message handling, parameters |
@@ -132,6 +132,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-11-26 | L-050: Builder Timeout on Large Workflows | 172 | n8n Workflows |
 | 2025-11-26 | FP-003: continueOnFail + onError Defense-in-Depth | 2051 | Error Handling |
 | 2025-11-26 | NC-003: Switch Node Multi-Way Routing | 2145 | n8n Workflows |
 | 2025-11-12 | Set v3.4 Expression Syntax ={{ | 285 | n8n Workflows |
@@ -209,12 +210,15 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `continueonerror` OR `continueonarefail` → Lines: 1528-1710, 2051-2143
 - `false positive` OR `defense-in-depth` → Lines: 2051-2143
 - `fan-out` OR `fan-in` OR `multi-way` → Lines: 2145-2279
+- `timeout` OR `builder timeout` OR `freeze` → Lines: 172
+- `large workflow` OR `>10 nodes` OR `chunked building` → Lines: 172
 
 ### Operation Keywords
-- `create workflow` → Lines: 730-871, 661-686
+- `create workflow` → Lines: 730-871, 661-686, 172
 - `modify workflow` OR `update workflow` → Lines: 871-1094, 1602-1639
 - `validate` → Lines: 172-285, 285-339
 - `debug` → Lines: 490-616, 1570-1586
+- `logical block building` OR `parameter alignment` → Lines: 172
 
 ---
 
