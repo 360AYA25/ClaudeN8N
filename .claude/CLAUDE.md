@@ -96,7 +96,7 @@ After 3 fails → stage="blocked" → report to user
 `memory/run_state.json` - All agents read/write (analyst: read-only + learnings)
 
 ### Stage Flow
-`clarification → research → decision → build → validate → test → complete | blocked`
+`clarification → research → decision → credentials → implementation → build → validate → test → complete | blocked`
 
 ### Merge Rules (Orchestrator applies)
 | Type | Rule | Examples |

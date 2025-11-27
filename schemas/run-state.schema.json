@@ -23,7 +23,7 @@
       "description": "Create new workflow or patch existing"
     },
     "stage": {
-      "enum": ["clarification", "research", "decision", "implementation", "build", "validate", "test", "complete", "blocked"],
+      "enum": ["clarification", "research", "decision", "credentials", "implementation", "build", "validate", "test", "complete", "blocked"],
       "description": "Current stage in the 5-phase workflow"
     },
     "cycle_count": {

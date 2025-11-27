@@ -74,7 +74,7 @@ const total = Object.values(tokenUsage).reduce((a, b) => a + b, 0);
 
 // Estimate cost (Claude pricing)
 // Sonnet: $3 per 1M input, $15 per 1M output
-// Opus: $15 per 1M input, $75 per 1M output
+// Opus 4.5: $3 per 1M input, $15 per 1M output
 // Haiku: $0.25 per 1M input, $1.25 per 1M output
 const cost = calculateCost(tokenUsage);
 ```
@@ -86,16 +86,16 @@ const cost = calculateCost(tokenUsage);
 | Agent | Model | Tokens | Cost |
 |-------|-------|--------|------|
 | Orchestrator | Sonnet | 2,500 | $0.01 |
-| Architect | Opus | 5,000 | $0.08 |
+| Architect | Sonnet | 5,000 | $0.02 |
 | Researcher | Sonnet | 8,000 | $0.02 |
-| Builder | Opus | 12,000 | $0.18 |
-| QA | Haiku | 3,000 | $0.00 |
-| Analyst | Opus | 4,000 | $0.06 |
-| **TOTAL** | — | **34,500** | **$0.35** |
+| Builder | Opus 4.5 | 12,000 | $0.05 |
+| QA | Sonnet | 3,000 | $0.01 |
+| Analyst | Sonnet | 4,000 | $0.01 |
+| **TOTAL** | — | **34,500** | **$0.12** |
 
 **Efficiency:**
-- Most expensive: Builder (35% of total)
-- Most efficient: QA (9% of total)
+- Most expensive: Builder (42% of total)
+- Most efficient: QA (8% of total)
 - Average per agent: 5,750 tokens
 ```
 
