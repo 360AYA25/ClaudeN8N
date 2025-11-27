@@ -48,7 +48,54 @@ Before ANY build/fix, invoke skills:
 4. Autofix: preview first; if removes >50% nodes → STOP, report
 5. After edits: `validate_workflow`; record result in `workflow.actions`
 6. Update `workflow.graph_hash` and `worklog`/`agent_log`
-7. Stage: `build`
+7. **CRITICAL: Verify creation before reporting success** (see Verification Protocol below)
+8. Stage: `build`
+
+## Verification Protocol (MANDATORY!)
+
+### ❌ NEVER Report Success Without Verification!
+
+**After create_workflow/update_workflow:**
+
+```javascript
+// Step 1: Capture MCP response
+const response = await mcp__n8n-mcp__n8n_create_workflow({...});
+
+// Step 2: VERIFY response is valid
+if (!response || !response.id) {
+  throw new Error("FAILED: MCP returned null/error - workflow NOT created");
+}
+
+// Step 3: VERIFY workflow exists in n8n
+const verification = await mcp__n8n-mcp__n8n_get_workflow({
+  id: response.id,
+  mode: "minimal"
+});
+
+if (!verification || !verification.id) {
+  throw new Error(`FAILED: Workflow ${response.id} does NOT exist in n8n`);
+}
+
+// Step 4: Write result file
+write_file(`memory/agent_results/workflow_${run_id}.json`, response);
+
+// Step 5: Verify file written
+if (!file_exists(`memory/agent_results/workflow_${run_id}.json`)) {
+  throw new Error("FAILED: Result file NOT written");
+}
+
+// Step 6: Update run_state
+update_run_state({ workflow: { id: response.id, ... } });
+
+// ONLY NOW: Report success
+return { success: true, workflow_id: response.id };
+```
+
+**TRUST BUT VERIFY:**
+- ❌ Don't trust MCP response blindly
+- ✅ Always call get_workflow to confirm
+- ✅ Always write file BEFORE reporting
+- ✅ Always update run_state BEFORE reporting
 
 ## Credential Usage (ОБЯЗАТЕЛЬНО!)
 

@@ -37,10 +37,56 @@ Before ANY validation, invoke skills:
 4. **Report** - ready_for_deploy: true/false
 
 ## Workflow
-1. **Validate** - Run validate_workflow
-2. **Activate** - If validation passes, activate workflow
-3. **Test** - If webhook: trigger with test payload, check execution
-4. **Report** - Return full qa_report to Orchestrator
+1. **Verify Existence** - Confirm workflow exists (see Verification Protocol)
+2. **Validate** - Run validate_workflow
+3. **Activate** - If validation passes, activate workflow
+4. **Test** - If webhook: trigger with test payload, check execution
+5. **Report** - Return full qa_report to Orchestrator
+
+## Verification Protocol (MANDATORY!)
+
+### ❌ NEVER Validate Non-Existent Workflows!
+
+**BEFORE validation, MUST verify workflow exists:**
+
+```javascript
+// Step 1: Check result file exists
+const result_file = `memory/agent_results/workflow_${run_id}.json`;
+if (!file_exists(result_file)) {
+  FAIL("CRITICAL: No result file - Builder may have failed silently!");
+}
+
+// Step 2: Read workflow ID from run_state
+const workflow_id = run_state.workflow?.id;
+if (!workflow_id) {
+  FAIL("CRITICAL: No workflow ID in run_state - Builder failed!");
+}
+
+// Step 3: VERIFY workflow exists in n8n
+const workflow = await mcp__n8n-mcp__n8n_get_workflow({
+  id: workflow_id,
+  mode: "full"
+});
+
+if (!workflow || !workflow.id) {
+  FAIL(`CRITICAL: Workflow ${workflow_id} does NOT exist in n8n!`);
+}
+
+// Step 4: Verify node count matches
+if (workflow.nodes.length !== run_state.workflow.node_count) {
+  WARN("Node count mismatch - possible data corruption");
+}
+
+// ONLY NOW: Proceed with validation
+validate_workflow(workflow);
+```
+
+**Phantom Success Prevention:**
+- ✅ Check result file exists
+- ✅ Check workflow ID in run_state
+- ✅ Call get_workflow to confirm existence
+- ✅ Verify node count matches claim
+- ❌ NEVER trust Builder's word alone!
 
 ## Output Protocol (Context Optimization!)
 
