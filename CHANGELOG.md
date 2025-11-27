@@ -1,6 +1,53 @@
 # Changelog
 
-All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
+All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
+
+## [2.9.0] - 2025-11-27
+
+### 6-Agent → 5-Agent Architecture Refactor
+
+**Removed orchestrator.md agent file** — cannot work as sub-agent due to nested MCP limitation.
+
+### Removed
+- **orchestrator.md** agent file — coordination logic moved to main context (orch.md)
+- Orchestrator row from permission matrix in CLAUDE.md
+
+### Changed
+- **Title:** "6-Agent" → "5-Agent" everywhere
+- **Models optimized:**
+  - architect: opus → sonnet (dialog doesn't need opus)
+  - builder: opus → opus 4.5 (`claude-opus-4-5-20251101`) — latest and most capable
+  - qa: haiku → sonnet (haiku too weak for validation)
+  - analyst: opus → sonnet (post-mortem doesn't need opus)
+- **orch.md:** Added Execution Protocol section with:
+  - Correct Task syntax (`agent` not `subagent_type`)
+  - Agent delegation table (stage → agent → model)
+  - Context passing protocol
+  - Algorithm and hard rules
+- **E2E spec:** Shortened from ~200 lines to ~20 lines (works like normal flow)
+- **CLAUDE.md:** Added note that Orchestrator is main context, not separate agent file
+
+### Fixed
+- Agent model selection for cost/quality balance
+- Documentation consistency (5-Agent throughout)
+
+### Architecture
+```
+5 Agents: architect, researcher, builder, qa, analyst
+Orchestrator = main context (orch.md), NOT a separate agent file
+
+Models:
+- architect: sonnet (dialog + planning)
+- researcher: sonnet (search + discovery)
+- builder: opus 4.5 (ONLY writer, needs best model)
+- qa: sonnet (validation + testing)
+- analyst: sonnet (post-mortem + audit)
+```
+
+### Commits
+- Refactored from 6-agent to 5-agent architecture
+
+---
 
 ## [2.8.0] - 2025-11-27
 

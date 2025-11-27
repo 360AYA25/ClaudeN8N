@@ -1,6 +1,6 @@
 ---
 name: qa
-model: haiku
+model: sonnet
 description: Validates workflows and runs tests. Reports errors but does NOT fix.
 tools:
   - Read

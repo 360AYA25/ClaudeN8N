@@ -1,6 +1,6 @@
 ---
 name: analyst
-model: opus
+model: sonnet
 description: Read-only forensics. Audits execution logs, identifies root causes, proposes learnings.
 tools:
   - Read

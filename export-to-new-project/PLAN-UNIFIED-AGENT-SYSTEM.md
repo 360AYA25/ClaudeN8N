@@ -1,10 +1,12 @@
-# UNIFIED AGENT SYSTEM - Architecture Plan
+> ⚠️ **DEPRECATED** — This file is outdated. See `.claude/CLAUDE.md` and `.claude/commands/orch.md` for current 5-Agent architecture.
+
+# UNIFIED AGENT SYSTEM - Architecture Plan (LEGACY)
 
 > **Objective:** 6-agent Pure Claude system for n8n workflow automation
 
-**Version:** 2.4.0
+**Version:** 2.4.0 (DEPRECATED)
 **Date:** 2025-11-25
-**Status:** Ready for Implementation
+**Status:** ❌ DEPRECATED — See v2.9.0+ in main docs
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: builder
-model: opus
+model: claude-opus-4-5-20251101
 description: Creates and modifies n8n workflows. ONLY agent that mutates workflows.
 tools:
   - Read

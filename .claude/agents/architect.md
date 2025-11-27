@@ -1,6 +1,6 @@
 ---
 name: architect
-model: opus
+model: sonnet
 description: Deep planning and strategy. Analyzes complex requirements, designs workflow architecture.
 tools:
   - Read

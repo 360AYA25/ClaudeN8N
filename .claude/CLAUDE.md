@@ -1,4 +1,4 @@
-# 6-Agent n8n Orchestration System
+# 5-Agent n8n Orchestration System
 
 > Pure Claude system for n8n workflow automation
 
@@ -6,12 +6,13 @@
 
 | Agent | Model | Role | MCP Tools | Skills |
 |-------|-------|------|-----------|--------|
-| orchestrator | sonnet | Route + coordinate loops | list_workflows, get_workflow | — |
-| architect | opus | 5-phase dialog + planning | **WebSearch** (NO MCP!) | workflow-patterns, mcp-tools-expert |
+| architect | sonnet | 5-phase dialog + planning | **WebSearch** (NO MCP!) | workflow-patterns, mcp-tools-expert |
 | researcher | sonnet | Search with scoring | search_*, get_*, list_workflows | mcp-tools-expert, node-configuration |
-| **builder** | **opus** | **ONLY writer** | create_*, update_*, autofix_*, validate_* | node-config, expression, code-js, code-py |
-| qa | haiku | Validate + test, NO fixes | validate_*, trigger_*, executions | validation-expert, mcp-tools-expert |
-| analyst | opus | Read-only audit + token tracking | get_workflow, executions, versions | workflow-patterns, validation-expert |
+| **builder** | **opus 4.5** | **ONLY writer** | create_*, update_*, autofix_*, validate_* | node-config, expression, code-js, code-py |
+| qa | sonnet | Validate + test, NO fixes | validate_*, trigger_*, executions | validation-expert, mcp-tools-expert |
+| analyst | sonnet | Read-only audit + token tracking | get_workflow, executions, versions | workflow-patterns, validation-expert |
+
+**Orchestrator:** Main context (orch.md) — routes between agents, NOT a separate agent file.
 
 ---
 
@@ -74,21 +75,20 @@ After 3 fails → stage="blocked" → report to user
 
 ## Hard Rules (Permission Matrix)
 
-| Action | Orch | Arch | Res | Build | QA | Analyst |
-|--------|:----:|:----:|:---:|:-----:|:--:|:-------:|
-| Create/Update workflow | - | - | - | **YES** | - | - |
-| Autofix | - | - | - | **YES** | - | - |
-| Delete workflow | - | - | - | **YES** | - | - |
-| Validate (final) | - | - | - | pre | **YES** | - |
-| Activate/Test | - | - | - | - | **YES** | - |
-| Search nodes/templates | - | - | **YES** | - | - | - |
-| Discover credentials | - | - | **YES** | - | - | - |
-| Present credentials to user | - | **YES** | - | - | - | - |
-| List/Get workflows | YES | - | **YES** | YES | YES | YES |
-| Task (delegate) | **YES** | - | - | - | - | - |
-| Write LEARNINGS.md | - | - | - | - | - | **YES** |
+| Action | Arch | Res | Build | QA | Analyst |
+|--------|:----:|:---:|:-----:|:--:|:-------:|
+| Create/Update workflow | - | - | **YES** | - | - |
+| Autofix | - | - | **YES** | - | - |
+| Delete workflow | - | - | **YES** | - | - |
+| Validate (final) | - | - | pre | **YES** | - |
+| Activate/Test | - | - | - | **YES** | - |
+| Search nodes/templates | - | **YES** | - | - | - |
+| Discover credentials | - | **YES** | - | - | - |
+| Present credentials to user | **YES** | - | - | - | - |
+| List/Get workflows | - | **YES** | YES | YES | YES |
+| Write LEARNINGS.md | - | - | - | - | **YES** |
 
-**Key:** Only Builder mutates. Only Orchestrator delegates. Architect has NO MCP tools.
+**Key:** Only Builder mutates. Orchestrator (main context) delegates via Task. Architect has NO MCP tools.
 
 ## run_state Protocol
 

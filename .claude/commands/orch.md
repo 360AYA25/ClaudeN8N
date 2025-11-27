@@ -1,4 +1,4 @@
-# /orch — 6-Agent n8n Workflow Orchestration
+# /orch — 5-Agent n8n Workflow Orchestration
 
 ## Overview
 Launch the multi-agent system to create, modify, or fix n8n workflows.
@@ -29,6 +29,72 @@ Launch the multi-agent system to create, modify, or fix n8n workflows.
 | `goal` | string | (from prompt) | Task description |
 | `services` | comma-separated | (auto-detect) | Services to integrate |
 | `workflow_id` | string | null | Existing workflow to modify |
+
+---
+
+## Execution Protocol
+
+### Calling Agents
+
+```javascript
+// ✅ CORRECT:
+Task({ agent: "architect", prompt: "Clarify requirements..." })
+
+// ❌ WRONG (don't use subagent_type for custom agents!):
+Task({ subagent_type: "architect", prompt: "..." })
+```
+
+### Agent Delegation
+
+| Stage | Agent | Model |
+|-------|-------|-------|
+| clarification | architect | sonnet |
+| research | researcher | sonnet |
+| decision | architect | sonnet |
+| credentials | researcher | sonnet |
+| implementation | researcher | sonnet |
+| build | builder | opus 4.5 |
+| validate/test | qa | sonnet |
+| analysis | analyst | sonnet |
+
+### Context Passing
+
+1. **In prompt**: Pass ONLY summary (not full JSON!)
+2. **Agent reads**: `memory/run_state.json` for details
+3. **Agent writes**: Results to run_state + `memory/agent_results/`
+4. **Return**: Summary only (~500 tokens max)
+
+### Context Isolation
+
+Each `Task({ agent: "..." })` = **NEW PROCESS**:
+- Clean context (~30-75K tokens)
+- Model from agent's frontmatter
+- Tools from agent's frontmatter
+- Contexts do NOT overlap — exchange via files!
+
+### Algorithm
+
+1. Read `memory/run_state.json` or initialize new
+2. Check stage, delegate to agent:
+   - `clarification` → architect
+   - `research` → researcher
+   - `decision` → architect
+   - `implementation` → researcher
+   - `build` → builder
+   - `validate/test` → qa
+3. Receive updated run_state
+4. Advance stage based on output
+
+### Hard Rules
+
+- **NEVER** mutate workflows (only list/get)
+- **ALWAYS** advance stage forward (never rollback)
+- **ALWAYS** fill `worklog` and `agent_log`
+
+### Output Formats
+
+- **worklog**: `{ ts, cycle, agent, action, outcome }`
+- **agent_log**: `{ ts, agent, action, details }`
 
 ---
 
@@ -140,217 +206,25 @@ Tests each agent can be invoked:
 
 **IMPORTANT:** Architect has NO MCP tools - only Read + Skills!
 
-### `--test e2e` (End-to-End Production Test) 🆕
-**Full system stress test with REAL 20+ node workflow**
+### `--test e2e` (End-to-End Production Test)
 
-Creates, activates, and tests complex production-grade workflow with:
-- **20+ nodes** (triggers Logical Block Building)
-- **Multiple services** (Telegram, Supabase, OpenAI, HTTP Request)
-- **AI Agent node** with custom prompt
-- **Complex logic** (IF, Switch, Merge nodes)
-- **Real credentials** (auto-discovered from existing workflows)
-- **Full execution** (activates + triggers + monitors)
-- **Auto-fix loops** (if execution fails, Builder fixes)
-- **Analyst review** (post-mortem analysis + learnings)
+**REAL workflow test** — NOT a mock! Works exactly like normal system.
 
-**Process (follows 5-PHASE FLOW!):**
+Follows **standard 5-PHASE FLOW** (no shortcuts):
+- Creates REAL 20+ node workflow
+- Services: Telegram, Supabase, OpenAI, HTTP
+- Auto-discovers and uses real credentials
+- Activates, triggers via Chat webhook, verifies execution
+- Analyst report at end
 
-```
-1. CLARIFICATION PHASE
-   └─ Task({ agent: "architect" })
-      ├─ E2E test mode: confirm test parameters with user
-      ├─ Workflow type: Complex (20+ nodes)
-      ├─ Services: Telegram, Supabase, OpenAI, HTTP
-      ├─ Trigger: Chat Trigger (dual mode)
-      └─ Output: run_state.requirements
+**Test workflow:**
+- Chat Trigger (dual mode: UI + webhook)
+- AI Agent + Supabase + HTTP + Telegram
+- Complex logic (IF, Switch, error handling)
 
-2. RESEARCH PHASE
-   └─ Task({ agent: "researcher" })
-      ├─ Find existing E2E test workflows (reuse if found)
-      ├─ Discover available credentials (Telegram, Supabase, OpenAI)
-      ├─ Search best templates for multi-service AI workflow
-      └─ Output: run_state.research_findings + credentials_discovered
+**Success:** All nodes executed, services responded, no QA errors, analyst report generated.
 
-3. DECISION PHASE
-   └─ Task({ agent: "architect" })
-      ├─ Present findings to user
-      ├─ Options: A) Modify existing, B) Build new
-      ├─ In E2E test: auto-select "Build new" with all credentials
-      └─ Output: run_state.decision + credentials_selected
-
-4. IMPLEMENTATION PHASE
-   └─ Task({ agent: "researcher" })
-      ├─ Deep dive for build_guidance
-      ├─ Read LEARNINGS-INDEX.md for relevant patterns
-      ├─ Get node configs: chatTrigger, aiAgent, supabase, telegram
-      ├─ Find gotchas and warnings
-      └─ Output: run_state.build_guidance
-
-5. BUILD PHASE
-   └─ Task({ agent: "builder" })
-      ├─ Create 21-node workflow using Logical Block Building
-      ├─ Chat Trigger (mode: webhook, public: true)
-      ├─ AI Agent, Supabase, HTTP, Telegram
-      ├─ Use credentials from run_state.credentials_selected
-      └─ Output: run_state.workflow + memory/agent_results/workflow_{id}.json
-
-6. VALIDATE & TEST PHASE
-   └─ Task({ agent: "qa" })
-      ├─ Validate workflow structure
-      ├─ Activate workflow
-      ├─ Trigger via Chat webhook
-      ├─ Check all 21 nodes executed
-      ├─ Verify Supabase record created
-      ├─ Verify Telegram sent
-      ├─ IF errors: edit_scope → Builder → QA (max 3 cycles)
-      └─ Output: run_state.qa_report
-
-7. ANALYSIS PHASE (ALWAYS runs)
-   └─ Task({ agent: "analyst" })
-      ├─ Token usage per agent + total
-      ├─ Cost estimate
-      ├─ Agent performance timing
-      ├─ QA loop efficiency
-      ├─ Issues and recommendations
-      ├─ Write learnings if patterns found
-      └─ Output: memory/e2e_test_analysis_{timestamp}.md
-
-8. CLEANUP
-   └─ Task({ agent: "qa" })
-      ├─ Deactivate workflow
-      ├─ Add tag "e2e-test"
-      └─ Keep workflow for reference
-```
-
-**Test Workflow Specification:**
-
-```json
-{
-  "name": "E2E Test: Multi-Service AI Workflow",
-  "description": "20+ node production test covering all agent capabilities",
-  "nodes_count": 21,
-  "blocks": [
-    {
-      "name": "Trigger",
-      "type": "foundation",
-      "nodes": [
-        "Chat Trigger (@n8n/n8n-nodes-langchain.chatTrigger)",
-        "  mode: webhook (API access)",
-        "  public: true (open chat UI)",
-        "  responseMode: lastNode",
-        "Set: Parse Chat Input",
-        "IF: Validate Required Fields"
-      ]
-    },
-    {
-      "name": "AI Processing",
-      "type": "intelligence",
-      "nodes": [
-        "AI Agent: Analyze Input",
-        "  prompt: 'You are a data validator. Check if input contains valid user data. Return JSON with validation result.'",
-        "  tools: [http_request]",
-        "Code: Parse AI Response",
-        "Switch: Route by AI Decision"
-      ]
-    },
-    {
-      "name": "Storage Operations",
-      "type": "persistence",
-      "nodes": [
-        "Supabase: Insert User Record",
-        "Supabase: Get User by ID",
-        "Set: Format User Data",
-        "IF: Check Insert Success"
-      ]
-    },
-    {
-      "name": "External API",
-      "type": "integration",
-      "nodes": [
-        "HTTP Request: GET jsonplaceholder.typicode.com/users/1",
-        "Set: Merge External Data"
-      ]
-    },
-    {
-      "name": "Notifications",
-      "type": "output",
-      "nodes": [
-        "Telegram: Send Success Message",
-        "Set: Format Response",
-        "Respond to Webhook: Return Results"
-      ]
-    }
-  ],
-  "complexity_features": [
-    "Multiple IF/Switch routing",
-    "AI Agent with tools",
-    "Database operations (insert + get)",
-    "External API calls",
-    "Error handling on all blocks",
-    "Webhook response with data"
-  ]
-}
-```
-
-**Why Chat Trigger? 🎯**
-
-| Feature | Webhook Trigger | **Chat Trigger** | Manual Trigger |
-|---------|----------------|------------------|----------------|
-| UI for testing | ❌ No | ✅ Built-in chat | ✅ Button |
-| API access | ✅ Yes | ✅ Yes (webhook) | ❌ No |
-| Session memory | ❌ No | ✅ Automatic | ❌ No |
-| For AI agents | 🟡 Works | ✅ Optimized | 🟡 Works |
-| Chat history | ❌ No | ✅ Visible in UI | ❌ No |
-| Claude Code testing | ✅ API only | ✅ **Both ways!** | ❌ UI only |
-
-**Chat Trigger = Best choice because:**
-- ✅ You can open UI and test manually
-- ✅ Claude Code can trigger via webhook API
-- ✅ Session memory - conversation persists
-- ✅ Perfect for AI workflows
-- ✅ History visible - see all tests
-
-**Testing methods:**
-```javascript
-// Method 1: Automated (Claude Code)
-n8n_trigger_webhook_workflow({
-  webhookUrl: "https://n8n.srv1068954.hstgr.cloud/webhook-test/{id}",
-  httpMethod: "POST",
-  data: {
-    chatInput: "Test query from Claude Code",
-    sessionId: "e2e-test-session"
-  },
-  waitForResponse: true
-})
-
-// Method 2: Manual (User)
-// Open workflow → Click "Open Chat" on Chat Trigger node
-// Type message → See response in real-time
-```
-
-**Success Criteria:**
-✅ Workflow created with 20+ nodes
-✅ All logical blocks built correctly
-✅ All credentials applied
-✅ Workflow activated
-✅ Execution completed (all nodes green)
-✅ AI Agent responded correctly
-✅ Supabase records exist
-✅ Telegram message delivered
-✅ Chat Trigger returned 200 OK
-✅ Chat UI accessible (manual testing)
-✅ No QA errors
-✅ Analyst report generated
-
-**Cleanup:**
-- Deactivate workflow after test
-- Delete test Supabase records
-- Keep workflow for reference (tag: "e2e-test")
-
-**Usage:**
-```bash
-/orch --test e2e
-```
+**Cleanup:** Deactivate workflow, tag "e2e-test", keep for reference.
 
 ### `--test agent:NAME`
 Tests specific agent in isolation:
