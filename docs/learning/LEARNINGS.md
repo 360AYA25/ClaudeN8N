@@ -169,6 +169,129 @@ ls .claude/agents/*.md | wc -l
 
 ## n8n Workflows
 
+## L-051: Chat Trigger vs Webhook Trigger - When to Use What
+
+**Category:** Best Practices / Node Selection
+**Severity:** MEDIUM
+**Date:** 2025-11-27
+
+### Problem
+Choosing between Chat Trigger and Webhook Trigger for AI workflows affects testability, user experience, and development workflow.
+
+**Symptoms:**
+- Hard to test AI Agent workflows manually
+- No session memory between requests
+- Can't see chat history
+- Need separate testing infrastructure
+
+### Solution: Use Chat Trigger for AI Workflows
+
+**Comparison:**
+
+| Feature | Webhook Trigger | **Chat Trigger** | Manual Trigger |
+|---------|----------------|------------------|----------------|
+| **UI for testing** | ❌ No | ✅ Built-in chat | ✅ Button "Test" |
+| **API access** | ✅ Yes | ✅ Yes (webhook mode) | ❌ No |
+| **Session memory** | ❌ No | ✅ Automatic | ❌ No |
+| **For AI agents** | 🟡 Works | ✅ Optimized | 🟡 Works |
+| **Chat history** | ❌ No | ✅ Visible in UI | ❌ No |
+| **Claude Code testing** | ✅ API only | ✅ **Both ways!** | ❌ UI only |
+| **Production ready** | ✅ Yes | ✅ Yes | ❌ Dev only |
+
+**Chat Trigger advantages:**
+1. **Dual testing modes:**
+   - Manual: Open Chat UI → type message → see response
+   - Automated: POST to webhook URL → get response
+2. **Session management:** Automatic conversation history
+3. **Perfect for AI:** Designed for LangChain AI Agent nodes
+4. **Visible history:** See all test conversations in UI
+5. **Same as Webhook:** Can be triggered via API
+
+### Implementation
+
+**Node configuration:**
+```javascript
+{
+  "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+  "name": "Chat Trigger",
+  "parameters": {
+    "mode": "webhook",           // Enables webhook API access
+    "public": true,              // Enables chat UI (open to public)
+    "options": {
+      "responseMode": "lastNode" // Return last node output
+    }
+  }
+}
+```
+
+**Testing via API (Claude Code/QA):**
+```javascript
+// Method 1: n8n MCP tool
+n8n_trigger_webhook_workflow({
+  webhookUrl: "https://n8n.srv1068954.hstgr.cloud/webhook-test/{id}",
+  httpMethod: "POST",
+  data: {
+    chatInput: "Test query from Claude Code",
+    sessionId: "test-session-123"
+  },
+  waitForResponse: true
+})
+
+// Response includes conversation history + AI response
+```
+
+**Testing manually (User):**
+```
+1. Open workflow in n8n
+2. Click "Open Chat" button on Chat Trigger node
+3. Type message in chat UI
+4. See response in real-time
+5. History persists across messages
+```
+
+### When to Use
+
+**Use Chat Trigger when:**
+- ✅ Building AI Agent workflows
+- ✅ Need manual testing during development
+- ✅ Want conversation history
+- ✅ Need both UI and API access
+- ✅ Testing complex multi-turn conversations
+
+**Use Webhook Trigger when:**
+- ✅ Pure API integration (no manual testing needed)
+- ✅ High-volume production traffic
+- ✅ Custom authentication required
+- ✅ Non-conversational workflows
+
+**Use Manual Trigger when:**
+- ✅ Development/testing only
+- ✅ One-off executions
+- ✅ No production deployment
+
+### Example: E2E Test Workflow
+
+**Before (Webhook):**
+```
+Problem: Can't test AI agent manually → need curl commands
+Problem: No session memory → each test is isolated
+Problem: Can't see history → debugging is hard
+```
+
+**After (Chat Trigger):**
+```
+✅ Open Chat UI → test immediately
+✅ Session persists → test multi-turn conversations
+✅ History visible → see all test runs
+✅ Still works via API → automated tests pass
+```
+
+### Related
+- L-050: Builder Timeout (large workflows)
+- P-015: AI Agent workflows pattern
+
+---
+
 ## L-050: Builder Timeout on Large Workflows
 
 **Category:** Performance / Architecture

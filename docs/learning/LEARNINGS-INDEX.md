@@ -34,7 +34,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 42
+- **Total Entries:** 43
 - **Categories:** 10
 - **Node Types Covered:** 15+
 - **Error Types Cataloged:** 22+
@@ -89,7 +89,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | Category | Lines | Entries | Focus Areas |
 |----------|-------|---------|-------------|
 | Agent Standardization | 70-190 | 1 | Template v2.0, English-only, changelog |
-| n8n Workflows | 170-890, 2145-2279 | 17 | Creation, modification, validation, debugging, partial updates, fan-out, large workflows |
+| n8n Workflows | 170-890, 2145-2279 | 18 | Creation, modification, validation, debugging, partial updates, fan-out, large workflows, triggers |
 | Notion Integration | 890-1020 | 6 | Filters, dates, properties, timezone, page objects |
 | Supabase Database | 1020-1130 | 5 | Schema, RLS, RPC, insert/update, get vs getAll |
 | Telegram Bot | 1130-1190 | 2 | Webhooks, message handling, parameters |
@@ -132,7 +132,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
-| 2025-11-26 | L-050: Builder Timeout on Large Workflows | 172 | n8n Workflows |
+| 2025-11-27 | L-051: Chat Trigger vs Webhook Trigger | 172 | n8n Workflows |
+| 2025-11-26 | L-050: Builder Timeout on Large Workflows | 295 | n8n Workflows |
 | 2025-11-26 | FP-003: continueOnFail + onError Defense-in-Depth | 2051 | Error Handling |
 | 2025-11-26 | NC-003: Switch Node Multi-Way Routing | 2145 | n8n Workflows |
 | 2025-11-12 | Set v3.4 Expression Syntax ={{ | 285 | n8n Workflows |
@@ -188,7 +189,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `supabase` → Lines: 1020-1130, 490-616, 1336-1415
 - `set node` → Lines: 285-400
 - `http request` → Lines: 1441-1530, 1528-1710
-- `webhook` → Lines: 730-871, 1458-1474
+- `webhook` OR `chat trigger` → Lines: 172, 730-871, 1458-1474
 - `telegram` → Lines: 1130-1190, 400-490
 - `notion` → Lines: 890-1020, 1229-1336
 - `memory` OR `ai agent` → Lines: 1639-1683, 1661-1683

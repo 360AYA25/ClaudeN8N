@@ -170,15 +170,15 @@ PHASE 1: DISCOVERY
 
 PHASE 2: DESIGN & BUILD
 ├─ Architect: Design 20+ node workflow blueprint
-│  ├─ Block 1: Webhook trigger (3 nodes)
+│  ├─ Block 1: **Chat Trigger** (AI-optimized webhook + UI) (3 nodes)
 │  ├─ Block 2: Data validation with IF/Switch (5 nodes)
 │  ├─ Block 3: AI Agent processing (4 nodes)
 │  ├─ Block 4: Supabase storage (4 nodes)
 │  ├─ Block 5: HTTP Request to external API (2 nodes)
-│  └─ Block 6: Telegram notification + Response (3 nodes)
+│  └─ Block 6: Telegram notification + Chat Response (3 nodes)
 ├─ Builder: Create workflow using Logical Block Building
 ├─ QA: Validate all nodes + connections
-└─ Output: workflow_id
+└─ Output: workflow_id + chat_url
 
 PHASE 3: ACTIVATION & EXECUTION
 ├─ QA: Activate workflow
@@ -228,8 +228,11 @@ PHASE 6: ANALYSIS & LEARNINGS
       "name": "Trigger",
       "type": "foundation",
       "nodes": [
-        "Webhook (POST /test-e2e)",
-        "Set: Parse Input",
+        "Chat Trigger (@n8n/n8n-nodes-langchain.chatTrigger)",
+        "  mode: webhook (API access)",
+        "  public: true (open chat UI)",
+        "  responseMode: lastNode",
+        "Set: Parse Chat Input",
         "IF: Validate Required Fields"
       ]
     },
@@ -283,6 +286,42 @@ PHASE 6: ANALYSIS & LEARNINGS
 }
 ```
 
+**Why Chat Trigger? 🎯**
+
+| Feature | Webhook Trigger | **Chat Trigger** | Manual Trigger |
+|---------|----------------|------------------|----------------|
+| UI for testing | ❌ No | ✅ Built-in chat | ✅ Button |
+| API access | ✅ Yes | ✅ Yes (webhook) | ❌ No |
+| Session memory | ❌ No | ✅ Automatic | ❌ No |
+| For AI agents | 🟡 Works | ✅ Optimized | 🟡 Works |
+| Chat history | ❌ No | ✅ Visible in UI | ❌ No |
+| Claude Code testing | ✅ API only | ✅ **Both ways!** | ❌ UI only |
+
+**Chat Trigger = Best choice because:**
+- ✅ You can open UI and test manually
+- ✅ Claude Code can trigger via webhook API
+- ✅ Session memory - conversation persists
+- ✅ Perfect for AI workflows
+- ✅ History visible - see all tests
+
+**Testing methods:**
+```javascript
+// Method 1: Automated (Claude Code)
+n8n_trigger_webhook_workflow({
+  webhookUrl: "https://n8n.srv1068954.hstgr.cloud/webhook-test/{id}",
+  httpMethod: "POST",
+  data: {
+    chatInput: "Test query from Claude Code",
+    sessionId: "e2e-test-session"
+  },
+  waitForResponse: true
+})
+
+// Method 2: Manual (User)
+// Open workflow → Click "Open Chat" on Chat Trigger node
+// Type message → See response in real-time
+```
+
 **Success Criteria:**
 ✅ Workflow created with 20+ nodes
 ✅ All logical blocks built correctly
@@ -292,7 +331,8 @@ PHASE 6: ANALYSIS & LEARNINGS
 ✅ AI Agent responded correctly
 ✅ Supabase records exist
 ✅ Telegram message delivered
-✅ Webhook returned 200 OK
+✅ Chat Trigger returned 200 OK
+✅ Chat UI accessible (manual testing)
 ✅ No QA errors
 ✅ Analyst report generated
 

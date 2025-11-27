@@ -104,16 +104,19 @@ When user invokes `/orch --test e2e`:
 2. DESIGN PHASE
    - Create test specification (20+ nodes)
    - Request: "Create production test workflow with:
-     - Webhook trigger (POST /test-e2e)
+     - **Chat Trigger** (@n8n/n8n-nodes-langchain.chatTrigger)
+       - mode: webhook (enables API access)
+       - public: true (enables chat UI for manual testing)
+       - responseMode: lastNode
      - Data validation (IF/Switch)
      - AI Agent with prompt: 'You are a data validator...'
      - Supabase operations (insert + get)
      - HTTP Request to jsonplaceholder API
      - Telegram notification
-     - Respond to webhook"
+     - Chat response to user"
    - Task(architect): Design blueprint (skip user clarification)
    - Set: credentials_selected = credentials_map
-   - Output: blueprint with 21 nodes
+   - Output: blueprint with 21 nodes + chat_url
 
 3. BUILD PHASE
    - Task(researcher): Deep dive for build_guidance
@@ -123,19 +126,25 @@ When user invokes `/orch --test e2e`:
 
 4. ACTIVATION & EXECUTION PHASE
    - Task(qa): "Activate workflow {workflow_id}"
-   - Task(qa): "Trigger test execution with payload:
-     { user: 'test', email: 'test@example.com', action: 'validate' }"
+   - Task(qa): "Trigger test execution via Chat Trigger webhook:
+     POST {chat_url}
+     {
+       chatInput: 'Test: Validate user data for test@example.com',
+       sessionId: 'e2e-test-session'
+     }"
    - Monitor execution: wait for completion
-   - Output: execution_id, status
+   - Output: execution_id, status, chat_response
 
 5. VERIFICATION PHASE
    - Task(qa): "Get execution {execution_id} details"
    - Check criteria:
      ✓ All 21 nodes executed (no errors)
+     ✓ Chat Trigger received input
      ✓ AI Agent response contains validation result
      ✓ Supabase record created (check via get)
      ✓ Telegram message sent (check execution log)
-     ✓ Webhook returned 200 OK
+     ✓ Chat Trigger returned 200 OK with response
+     ✓ Chat UI accessible (verify chat_url works)
    - Output: verification_report
 
 6. FIX LOOP (if verification fails)
@@ -173,13 +182,17 @@ When user invokes `/orch --test e2e`:
   "workflow_created": true,
   "nodes_count": 21,
   "logical_blocks": 5,
+  "trigger_type": "chatTrigger",
+  "chat_url_accessible": true,
   "activated": true,
   "execution_completed": true,
   "all_nodes_success": true,
+  "chat_trigger_received": true,
   "ai_agent_responded": true,
   "supabase_records_exist": true,
   "telegram_sent": true,
-  "webhook_response": 200,
+  "chat_response": 200,
+  "chat_ui_works": true,
   "qa_errors": 0,
   "fix_cycles": 0,
   "analyst_report_generated": true

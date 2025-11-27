@@ -213,6 +213,45 @@ function verify_params_aligned(block_nodes) {
 }
 ```
 
+## Trigger Selection: Chat Trigger vs Webhook
+
+**For AI Agent workflows, ALWAYS use Chat Trigger instead of Webhook:**
+
+### Why Chat Trigger?
+- ✅ Dual testing: UI chat + webhook API
+- ✅ Session memory: automatic conversation history
+- ✅ Optimized for AI: designed for LangChain agents
+- ✅ Manual testing: open chat UI, type, see response
+- ✅ Automated testing: same webhook API as normal trigger
+- ✅ Visible history: see all test conversations
+
+### Node Template:
+```json
+{
+  "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+  "typeVersion": 1,
+  "name": "Chat Trigger",
+  "parameters": {
+    "mode": "webhook",
+    "public": true,
+    "options": {
+      "responseMode": "lastNode"
+    }
+  },
+  "position": [250, 300]
+}
+```
+
+**When to use Webhook instead:**
+- Pure API integration (no manual testing needed)
+- High-volume production (millions of requests)
+- Custom authentication required
+- Non-conversational workflows
+
+**Related:** See LEARNINGS.md → L-051 for full comparison
+
+---
+
 ## Credential Usage (ОБЯЗАТЕЛЬНО!)
 
 **ALWAYS** use `run_state.credentials_selected` when creating nodes with credentials:
