@@ -2,6 +2,61 @@
 
 All notable changes to ClaudeN8N (6-Agent n8n Orchestration System).
 
+## [2.8.0] - 2025-11-27
+
+### Task Tool Syntax Fix for Custom Agents
+
+**Critical fix: correct syntax for calling custom agents via Task tool**
+
+### Fixed
+- **Task Tool Syntax** - Custom agents must use `agent` parameter, not `subagent_type`
+  ```javascript
+  // ✅ CORRECT:
+  Task({ agent: "architect", prompt: "..." })
+
+  // ❌ WRONG:
+  Task({ subagent_type: "architect", prompt: "..." })
+  ```
+- **E2E Test Algorithm** - Now follows 5-PHASE FLOW correctly (8 phases)
+  1. CLARIFICATION → Architect
+  2. RESEARCH → Researcher
+  3. DECISION → Architect
+  4. IMPLEMENTATION → Researcher
+  5. BUILD → Builder
+  6. VALIDATE & TEST → QA
+  7. ANALYSIS → Analyst
+  8. CLEANUP → QA
+
+### Added
+- **Execution Protocol** in orchestrator.md
+  - Correct syntax for calling custom agents
+  - Agent delegation table (stage → agent → model)
+  - Context passing protocol (summary in prompt, full in files)
+  - Context isolation diagram
+- **L-052** in LEARNINGS.md: "Task Tool Syntax - agent vs subagent_type"
+  - `subagent_type` = built-in agents (general-purpose, Explore, Plan, etc.)
+  - `agent` = custom agents (from `.claude/agents/` directory)
+  - Context isolation explanation
+  - Model selection from frontmatter
+- **Claude Code Keywords** in LEARNINGS-INDEX.md
+  - New category "Claude Code" added
+  - Keywords: task tool, subagent_type, custom agent, context isolation
+
+### Changed
+- **CLAUDE.md** - Updated Task call examples with correct syntax
+- **orchestrator.md** - E2E test now uses correct agent calls
+- **LEARNINGS-INDEX.md** - 44 entries, 11 categories
+
+### Documentation
+- Full explanation of context isolation (each Task = new process)
+- Model selection from agent frontmatter (opus/sonnet/haiku)
+- Tools whitelist from agent frontmatter
+
+### Commits
+- `3debb05` docs: fix Task tool syntax for custom agents (v2.8.0)
+
+---
+
 ## [2.7.0] - 2025-11-27
 
 ### Token Usage Tracking & E2E Test Improvements
