@@ -292,6 +292,135 @@ Problem: Can't see history → debugging is hard
 
 ---
 
+## L-052: Task Tool Syntax - agent vs subagent_type
+
+**Category:** Claude Code / Agent System
+**Severity:** CRITICAL
+**Date:** 2025-11-27
+
+### Problem
+Custom agents in `.claude/agents/` directory are not called correctly, causing E2E tests and orchestration to fail.
+
+**Symptoms:**
+- `Task({ subagent_type: "architect" })` doesn't work
+- Wrong agents called (feature-dev:code-architect instead of custom architect)
+- 5-PHASE FLOW not followed
+- Agents don't receive correct context
+
+**Root Cause:**
+Using `subagent_type` parameter instead of `agent` parameter for custom agents.
+
+### Solution: Use `agent` parameter for custom agents
+
+**WRONG:**
+```javascript
+// ❌ This calls BUILT-IN agents, not custom!
+Task({
+  subagent_type: "architect",  // Won't find custom agent!
+  prompt: "..."
+})
+
+// ❌ This calls wrong agent entirely!
+Task({
+  subagent_type: "feature-dev:code-architect",  // Different agent!
+  prompt: "..."
+})
+```
+
+**CORRECT:**
+```javascript
+// ✅ This calls custom agent from .claude/agents/architect.md
+Task({
+  agent: "architect",  // Name from frontmatter
+  prompt: "Clarify requirements with user"
+})
+```
+
+### Key Differences
+
+| Parameter | Purpose | Agents Available |
+|-----------|---------|------------------|
+| `subagent_type` | Built-in agents | general-purpose, Explore, Plan, feature-dev:*, plugin-dev:*, etc. |
+| `agent` | Custom agents | Any agent in `.claude/agents/` directory |
+
+### How Custom Agents Work
+
+**Agent definition** (`.claude/agents/architect.md`):
+```yaml
+---
+name: architect          # ← This is the "agent" name to use
+model: opus              # ← Model for this agent
+description: Strategic planning and architecture
+tools:
+  - Read
+  - WebSearch            # ← Whitelist of allowed tools
+skills:
+  - n8n-workflow-patterns
+---
+
+# System prompt here...
+```
+
+**Calling the agent:**
+```javascript
+Task({
+  agent: "architect",    // Matches "name" in frontmatter
+  prompt: "Design workflow for Telegram bot"
+})
+// → Creates NEW PROCESS with Opus model
+// → Agent gets clean context
+// → Agent has access ONLY to tools in frontmatter
+```
+
+### Context Isolation
+
+Each custom agent runs in **isolated context**:
+
+```
+Orchestrator (Sonnet, ~20K context)
+    │
+    ├─→ Task({ agent: "architect" })
+    │       └─→ NEW PROCESS (Opus, clean context)
+    │           └─→ Reads memory/run_state.json
+    │           └─→ Does work
+    │           └─→ Writes to memory/run_state.json
+    │           └─→ Returns summary only (~500 tokens)
+    │
+    └─→ Orchestrator receives summary
+        └─→ Main context stays small!
+```
+
+**Benefits:**
+- ✅ Each agent gets clean context
+- ✅ Each agent runs on its own model
+- ✅ Main window stays small (<30K tokens)
+- ✅ No context overflow on long workflows
+
+### E2E Test Fix
+
+**Before (broken):**
+```javascript
+// Wrong agents, wrong syntax
+Task({ subagent_type: "agent-sdk-dev:agent-sdk-verifier-ts", ... })
+Task({ subagent_type: "feature-dev:code-architect", ... })
+```
+
+**After (fixed):**
+```javascript
+// Correct custom agents
+Task({ agent: "researcher", prompt: "Discover credentials..." })
+Task({ agent: "architect", prompt: "Clarify requirements..." })
+Task({ agent: "builder", prompt: "Create workflow..." })
+Task({ agent: "qa", prompt: "Validate and test..." })
+```
+
+### Related
+- L-051: Chat Trigger vs Webhook
+- L-050: Builder Timeout (large workflows)
+- orchestrator.md: Execution Protocol section
+
+---
+
 ## L-050: Builder Timeout on Large Workflows
 
 **Category:** Performance / Architecture

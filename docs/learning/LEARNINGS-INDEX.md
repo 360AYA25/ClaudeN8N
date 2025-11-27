@@ -34,8 +34,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 43
-- **Categories:** 10
+- **Total Entries:** 44
+- **Categories:** 11
 - **Node Types Covered:** 15+
 - **Error Types Cataloged:** 22+
 - **File Size:** 2,285 lines (~65,000 tokens)
@@ -88,6 +88,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Category | Lines | Entries | Focus Areas |
 |----------|-------|---------|-------------|
+| Claude Code | 295-400 | 1 | Task tool syntax, agent vs subagent_type, context isolation |
 | Agent Standardization | 70-190 | 1 | Template v2.0, English-only, changelog |
 | n8n Workflows | 170-890, 2145-2279 | 18 | Creation, modification, validation, debugging, partial updates, fan-out, large workflows, triggers |
 | Notion Integration | 890-1020 | 6 | Filters, dates, properties, timezone, page objects |
@@ -132,6 +133,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-11-27 | L-052: Task Tool Syntax - agent vs subagent_type | 295 | Claude Code |
 | 2025-11-27 | L-051: Chat Trigger vs Webhook Trigger | 172 | n8n Workflows |
 | 2025-11-26 | L-050: Builder Timeout on Large Workflows | 295 | n8n Workflows |
 | 2025-11-26 | FP-003: continueOnFail + onError Defense-in-Depth | 2051 | Error Handling |
@@ -221,6 +223,12 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `debug` → Lines: 490-616, 1570-1586
 - `logical block building` OR `parameter alignment` → Lines: 172
 
+### Claude Code Keywords
+- `task tool` OR `agent parameter` → Lines: 295-400
+- `subagent_type` OR `custom agent` → Lines: 295-400
+- `context isolation` OR `agent isolation` → Lines: 295-400
+- `agent frontmatter` OR `model selection` → Lines: 295-400
+
 ---
 
 ## 📈 Usage Metrics (Expected)
@@ -266,7 +274,7 @@ node scripts/generate-learnings-index.js
 
 ---
 
-**Last Updated:** 2025-11-26
-**Version:** 1.1.0
+**Last Updated:** 2025-11-27
+**Version:** 1.2.0
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent

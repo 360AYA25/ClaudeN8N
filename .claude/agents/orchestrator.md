@@ -19,6 +19,63 @@ tools:
 
 ---
 
+## Execution Protocol (CRITICAL!)
+
+### Calling Custom Agents:
+
+```javascript
+// CORRECT SYNTAX:
+Task({
+  agent: "architect",           // Name from agent's frontmatter
+  prompt: "Clarify requirements with user. Current state: ..."
+})
+
+// WRONG (don't use subagent_type for custom agents!):
+Task({
+  subagent_type: "architect",   // ❌ This won't work!
+  prompt: "..."
+})
+```
+
+### Agent Delegation:
+
+| Stage | Agent | Model | Task Call |
+|-------|-------|-------|-----------|
+| clarification | architect | opus | `Task({ agent: "architect", prompt: "..." })` |
+| research | researcher | sonnet | `Task({ agent: "researcher", prompt: "..." })` |
+| decision | architect | opus | `Task({ agent: "architect", prompt: "..." })` |
+| credentials | researcher | sonnet | `Task({ agent: "researcher", prompt: "..." })` |
+| implementation | researcher | sonnet | `Task({ agent: "researcher", prompt: "..." })` |
+| build | builder | opus | `Task({ agent: "builder", prompt: "..." })` |
+| validate/test | qa | haiku | `Task({ agent: "qa", prompt: "..." })` |
+| analysis | analyst | opus | `Task({ agent: "analyst", prompt: "..." })` |
+
+### Context Passing Protocol:
+
+1. **In prompt**: Pass ONLY summary of run_state (not full JSON!)
+2. **Agent reads**: `memory/run_state.json` for full details
+3. **Agent writes**: Results to `memory/run_state.json` + `memory/agent_results/`
+4. **Return**: Agent returns ONLY summary (~500 tokens max)
+
+### Context Isolation:
+
+```
+Orchestrator (Sonnet, ~20K context)
+    │
+    ├─→ Task({ agent: "architect" })
+    │       └─→ NEW PROCESS (Opus, clean ~30K context)
+    │           └─→ Reads run_state.json
+    │           └─→ Does work
+    │           └─→ Writes to run_state.json
+    │           └─→ Returns summary only
+    │
+    └─→ Orchestrator receives summary
+        └─→ Reads updated run_state.json
+        └─→ Decides next agent
+```
+
+---
+
 ## 5-PHASE WORKFLOW
 
 ### Phase 1: CLARIFICATION
@@ -94,95 +151,70 @@ clarification → research → decision → implementation → build → validat
 
 When user invokes `/orch --test e2e`:
 
-### Algorithm:
+### Algorithm (follows 5-PHASE FLOW!):
 ```
-1. DISCOVERY PHASE
-   - Task(researcher): "Discover all available credentials"
-   - Required: Telegram, Supabase, OpenAI, HTTP auth
-   - Output: credentials_map
+1. CLARIFICATION PHASE (even in test mode!)
+   - Task({ agent: "architect", prompt: "E2E test mode. Confirm test parameters:
+       - Workflow type: Complex (20+ nodes)
+       - Services: Telegram, Supabase, OpenAI, HTTP
+       - Trigger: Chat Trigger (dual mode)
+       User can adjust or confirm defaults." })
+   - Output: run_state.requirements (confirmed or adjusted)
 
-2. DESIGN PHASE
-   - Create test specification (20+ nodes)
-   - Request: "Create production test workflow with:
-     - **Chat Trigger** (@n8n/n8n-nodes-langchain.chatTrigger)
-       - mode: webhook (enables API access)
-       - public: true (enables chat UI for manual testing)
-       - responseMode: lastNode
-     - Data validation (IF/Switch)
-     - AI Agent with prompt: 'You are a data validator...'
-     - Supabase operations (insert + get)
-     - HTTP Request to jsonplaceholder API
-     - Telegram notification
-     - Chat response to user"
-   - Task(architect): Design blueprint (skip user clarification)
-   - Set: credentials_selected = credentials_map
-   - Output: blueprint with 21 nodes + chat_url
+2. RESEARCH PHASE
+   - Task({ agent: "researcher", prompt: "Search for:
+       1. Existing E2E test workflows (reuse if found)
+       2. Available credentials (Telegram, Supabase, OpenAI)
+       3. Best templates for multi-service AI workflow" })
+   - Output: run_state.research_findings + credentials_discovered
 
-3. BUILD PHASE
-   - Task(researcher): Deep dive for build_guidance
-   - Task(builder): Create workflow using Logical Block Building
-   - Task(qa): Validate workflow structure
-   - Output: workflow_id
+3. DECISION PHASE
+   - Task({ agent: "architect", prompt: "Present findings to user:
+       - Found credentials: {credentials_discovered}
+       - Options: A) Modify existing, B) Build new
+       In E2E test: auto-select 'Build new' with all credentials" })
+   - Output: run_state.decision + credentials_selected
 
-4. ACTIVATION & EXECUTION PHASE
-   - Task(qa): "Activate workflow {workflow_id}"
-   - Task(qa): "Trigger test execution via Chat Trigger webhook:
-     POST {chat_url}
-     {
-       chatInput: 'Test: Validate user data for test@example.com',
-       sessionId: 'e2e-test-session'
-     }"
-   - Monitor execution: wait for completion
-   - Output: execution_id, status, chat_response
+4. IMPLEMENTATION PHASE
+   - Task({ agent: "researcher", prompt: "Deep dive for build_guidance:
+       - Read LEARNINGS-INDEX.md for relevant patterns
+       - Get node configs for: chatTrigger, aiAgent, supabase, telegram
+       - Find gotchas and warnings" })
+   - Output: run_state.build_guidance
 
-5. VERIFICATION PHASE
-   - Task(qa): "Get execution {execution_id} details"
-   - Check criteria:
-     ✓ All 21 nodes executed (no errors)
-     ✓ Chat Trigger received input
-     ✓ AI Agent response contains validation result
-     ✓ Supabase record created (check via get)
-     ✓ Telegram message sent (check execution log)
-     ✓ Chat Trigger returned 200 OK with response
-     ✓ Chat UI accessible (verify chat_url works)
-   - Output: verification_report
+5. BUILD PHASE
+   - Task({ agent: "builder", prompt: "Create E2E test workflow:
+       - 21 nodes using Logical Block Building
+       - Chat Trigger (mode: webhook, public: true)
+       - AI Agent, Supabase, HTTP, Telegram
+       - Use credentials from run_state.credentials_selected
+       - Verify creation before reporting!" })
+   - Output: run_state.workflow (summary) + memory/agent_results/workflow_{id}.json
 
-6. FIX LOOP (if verification fails)
-   - IF any check failed:
-     - cycle_count++
-     - IF cycle_count <= 3:
-       - Task(analyst): "Analyze execution logs, identify root cause"
-       - Task(researcher): "Find solution in LEARNINGS.md"
-       - Task(builder): "Fix nodes based on analysis"
-       - Task(qa): "Re-validate and re-execute"
-       - GOTO Verification Phase
-     - ELSE:
-       - stage = "blocked"
-       - Report to user
+6. VALIDATE & TEST PHASE
+   - Task({ agent: "qa", prompt: "Validate and test:
+       1. Validate workflow structure
+       2. Activate workflow
+       3. Trigger via Chat webhook
+       4. Check all 21 nodes executed
+       5. Verify Supabase record created
+       6. Verify Telegram sent" })
+   - IF errors: edit_scope → Builder → QA (max 3 cycles)
+   - Output: run_state.qa_report
 
 7. ANALYSIS PHASE (ALWAYS runs)
-   - Task(analyst): "Comprehensive post-mortem analysis:
-     - **Token Usage Report** (per agent + total):
-       - Orchestrator: X tokens
-       - Architect: Y tokens
-       - Researcher: Z tokens
-       - Builder: W tokens
-       - QA: V tokens
-       - Analyst: U tokens
-       - **Total: SUM tokens**
-       - Cost estimate: $X.XX
-     - Review agent performance (timing per phase)
-     - Evaluate QA loop efficiency
-     - Assess Logical Block Building (20+ nodes)
-     - Identify issues and bottlenecks
-     - Generate recommendations
-     - Write new learnings to LEARNINGS.md if patterns found"
+   - Task({ agent: "analyst", prompt: "Post-mortem analysis:
+       - Token usage per agent + total
+       - Cost estimate
+       - Agent performance timing
+       - QA loop efficiency
+       - Issues and recommendations
+       - Write learnings if patterns found" })
    - Output: memory/e2e_test_analysis_{timestamp}.md
 
 8. CLEANUP
-   - Task(qa): "Deactivate workflow {workflow_id}"
-   - Add workflow tag: "e2e-test-{timestamp}"
-   - Keep workflow for reference (don't delete)
+   - Task({ agent: "qa", prompt: "Deactivate workflow, add tag 'e2e-test'" })
+   - Keep workflow for reference
 ```
 
 ### Success Criteria:

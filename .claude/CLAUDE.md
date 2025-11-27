@@ -108,45 +108,69 @@ After 3 fails → stage="blocked" → report to user
 
 ## Task Call Examples
 
-### 5-Phase Flow
+### CRITICAL: Correct Syntax for Custom Agents
+
+```javascript
+// ✅ CORRECT - use "agent" parameter for custom agents:
+Task({
+  agent: "architect",
+  prompt: "Clarify requirements with user"
+})
+
+// ❌ WRONG - don't use "subagent_type" for custom agents!
+Task({
+  subagent_type: "architect",  // This won't work!
+  prompt: "..."
+})
 ```
-# Phase 1: Clarification
-Task(agent=architect, prompt="Clarify requirements with user")
+
+### 5-Phase Flow
+```javascript
+// Phase 1: Clarification
+Task({ agent: "architect", prompt: "Clarify requirements with user" })
 → returns requirements
 
-# Phase 2: Research
-Task(agent=researcher, prompt="Search for solutions per research_request")
+// Phase 2: Research
+Task({ agent: "researcher", prompt: "Search for solutions per research_request" })
 → returns research_findings (fit_score, popularity, existing_workflows)
 
-# Phase 3: Decision
-Task(agent=architect, prompt="Present options to user, get decision")
+// Phase 3: Decision
+Task({ agent: "architect", prompt: "Present options to user, get decision" })
 → returns decision + blueprint
 
-# Phase 4: Implementation
-Task(agent=researcher, prompt="Deep dive on HOW to build per blueprint")
+// Phase 4: Implementation
+Task({ agent: "researcher", prompt: "Deep dive on HOW to build per blueprint" })
 → returns build_guidance (learnings, patterns, node_configs, warnings)
 
-# Phase 5: Build
-Task(agent=builder, prompt="Build workflow per blueprint + build_guidance")
+// Phase 5: Build
+Task({ agent: "builder", prompt: "Build workflow per blueprint + build_guidance" })
 → returns workflow
-Task(agent=qa, prompt="Validate and test workflow")
+Task({ agent: "qa", prompt: "Validate and test workflow" })
 → returns qa_report
 ```
 
 ### QA Fix Loop
-```
-Task(agent=builder, prompt="Fix issues. edit_scope=[node_123]. qa_report={...}")
+```javascript
+Task({ agent: "builder", prompt: "Fix issues. edit_scope=[node_123]. qa_report={...}" })
 → returns updated workflow
-Task(agent=qa, prompt="Re-validate workflow")
+Task({ agent: "qa", prompt: "Re-validate workflow" })
 → returns qa_report (cycle 2/3)
 ```
 
 ### L4 Post-mortem
-```
-# After stage="blocked"
-Task(agent=analyst, prompt="Analyze why this failed + token usage report")
+```javascript
+// After stage="blocked"
+Task({ agent: "analyst", prompt: "Analyze why this failed + token usage report" })
 → returns root_cause, proposed_learnings, token_usage
 ```
+
+### Context Isolation
+Each agent runs in **isolated context** with its own model:
+- Orchestrator calls `Task({ agent: "builder" })` → NEW process (Opus)
+- Builder gets clean context (~50-75K tokens)
+- Builder reads `memory/run_state.json` for details
+- Builder writes results to `memory/agent_results/workflow_{id}.json`
+- Builder returns ONLY summary to Orchestrator
 
 ## Safety Rules
 
