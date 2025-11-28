@@ -3,7 +3,7 @@
 > **Auto-generated index for fast pattern lookup**
 > **Purpose:** Reduce token cost from 50K (full file) to ~500 tokens (index only)
 > **Usage:** Read index first → Find relevant sections → Load only those sections
-> **Last Updated:** 2025-11-17
+> **Last Updated:** 2025-11-28
 
 ---
 
@@ -34,11 +34,11 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 47
+- **Total Entries:** 48
 - **Categories:** 11
 - **Node Types Covered:** 15+
-- **Error Types Cataloged:** 25+
-- **File Size:** 2,886 lines (~82,000 tokens)
+- **Error Types Cataloged:** 26+
+- **File Size:** 3,050+ lines (~87,000 tokens)
 - **Index Size:** ~600 tokens (99% reduction)
 
 ---
@@ -60,7 +60,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Switch Node** | 2 | 1415-1441, 2145-2279 | Data flow after routing, fan-out patterns |
 | **IF Node** | 2 | 1570-1586, 2616-2675 | Debugging, Code Node fallback, v2.2 validator false positive (L-053) |
 | **AI Agent** | 3 | 1639-1683 | Parameters, clarification, tools, memory |
-| **Generic (MCP)** | 8 | 190-890 | Workflow creation, modification, validation, debugging |
+| **Generic (MCP)** | 9 | 190-890 | **🔴 L-059: Execution analysis mode="full" (CRITICAL)**, Workflow creation, modification, validation, debugging |
 
 ### By Error Type
 
@@ -80,6 +80,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Regex Escaping** | 1 | Code Node | 1586-1602 |
 | **Status Code Handling** | 2 | HTTP Request, continueOnFail | 1528-1710 |
 | **Partial Update Deletion** | 1 | n8n API Critical | 1602-1639 |
+| **Execution Analysis Incomplete** | 1 | 🔴 **mode="full" MANDATORY (L-059 CRITICAL)** | 172-351 |
 | **MCP Server Issues** | 3 | stdio vs WebSocket, Migration, Zod v4 bug (L-055) | 1117-1163, 1729+, 2772-2886 |
 | **False Positives** | 4 | Validation, continueOnFail+onError, IF combinator (L-053), QA override (L-054) | 2051-2143, 2616-2771 |
 | **Fan-Out Routing** | 1 | Switch Node, Multi-Way | 2145-2279 |
@@ -90,7 +91,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 |----------|-------|---------|-------------|
 | Claude Code | 295-400 | 1 | Task tool syntax, agent vs subagent_type, context isolation |
 | Agent Standardization | 70-190 | 1 | Template v2.0, English-only, changelog |
-| n8n Workflows | 170-890, 2145-2279 | 18 | Creation, modification, validation, debugging, partial updates, fan-out, large workflows, triggers |
+| n8n Workflows | 170-890, 2145-2279 | 19 | **🔴 L-059: mode="full" MANDATORY for debugging (CRITICAL)**, Creation, modification, validation, debugging, partial updates, fan-out, large workflows, triggers |
 | Notion Integration | 890-1020 | 6 | Filters, dates, properties, timezone, page objects |
 | Supabase Database | 1020-1130 | 5 | Schema, RLS, RPC, insert/update, get vs getAll |
 | Telegram Bot | 1130-1190 | 2 | Webhooks, message handling, parameters |

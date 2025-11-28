@@ -137,21 +137,34 @@ STEP 0.2: DECOMPOSE ALL NODES
 STEP 0.3: VIEW ALL EXECUTIONS (⚠️ ДО ФИКСА!)
 ├── n8n_executions(action: "list", workflowId, limit: 10)
 ├── ⚠️ ОБЯЗАТЕЛЬНО ДО любых изменений!
-├── For EACH execution (analyze patterns!):
-│   ├── Status: success / error / canceled / waiting
-│   ├── Какие nodes выполнились (executed list)
-│   ├── Где остановилось (last executed node)
-│   ├── НА КАКОЙ ИМЕННО NODE ПАДАЕТ ← CRITICAL!
-│   ├── Input data для каждого node (from executionData)
-│   ├── Output data для каждого node
-│   ├── Error messages: ПОЛНЫЙ текст
-│   └── Execution duration (performance issues?)
-├── Find patterns:
+├── For 1-2 representative executions:
+│   ├── ⚠️ CRITICAL: Get FULL execution data!
+│   ├── n8n_executions({
+│   │     action: "get",
+│   │     id: execution_id,
+│   │     mode: "full",              ← ОБЯЗАТЕЛЬНО "full"!
+│   │     includeInputData: true     ← Включить входные данные!
+│   │   })
+│   ├── Save to memory/diagnostics/execution_{id}_full.json
+│   └── Analyze EACH node in execution:
+│       ├── Status: executed / skipped / error
+│       ├── Input data (what came IN to node)
+│       ├── Output data (what came OUT from node)
+│       ├── Execution time (performance)
+│       ├── Error messages (FULL text if error)
+│       └── itemsInput vs itemsOutput count
+├── Find patterns across executions:
 │   ├── Same node always fails? → config issue
 │   ├── Random failures? → external API/timeout
 │   ├── Works sometimes? → race condition/data dependency
-└── Select 1-2 representative executions for deep dive
+│   ├── Always stops at same node? → missing parameter/credentials
+│   └── Different stop points? → data-dependent logic error
+└── Identify:
+    ├── Last successful node (executed + has output)
+    ├── First failed/skipped node (expected but didn't run)
+    └── WHY it didn't execute (no data? error? disabled?)
 
+⚠️ БЕЗ mode="full" → НЕПОЛНЫЕ ДАННЫЕ → ОШИБОЧНЫЙ ДИАГНОЗ!
 ⚠️ БЕЗ execution analysis → БЛОК! Orchestrator will reject!
 
 STEP 0.4: FIND WHERE IT BREAKS

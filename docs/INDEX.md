@@ -18,6 +18,7 @@
 |----------|-------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture, data flow, safety guards |
 | [WORKFLOWS.md](WORKFLOWS.md) | Common patterns & /orch usage examples |
+| [EXECUTION-DEBUGGING-GUIDE.md](EXECUTION-DEBUGGING-GUIDE.md) | 🔍 Полный гайд по анализу n8n executions (4 режима, примеры, troubleshooting) |
 | [schemas/run-state.schema.json](../schemas/run-state.schema.json) | State contract between agents |
 
 ## Learning Resources

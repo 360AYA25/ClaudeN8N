@@ -205,7 +205,8 @@ if (node.typeVersion < nodeInfo.latestVersion) {
 ```bash
 # 1. Get execution BEFORE fix
 before_exec_id=$(jq -r '.execution_summary.latest_execution_id' memory/run_state.json)
-before_exec=$(n8n_executions action="get" id=$before_exec_id mode="summary")
+# ⚠️ CRITICAL: Use mode="full" to see ALL nodes and compare properly!
+before_exec=$(n8n_executions action="get" id=$before_exec_id mode="full" includeInputData=true)
 
 # 2. Trigger test execution AFTER fix (if workflow has webhook/trigger)
 if [ workflow_has_webhook ]; then
@@ -713,10 +714,12 @@ async function canaryTest(workflow_id, testConfig) {
     });
 
     // Check execution
+    // ⚠️ CRITICAL: Use mode="full" to see ALL nodes and data!
     const execution = await n8n_executions({
       action: "get",
       id: result.executionId,
-      mode: "summary"
+      mode: "full",              // NOT "summary" - need complete picture!
+      includeInputData: true     // See input AND output of each node
     });
 
     if (execution.status !== "success") {

@@ -314,14 +314,56 @@ When auto-triggered, Analyst MUST:
 - Propose learnings
 
 ## Audit Protocol
+
+### Step 1: Read ALL Context
 1. Read `memory/run_state.json` - full state
-2. Read `memory/history.jsonl` - all history
-3. Analyze `agent_log` - who did what
-4. Analyze `_meta.fix_attempts` on EACH node
-5. Identify error patterns (same error repeats?)
-6. Determine root cause
-7. Propose learning for `memory/learnings.md`
-8. **DO NOT FIX** - analysis and recommendations only
+2. Read `memory/history.jsonl` - all history (if exists)
+3. Analyze `agent_log` - who did what, when
+4. Read saved diagnostics:
+   - `memory/diagnostics/workflow_{id}_full.json` (if exists)
+   - `memory/diagnostics/execution_{id}_full.json` (if exists)
+
+### Step 2: Analyze Execution Data (CRITICAL!)
+
+**⚠️ If debugging workflow, MUST analyze execution data:**
+
+```javascript
+// Get list of recent executions
+const execList = n8n_executions({
+  action: "list",
+  workflowId: run_state.workflow_id,
+  limit: 10
+});
+
+// For 1-2 representative executions, get FULL data:
+const execution = n8n_executions({
+  action: "get",
+  id: execution_id,
+  mode: "full",              // ⚠️ CRITICAL: ALWAYS use "full"!
+  includeInputData: true     // See input AND output of each node
+});
+
+// Save for analysis
+Write: `memory/diagnostics/execution_{id}_full.json`
+```
+
+**Why mode="full"?**
+- `summary` only shows 2 items per node → INCOMPLETE picture!
+- `filtered` only shows SOME nodes → MAY MISS critical data!
+- `full` shows ALL nodes + ALL data → COMPLETE diagnosis!
+
+### Step 3: Forensic Analysis
+1. Analyze `_meta.fix_attempts` on EACH node
+2. Identify error patterns (same error repeats?)
+3. Check if execution data was analyzed by Researcher/QA
+4. Determine root cause with EVIDENCE
+5. Classify failure pattern (config/logic/systemic)
+
+### Step 4: Learning Extraction
+1. Propose learning for `memory/learnings.md`
+2. Include: Problem, Root Cause, Solution, Prevention
+3. Tag appropriately (#n8n #node-type #error-pattern)
+4. **DO NOT FIX** - analysis and recommendations only
 
 ## Token Usage Tracking
 
