@@ -153,6 +153,141 @@ Returns to Orchestrator → Architect proceeds to finalize blueprint.
 
 ---
 
+## Impact Analysis Mode (Modification Scenarios)
+
+### Trigger
+When `workflow_id` is provided → run impact analysis BEFORE research phase.
+
+### Protocol
+
+1. **Fetch workflow**: `n8n_get_workflow(id, mode="full")`
+2. **Build dependency graph**: Analyze connections + expressions
+3. **Identify modification zone**:
+   - `target_nodes` — what we're changing
+   - `affected_nodes` — downstream dependencies
+   - `safe_nodes` — not touched
+4. **Define modification sequence** (order matters!)
+5. **Extract parameter contracts** (what each node expects/provides)
+
+### Output → `run_state.impact_analysis`
+
+```json
+{
+  "dependency_graph": {
+    "node_A": {
+      "outputs_to": ["node_B", "node_C"],
+      "receives_from": ["trigger"],
+      "expressions_used": ["$json.body", "$node['trigger'].json"]
+    }
+  },
+  "modification_zone": {
+    "target_nodes": ["supabase_insert"],
+    "affected_nodes": ["telegram_send", "set_response"],
+    "safe_nodes": ["trigger", "set_input"],
+    "blast_radius": 3
+  },
+  "modification_sequence": [
+    { "order": 1, "node": "supabase_insert", "action": "configure", "risk": "low" },
+    { "order": 2, "node": "telegram_send", "action": "update_reference", "risk": "medium" },
+    { "order": 3, "node": "set_response", "action": "verify_unchanged", "risk": "low" }
+  ],
+  "parameter_contracts": {
+    "supabase_insert": {
+      "expects_input": { "fields": ["user_id", "message", "timestamp"] },
+      "provides_output": { "fields": ["id", "created_at", "status"] }
+    }
+  }
+}
+```
+
+### Presentation to User
+
+After impact analysis, show:
+```
+📊 Impact Analysis: Adding Supabase to workflow
+
+🎯 Target nodes (will change): 1
+   - NEW: supabase_insert
+
+⚡ Affected nodes (may need updates): 2
+   - set_response (needs db_id from Supabase)
+   - telegram_reply (verify unchanged)
+
+✅ Safe nodes (no changes): 3
+   - telegram_trigger
+   - process_message
+
+📋 Modification sequence:
+   1. Create supabase_insert (risk: medium)
+   2. Update set_response (risk: low)
+   3. Verify telegram_reply (risk: low)
+
+Продолжить? (да/нет)
+```
+
+**User must approve before proceeding to research phase!**
+
+---
+
+## AI Node Configuration Dialog
+
+### Trigger
+When blueprint contains AI nodes (Agent, OpenAI, Chain, Tool).
+
+### Dialog with User
+
+```
+🤖 AI Node Configuration Required
+
+Node: "AI Agent" (type: @n8n/n8n-nodes-langchain.agent)
+Purpose: [from blueprint] "Анализировать сообщения пользователя"
+
+1️⃣ System Prompt:
+   Какую роль должен играть агент?
+   - Помощник? Аналитик? Модератор?
+   - Какой стиль ответов? (формальный/casual)
+   - Какие ограничения? (не отвечать на X)
+
+2️⃣ Available Tools:
+   Какие инструменты дать агенту?
+   - [ ] Supabase (read/write database)
+   - [ ] HTTP Request (call external APIs)
+   - [ ] Code (execute JavaScript)
+   - [ ] Calculator
+   - [ ] Custom tool?
+
+3️⃣ Memory:
+   - Помнить контекст разговора? (да/нет)
+   - Сколько сообщений хранить? (5/10/unlimited)
+
+4️⃣ Output Format:
+   - Free text
+   - JSON structure
+   - Specific fields?
+```
+
+### Output → `run_state.ai_configs`
+
+```json
+{
+  "AI Agent": {
+    "system_prompt": "Ты — помощник для анализа сообщений...",
+    "system_prompt_type": "define_below",
+    "tools": ["supabase_read", "calculator"],
+    "memory": {
+      "enabled": true,
+      "session_key": "={{ $json.chat_id }}",
+      "window_size": 10
+    },
+    "output_parser": "auto",
+    "temperature": 0.7,
+    "model": "gpt-4o"
+  }
+}
+```
+
+---
+
 ## Key Principle
 
 **Modify existing > Build new**

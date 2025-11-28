@@ -125,6 +125,138 @@ const cost = calculateCost(tokenUsage);
 }
 ```
 
+---
+
+## Circuit Breaker Monitoring
+
+### What is Circuit Breaker?
+Per-agent failure tracking to prevent cascading failures.
+
+### States
+| State | Meaning | Action |
+|-------|---------|--------|
+| CLOSED | Normal | Allow all calls |
+| OPEN | Broken | Block calls, wait recovery_timeout |
+| HALF_OPEN | Testing | Allow 1 call, if success → CLOSED |
+
+### Analyst Role
+Monitor `circuit_breaker_state` and report:
+
+```javascript
+function monitorCircuitBreakers() {
+  const breakers = run_state.circuit_breaker_state;
+
+  for (const [agent, cb] of Object.entries(breakers)) {
+    if (cb.state === "OPEN") {
+      report(`⚠️ ${agent} circuit OPEN since ${cb.last_failure}`);
+      report(`   Failures: ${cb.failure_count}/${cb.failure_threshold}`);
+      report(`   Recovery in: ${calculateRemainingTime(cb)}s`);
+    }
+  }
+}
+```
+
+### Report Format
+```
+⚡ Circuit Breaker Status
+
+| Agent | State | Failures | Last Failure |
+|-------|-------|----------|--------------|
+| builder | CLOSED | 0/3 | — |
+| qa | OPEN | 3/3 | 2 min ago |
+
+⚠️ QA circuit OPEN — will auto-test in 3 minutes
+```
+
+---
+
+## Staged Recovery Protocol
+
+### When Called
+After failure detected + isolated, Analyst guides recovery:
+
+```
+FAILURE DETECTED
+    ↓
+1. ISOLATE — Mark failing agent/node, prevent damage
+    ↓
+2. DIAGNOSE — Analyst reads logs, classifies failure
+    ↓
+3. DECIDE — Present options to user
+    ↓
+4. REPAIR — Builder applies fix (if chosen)
+    ↓
+5. VALIDATE — QA tests fix
+    ↓
+6. INTEGRATE — Re-enable gradually
+    ↓
+7. POST-MORTEM — Document learnings
+```
+
+### Recovery Report Format
+
+```
+🔧 Recovery Status
+
+Stage: 4/7 REPAIR
+Failure: Supabase Insert timeout
+Root cause: RLS policy blocking insert
+
+Progress:
+✅ 1. ISOLATE — node disabled
+✅ 2. DIAGNOSE — RLS policy found
+✅ 3. DECIDE — user chose "fix"
+🔄 4. REPAIR — updating RLS policy...
+⏳ 5. VALIDATE
+⏳ 6. INTEGRATE
+⏳ 7. POST-MORTEM
+```
+
+### Failure Classification
+
+| Type | Description | Recovery Path |
+|------|-------------|---------------|
+| `config_error` | Wrong node parameters | L1 Quick Fix |
+| `connection_error` | Broken node links | L1 Quick Fix |
+| `auth_error` | Credential issues | User intervention |
+| `external_api` | Third-party failure | Retry + fallback |
+| `logic_error` | Wrong workflow logic | L2 Targeted Debug |
+| `systemic` | Architectural issue | L3 Full Investigation |
+
+### Post-Mortem Template
+
+```markdown
+## Post-Mortem: [Failure Title]
+
+**Date:** YYYY-MM-DD
+**Duration:** X minutes
+**Impact:** [nodes affected, data impact]
+
+### Timeline
+- HH:MM - First error detected
+- HH:MM - Isolated
+- HH:MM - Root cause identified
+- HH:MM - Fix applied
+- HH:MM - Validated
+
+### Root Cause
+[What actually went wrong]
+
+### Resolution
+[What was done to fix it]
+
+### Lessons Learned
+1. [Lesson 1]
+2. [Lesson 2]
+
+### Action Items
+- [ ] Add to LEARNINGS.md (ID: L-XXX)
+- [ ] Update validation rules
+- [ ] Add test case
+```
+
+---
+
 ## Hard Rules (STRICTEST)
 - **NEVER** mutate workflows (no create/update/autofix/delete)
 - **NEVER** delegate (no Task tool)

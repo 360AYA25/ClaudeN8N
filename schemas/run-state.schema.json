@@ -421,6 +421,177 @@
         "status": { "type": "boolean" },
         "at": { "type": ["string", "null"], "format": "date-time" }
       }
+    },
+
+    "impact_analysis": {
+      "type": "object",
+      "description": "Architect produces for MODIFY scenarios (when workflow_id provided)",
+      "properties": {
+        "dependency_graph": {
+          "type": "object",
+          "description": "Node relationships: outputs_to, receives_from, expressions_used",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "outputs_to": { "type": "array", "items": { "type": "string" } },
+              "receives_from": { "type": "array", "items": { "type": "string" } },
+              "expressions_used": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "modification_zone": {
+          "type": "object",
+          "properties": {
+            "target_nodes": { "type": "array", "items": { "type": "string" }, "description": "Nodes to be changed" },
+            "affected_nodes": { "type": "array", "items": { "type": "string" }, "description": "Downstream dependencies" },
+            "safe_nodes": { "type": "array", "items": { "type": "string" }, "description": "Unaffected nodes" },
+            "blast_radius": { "type": "integer", "description": "Number of affected nodes" }
+          }
+        },
+        "modification_sequence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "order": { "type": "integer" },
+              "node": { "type": "string" },
+              "action": { "enum": ["create", "configure", "update_reference", "verify_unchanged", "delete"] },
+              "risk": { "enum": ["low", "medium", "high"] }
+            }
+          }
+        },
+        "parameter_contracts": {
+          "type": "object",
+          "description": "Expected input/output for each node",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "expects_input": { "type": "object" },
+              "provides_output": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+
+    "modification_progress": {
+      "type": "object",
+      "description": "Builder updates during incremental modification",
+      "properties": {
+        "total_steps": { "type": "integer" },
+        "completed_steps": { "type": "integer" },
+        "current_step": {
+          "type": ["object", "null"],
+          "properties": {
+            "order": { "type": "integer" },
+            "node": { "type": "string" },
+            "action": { "type": "string" },
+            "status": { "enum": ["pending", "in_progress", "completed", "failed"] }
+          }
+        },
+        "snapshots": {
+          "type": "object",
+          "description": "Node state before each change (step_1, step_2, etc.)",
+          "additionalProperties": { "type": "object" }
+        },
+        "rollback_available": { "type": "boolean" }
+      }
+    },
+
+    "checkpoint_request": {
+      "type": ["object", "null"],
+      "description": "Builder requests checkpoint validation from QA",
+      "properties": {
+        "step": { "type": "integer" },
+        "scope": { "type": "array", "items": { "type": "string" }, "description": "Node names to validate" },
+        "type": { "enum": ["pre-change", "post-node", "post-service", "final"] }
+      }
+    },
+
+    "checkpoint_reports": {
+      "type": "array",
+      "description": "QA produces after each checkpoint",
+      "items": {
+        "type": "object",
+        "properties": {
+          "step": { "type": "integer" },
+          "type": { "type": "string" },
+          "status": { "enum": ["passed", "passed_with_warnings", "failed"] },
+          "scope": { "type": "array", "items": { "type": "string" } },
+          "issues": { "type": "array" }
+        }
+      }
+    },
+
+    "circuit_breaker_state": {
+      "type": "object",
+      "description": "Per-agent failure tracking to prevent cascading failures",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "state": { "enum": ["CLOSED", "OPEN", "HALF_OPEN"] },
+          "failure_count": { "type": "integer" },
+          "failure_threshold": { "type": "integer", "default": 3 },
+          "recovery_timeout": { "type": "integer", "default": 300, "description": "Seconds" },
+          "last_failure": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    },
+
+    "usage": {
+      "type": "object",
+      "description": "Token/cost/time tracking for hard caps",
+      "properties": {
+        "tokens_used": { "type": "integer", "default": 0 },
+        "agent_calls": { "type": "integer", "default": 0 },
+        "qa_cycles": { "type": "integer", "default": 0 },
+        "time_elapsed_seconds": { "type": "integer", "default": 0 },
+        "cost_usd": { "type": "number", "default": 0 }
+      }
+    },
+
+    "ai_configs": {
+      "type": "object",
+      "description": "AI node configurations from Architect dialog",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "system_prompt": { "type": "string" },
+          "system_prompt_type": { "enum": ["define_below", "define_in_workflow"] },
+          "tools": { "type": "array", "items": { "type": "string" } },
+          "memory": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "session_key": { "type": "string" },
+              "window_size": { "type": "integer" }
+            }
+          },
+          "output_parser": { "type": "string" },
+          "temperature": { "type": "number" },
+          "model": { "type": "string" }
+        }
+      }
+    },
+
+    "canary_phase": {
+      "type": ["string", "null"],
+      "enum": ["synthetic", "canary", "sample", "full", null],
+      "description": "Current canary testing phase"
+    },
+
+    "node_flags": {
+      "type": "object",
+      "description": "Per-node enable/disable with fallback behavior",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean", "default": true },
+          "fallback": { "enum": ["skip", "error", "mock", "log_only"] },
+          "mock_response": { "type": "object" },
+          "static_response": { "type": "string" }
+        }
+      }
     }
   }
 }

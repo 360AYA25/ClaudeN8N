@@ -23,7 +23,7 @@ PHASE 1: CLARIFICATION    → Architect ←→ User
 PHASE 2: RESEARCH         → Researcher (search)
 PHASE 3: DECISION + CREDS → Architect ←→ User + Researcher (discover)
 PHASE 4: IMPLEMENTATION   → Researcher (deep dive)
-PHASE 5: BUILD            → Builder → QA (max 3 cycles)
+PHASE 5: BUILD            → Builder → QA (max 7 cycles, progressive)
 ```
 
 ### Stage Flow
@@ -213,11 +213,20 @@ Researcher protocol:
 
 ## Safety Guards
 
+### Core Guards
 1. **Wipe Protection**: If removing >50% nodes → STOP, escalate to user
 2. **edit_scope**: Builder only touches nodes in QA's edit_scope
 3. **Snapshot**: Builder saves snapshot before destructive changes
 4. **Regression Check**: QA marks regressions, Builder can rollback
-5. **QA Loop Limit**: Max 3 cycles → blocked → Analyst post-mortem
+5. **QA Loop Limit**: Max 7 cycles → blocked (progressive: 1-3 Builder, 4-5 +Researcher, 6-7 +Analyst)
+
+### Extended Guards (NEW)
+6. **Blue-Green Workflows**: Clone-test-swap pattern for safe modifications
+7. **Canary Testing**: Graduated testing (synthetic → 1 item → 10% → full)
+8. **Circuit Breaker**: Per-agent failure tracking (3 failures → OPEN state)
+9. **Checkpoint QA**: Validation after each modification step
+10. **User Approval Gates**: System waits for explicit "да" after each checkpoint
+11. **Hard Caps**: Token/cost/time limits per task (50K tokens, $0.50, 10min)
 
 ## Token Economy
 

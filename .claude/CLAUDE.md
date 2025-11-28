@@ -105,7 +105,7 @@ PHASE 4: IMPLEMENTATION
 
 PHASE 5: BUILD
 ├── Researcher → Orchestrator → Builder → QA
-├── QA Loop: max 3 cycles, then blocked
+├── QA Loop: max 7 cycles (progressive), then blocked
 └── Output: completed workflow
 ```
 
@@ -122,14 +122,17 @@ clarification → research → decision → credentials → implementation → b
 |-------|---------|--------|
 | **L1** | Simple error | Builder direct fix |
 | **L2** | Unknown error | Researcher → Builder |
-| **L3** | 3+ failures | stage="blocked" |
+| **L3** | 7+ failures | stage="blocked" |
 | **L4** | Blocked | Report to user + Analyst post-mortem |
 
-## QA Loop (max 3 cycles)
+## QA Loop (max 7 cycles — progressive)
 
 ```
 QA fail → Builder fix (edit_scope) → QA → repeat
-After 3 fails → stage="blocked" → report to user
+├── Cycle 1-3: Builder fixes directly
+├── Cycle 4-5: Researcher helps find alternative approach
+├── Cycle 6-7: Analyst diagnoses root cause
+└── After 7 fails → stage="blocked" → report to user with full history
 ```
 
 ## Hard Rules (Permission Matrix)

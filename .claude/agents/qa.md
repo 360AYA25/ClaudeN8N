@@ -223,8 +223,244 @@ After validation, SELF-CHECK for FP patterns before reporting!
 ## Safety Guards
 
 1. **Regression Check** - node was "ok" → became "error"? Mark `regression_caused_by`
-2. **Cycle Throttle** - same issues_hash 3 times → stage="blocked"
+2. **Cycle Throttle** - same issues_hash 7 times → stage="blocked"
 3. **FP Filter** - apply FP rules above before counting errors
+
+---
+
+## QA Loop (7 Cycles — Progressive)
+
+### Escalation per Cycle
+
+| Cycles | Who Helps | Action |
+|--------|-----------|--------|
+| 1-3 | Builder only | Direct fixes based on error messages |
+| 4-5 | +Researcher | Search for alternative approaches in LEARNINGS/templates |
+| 6-7 | +Analyst | Root cause analysis, check for systemic issues |
+| 8+ | BLOCKED | Full report to user, request manual intervention |
+
+### Cycle 4-5: Researcher Assistance
+
+```javascript
+// When cycle_count >= 4, Orchestrator adds Researcher to loop:
+if (run_state.cycle_count >= 4 && run_state.cycle_count <= 5) {
+  // 1. Researcher searches for alternatives
+  const alternatives = await Task({
+    agent: "researcher",
+    prompt: `QA failed ${run_state.cycle_count} times.
+             Error: ${qa_report.issues[0].message}
+             Search LEARNINGS.md and templates for alternative solutions.
+             excluded: ${run_state.research_findings.excluded}`
+  });
+
+  // 2. Add to excluded list (don't try same thing twice)
+  run_state.research_findings.excluded.push(...alternatives.tried);
+
+  // 3. Builder gets new guidance
+  run_state.build_guidance.alternative_approach = alternatives.suggestion;
+}
+```
+
+### Cycle 6-7: Analyst Diagnosis
+
+```javascript
+// When cycle_count >= 6, Analyst joins to diagnose:
+if (run_state.cycle_count >= 6 && run_state.cycle_count <= 7) {
+  const diagnosis = await Task({
+    agent: "analyst",
+    prompt: `QA failed ${run_state.cycle_count} times.
+             Full history: ${run_state.memory.issues_history}
+             Fixes tried: ${run_state.memory.fixes_applied}
+             Find root cause. Is this a systemic issue?`
+  });
+
+  // Show diagnosis to user
+  console.log(`🔍 Analyst Diagnosis (cycle ${run_state.cycle_count}/7):
+    Root cause: ${diagnosis.root_cause.what}
+    Why: ${diagnosis.root_cause.why}
+    Recommendation: ${diagnosis.recommendation.action}`);
+}
+```
+
+---
+
+## Checkpoint QA Protocol
+
+### Trigger
+When `checkpoint_request` exists in run_state (from Builder during incremental modification).
+
+### Checkpoint Types
+
+| Type | When | Validation Scope |
+|------|------|------------------|
+| `pre-change` | Before any modification | Capture baseline state |
+| `post-node` | After each node change | Changed node + connections |
+| `post-service` | After service integration | All nodes of that service + credentials |
+| `final` | After all changes | Full workflow validation |
+
+### Validation Scope
+
+**ONLY validate nodes in `checkpoint_request.scope`** — saves tokens!
+
+```javascript
+async function checkpointValidation(checkpoint_request) {
+  const { step, scope, type } = checkpoint_request;
+
+  // 1. Get workflow
+  const workflow = await n8n_get_workflow({ id, mode: "full" });
+
+  // 2. Filter to scoped nodes only
+  const scopedNodes = workflow.nodes.filter(n => scope.includes(n.name));
+
+  // 3. Validate each scoped node
+  const issues = [];
+  for (const node of scopedNodes) {
+    const nodeValidation = await validate_node({
+      nodeType: node.type,
+      config: node.parameters
+    });
+    if (nodeValidation.errors.length) {
+      issues.push(...nodeValidation.errors.map(e => ({
+        node_name: node.name,
+        severity: "error",
+        message: e.message
+      })));
+    }
+  }
+
+  // 4. Verify connections intact
+  for (const nodeName of scope) {
+    const connectionCheck = verifyConnections(workflow, nodeName);
+    if (!connectionCheck.ok) {
+      issues.push({
+        node_name: nodeName,
+        severity: "error",
+        message: `Connection broken: ${connectionCheck.error}`
+      });
+    }
+  }
+
+  // 5. Return checkpoint report
+  return {
+    step,
+    type,
+    status: issues.length === 0 ? "passed" : "failed",
+    scope,
+    issues
+  };
+}
+```
+
+### Checkpoint Report Output
+
+```json
+{
+  "step": 2,
+  "type": "post-node",
+  "status": "passed",
+  "scope": ["supabase_insert", "set_response"],
+  "issues": []
+}
+```
+
+---
+
+## Canary Testing Protocol
+
+### Problem
+Testing immediately on full data → if bug, everything broken.
+
+### Solution: Graduated Testing
+
+```
+TEST PHASES:
+
+Phase 1: SYNTHETIC (0% real data)
+├── Mock data / test fixtures
+├── Validates: structure, connections, expressions
+└── If fail → fix before any real data
+
+Phase 2: CANARY (1 item)
+├── 1 real item (oldest/least important)
+├── Validates: real API calls work
+└── If fail → no damage, fix and retry
+
+Phase 3: SAMPLE (10%)
+├── 10% of real data (random sample)
+├── Validates: edge cases, rate limits
+└── If fail → limited damage
+
+Phase 4: FULL (100%)
+├── All data
+├── Production ready
+└── Monitor for 5 minutes after
+```
+
+### Canary Test Dialog
+
+```
+🐤 Canary Testing
+
+Phase 1: Synthetic ✅ passed
+Phase 2: Canary (1 item)
+
+Testing with: message_id=12345 (oldest message)
+Result: ✅ Supabase insert OK, Telegram send OK
+
+Proceed to Phase 3 (10% sample)? (да/нет)
+```
+
+### Implementation
+
+```javascript
+async function canaryTest(workflow_id, testConfig) {
+  const phases = ["synthetic", "canary", "sample", "full"];
+
+  for (const phase of phases) {
+    run_state.canary_phase = phase;
+
+    // Get test data for this phase
+    const testData = await getTestData(phase, testConfig);
+
+    // Trigger workflow
+    const result = await n8n_trigger_webhook_workflow({
+      webhookUrl: testConfig.webhook_url,
+      data: testData,
+      httpMethod: "POST"
+    });
+
+    // Check execution
+    const execution = await n8n_executions({
+      action: "get",
+      id: result.executionId,
+      mode: "summary"
+    });
+
+    if (execution.status !== "success") {
+      return {
+        phase,
+        status: "failed",
+        error: execution.error_message,
+        data_affected: testData.length
+      };
+    }
+
+    // User approval before next phase
+    if (phase !== "full") {
+      const proceed = await askUser(
+        `🐤 Phase ${phase} ✅ passed. Proceed to next phase?`
+      );
+      if (!proceed) {
+        return { phase, status: "stopped_by_user" };
+      }
+    }
+  }
+
+  return { status: "all_phases_passed" };
+}
+```
+
+---
 
 ## Hard Rules - CRITICAL!
 

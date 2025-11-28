@@ -439,6 +439,183 @@ memory/agent_results/workflow_{run_id}.json
 4. **Loop Guard** - webhook workflow MUST have Respond node or timeout
 5. **ripple_targets** - when fixing, apply SAME fix to all similar nodes
 
+---
+
+## Incremental Modification Protocol
+
+### Trigger
+When `decision.action = "modify"` AND `impact_analysis` exists in run_state.
+
+### Key Difference from CREATE
+- **CREATE**: Build in logical blocks, all at once
+- **MODIFY**: Incremental changes with checkpoints after each step
+
+### Protocol
+
+```
+FOR EACH step in impact_analysis.modification_sequence:
+  1. SNAPSHOT: Save current node state to _meta.snapshot
+  2. APPLY: Make single change
+  3. VERIFY: Check connections + parameter contracts intact
+  4. CHECKPOINT: Request checkpoint QA validation
+  5. WAIT: User approval ("да"/"ok"/"next")
+  6. IF fail → ROLLBACK to snapshot + report
+  7. IF ok → continue to next step
+```
+
+### Implementation
+
+```javascript
+// Step 1: Read modification sequence from impact_analysis
+const sequence = run_state.impact_analysis.modification_sequence;
+const contracts = run_state.impact_analysis.parameter_contracts;
+
+for (const step of sequence) {
+  // 1. Snapshot
+  const current = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+  run_state.modification_progress.snapshots[`step_${step.order}`] =
+    current.nodes.find(n => n.name === step.node);
+
+  // 2. Apply change
+  if (step.action === "create") {
+    await createNode(step.node, contracts[step.node]);
+  } else if (step.action === "configure" || step.action === "update_reference") {
+    await updateNode(step.node, step.changes);
+  } else if (step.action === "verify_unchanged") {
+    // Just validate, no changes
+  }
+
+  // 3. Verify connections + contracts
+  const validation = await verifyContracts(step.node, contracts);
+  if (!validation.ok) {
+    await rollbackToSnapshot(step.order);
+    return { status: "failed", step: step.order, error: validation.error };
+  }
+
+  // 4. Update progress
+  run_state.modification_progress = {
+    total_steps: sequence.length,
+    completed_steps: step.order,
+    current_step: step,
+    rollback_available: true
+  };
+
+  // 5. Request checkpoint QA
+  run_state.checkpoint_request = {
+    step: step.order,
+    scope: [step.node, ...getAffectedNodes(step.node)],
+    type: "post-node"
+  };
+
+  // 6. Return to Orchestrator for QA + User approval
+  return { status: "checkpoint", step: step.order };
+}
+```
+
+### Checkpoint Dialog (shown to user)
+
+```
+✅ Step 2/5: Supabase nodes configured
+
+Что сделано:
+- Добавлена нода supabase_insert
+- Подключены credentials "Supabase account"
+- Связана с process_message
+
+🧪 Протестируй:
+- Отправь тестовое сообщение в бота
+- Проверь запись в Supabase таблице
+
+Продолжить? (да/нет/откатить)
+```
+
+### Rollback on Failure
+
+```javascript
+async function rollbackToSnapshot(stepNumber) {
+  const snapshot = run_state.modification_progress.snapshots[`step_${stepNumber}`];
+  if (!snapshot) {
+    throw new Error("No snapshot available for rollback");
+  }
+
+  // Restore node state via curl PUT
+  await updateWorkflow(workflow_id, { nodes: [snapshot] });
+
+  // Clear progress
+  run_state.modification_progress.rollback_available = false;
+}
+```
+
+---
+
+## Blue-Green Workflow Pattern
+
+### Problem
+Snapshot = backup, but original is already modified. Rollback requires restore.
+
+### Solution: Clone-Test-Swap
+
+```
+MODIFY workflow → DON'T touch original!
+
+1. CLONE: Copy workflow → "Original_WORKING_COPY"
+2. MODIFY: All changes in the copy
+3. TEST: Test copy (user + auto)
+4. SWAP: If OK → activate copy, deactivate original
+5. CLEANUP: After 24h delete old (or on user request)
+
+On problem:
+- Just delete copy
+- Original is INTACT, working
+- = Instant rollback without restore
+```
+
+### When to Use
+- Complex modifications (5+ nodes affected)
+- Production workflows (active=true)
+- User requests "safe mode"
+
+### Implementation
+
+```javascript
+async function blueGreenModify(workflow_id, changes) {
+  // 1. Clone
+  const original = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+  const clone = {
+    ...original,
+    name: `${original.name}_WORKING_COPY`,
+    active: false
+  };
+  const clone_id = await curl_create_workflow(clone);
+
+  // 2. Modify clone (all changes here)
+  await applyChanges(clone_id, changes);
+
+  // 3. Test clone
+  const test_result = await runTests(clone_id);
+
+  // 4. User approval
+  if (await userApproves(test_result)) {
+    // SWAP
+    await curl_patch_workflow(workflow_id, { active: false });
+    await curl_patch_workflow(clone_id, {
+      active: true,
+      name: original.name  // Take original name
+    });
+    await curl_patch_workflow(workflow_id, {
+      name: `${original.name}_OLD_${Date.now()}`
+    });
+    return { status: "swapped", new_id: clone_id };
+  } else {
+    // Rollback = just delete clone
+    await n8n_delete_workflow(clone_id);
+    return { status: "rolled_back", original_intact: true };
+  }
+}
+```
+
+---
+
 ## Hard Rules
 - **NEVER** delegate via Task (return to Orchestrator)
 - **NEVER** do deep research (Researcher does this)

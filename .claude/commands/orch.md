@@ -4,7 +4,10 @@
 
 | Команда | Описание |
 |---------|----------|
-| `/orch <задача>` | Создать/изменить workflow |
+| `/orch <задача>` | Создать/изменить workflow (5-phase flow) |
+| `/orch workflow_id=X <задача>` | Модифицировать существующий workflow (MODIFY flow) |
+| `/orch --fix workflow_id=X node="Y" error="Z"` | **L1 Quick Fix** (~500 tokens) |
+| `/orch --debug workflow_id=X` | **L2 Targeted Debug** (~2K tokens) |
 | `/orch --test` | Quick health check всех агентов |
 | `/orch --test agent:builder` | Тест Builder агента |
 | `/orch --test agent:qa` | Тест QA агента |
@@ -145,7 +148,7 @@ PHASE 4: IMPLEMENTATION
 
 PHASE 5: BUILD
 ├── Researcher → Orchestrator → Builder → QA
-├── QA Loop: max 3 cycles, then blocked
+├── QA Loop: max 7 cycles (progressive), then blocked
 └── Output: completed workflow
 ```
 
@@ -192,17 +195,38 @@ Each agent receives full `run_state`:
 
 ## Stage Transitions
 
+### CREATE Flow (new workflow)
 ```
-clarification → research → decision → implementation → build → validate → test → complete
-                                                                    ↓
-                                                                 blocked (after 3 QA fails)
+clarification → research → decision → credentials → implementation → build → validate → test → complete
+                                                                                           ↓
+                                                                                        blocked (after 7 QA fails)
 ```
 
-## QA Loop (max 3 cycles)
+### MODIFY Flow (existing workflow)
+```
+clarification → IMPACT_ANALYSIS → research → decision → credentials → implementation →
+    ↓
+INCREMENTAL_BUILD (with checkpoints)
+    ↓
+  [modify node_1] → checkpoint_qa → USER_APPROVAL
+    ↓
+  [modify node_2] → checkpoint_qa → USER_APPROVAL
+    ↓
+  [verify affected] → checkpoint_qa → USER_APPROVAL
+    ↓
+final_validate → complete | blocked
+```
+
+**CRITICAL:** System WAITS for user "да"/"ok"/"next" after each checkpoint!
+
+## QA Loop (max 7 cycles — progressive)
 
 ```
 QA fail → Builder fix (edit_scope) → QA → repeat
-After 3 fails → stage="blocked" → report to user
+├── Cycle 1-3: Builder fixes directly
+├── Cycle 4-5: Researcher helps find alternative approach
+├── Cycle 6-7: Analyst diagnoses root cause
+└── After 7 fails → stage="blocked" → report to user with full history
 ```
 
 ## Test Mode
@@ -277,8 +301,213 @@ Tests specific agent in isolation:
 |-------|---------|--------|
 | L1 | Simple error | Builder direct fix |
 | L2 | Unknown error | Researcher → Builder |
-| L3 | 3+ failures | stage="blocked" |
+| L3 | 7+ failures | stage="blocked" |
 | L4 | Blocked | Report to user + Analyst post-mortem |
+
+---
+
+## Debugger Mode (Fast Fix)
+
+### Problem
+Full 5-phase flow is overkill for simple bugs (~10K+ tokens).
+
+### Solution: 3-Level Debug System
+
+```
+Level 1: QUICK_FIX (1 agent, ~500 tokens)
+├── Trigger: /orch --fix workflow_id=X node="Y" error="Z"
+├── Agent: Builder ONLY
+├── Flow: Read workflow → Fix node → Validate → Done
+└── Escalate if: fix fails 2 times → L2
+
+Level 2: TARGETED_DEBUG (2 agents, ~2K tokens)
+├── Trigger: /orch --debug workflow_id=X
+├── Agents: Analyst → Builder
+├── Analyst: Read executions, find root cause, check LEARNINGS.md
+├── Builder: Apply fix
+└── Escalate if: root cause unclear → L3
+
+Level 3: FULL_INVESTIGATION (all agents, ~10K+ tokens)
+├── Trigger: Complex issue, escalated from L1/L2
+├── Full system: Architect → Researcher → Builder → QA → Analyst
+└── Used for: architectural issues, multiple failures
+```
+
+### Auto-Detection: Which Level?
+
+| User Input | Detected Level | Why |
+|------------|----------------|-----|
+| "fix X in node Y" | L1 QUICK_FIX | Specific node + action |
+| "debug workflow" | L2 TARGETED | Need diagnosis first |
+| "why doesn't it work" | L2 TARGETED | Root cause unknown |
+| "redesign the flow" | L3 FULL | Architectural change |
+| L1 failed 2x | L2 TARGETED | Auto-escalate |
+| L2 unclear | L3 FULL | Auto-escalate |
+
+### Quick Fix Protocol (L1)
+
+```bash
+/orch --fix workflow_id=abc node="Supabase Insert" error="missing field"
+
+# System:
+# 1. Builder: Read workflow (n8n_get_workflow)
+# 2. Builder: Identify node, read config
+# 3. Builder: Apply fix (curl PUT)
+# 4. Builder: Validate (n8n_validate_workflow)
+# 5. Show result to user
+# 6. If fail → escalate to L2
+```
+
+### Targeted Debug Protocol (L2)
+
+```bash
+/orch --debug workflow_id=abc
+
+# System:
+# 1. Analyst: Read recent executions (n8n_executions)
+# 2. Analyst: Identify failing node + error pattern
+# 3. Analyst: Check LEARNINGS.md for known solution
+# 4. Present diagnosis:
+#    "🔍 Проблема: Supabase Insert
+#     Ошибка: missing field 'user_id'
+#     Причина: Set node не передаёт это поле
+#     Решение: Добавить user_id в Set node"
+# 5. User approves → Builder applies fix
+# 6. If unclear → escalate to L3
+```
+
+---
+
+## Hard Caps (Resource Limits)
+
+### Per-Task Limits
+
+| Resource | Limit | Action on Exceed |
+|----------|-------|------------------|
+| Tokens | 50,000 | Stop + report |
+| Agent calls | 25 | Stop + report |
+| Time | 10 minutes | Stop + report |
+| Cost | $0.50 | Stop + report |
+| QA cycles | 7 | stage="blocked" |
+
+### Tracking in run_state.usage
+
+```javascript
+// Check before EACH agent call:
+function checkCaps() {
+  const { usage } = run_state;
+  const caps = {
+    max_tokens: 50000,
+    max_agent_calls: 25,
+    max_time_seconds: 600,
+    max_cost_usd: 0.50,
+    max_qa_cycles: 7
+  };
+
+  if (usage.qa_cycles >= caps.max_qa_cycles) {
+    return escalateToUser("QA failed 7 times. Need human help.");
+  }
+  if (usage.tokens_used >= caps.max_tokens) {
+    return escalateToUser("Token limit reached. Task too complex?");
+  }
+  if (usage.cost_usd >= caps.max_cost_usd) {
+    return escalateToUser("Cost limit reached.");
+  }
+  // ... other checks
+}
+```
+
+### Escalation Dialog
+
+```
+⚠️ Hard Cap Reached
+
+QA Cycles: 7/7 (LIMIT)
+Tokens: 45K/50K
+Time: 8min/10min
+
+Проблема не решена за 7 попыток.
+
+Варианты:
+1. Показать все 7 попыток и ошибки (для анализа)
+2. Откатить все изменения (Blue-Green rollback)
+3. Увеличить лимит (+3 попытки) и продолжить
+4. Эскалировать (manual intervention)
+
+Выбор? (1/2/3/4)
+```
+
+---
+
+## Handoff Contracts (Agent → Agent)
+
+### Purpose
+Validate data integrity between agent transitions.
+
+### Contracts
+
+| Transition | Required Fields | Validator |
+|------------|-----------------|-----------|
+| architect→researcher | requirements, research_request | services array not empty |
+| researcher→architect | research_findings | templates or existing_workflows found |
+| architect→builder | blueprint, credentials_selected | nodes_needed array not empty |
+| researcher→builder | build_guidance | node_configs array not empty |
+| builder→qa | workflow.id, workflow.node_count | id exists, count > 0 |
+| qa→builder | qa_report, edit_scope | edit_scope array if failed |
+
+### Validation Example
+
+```javascript
+const handoff_contracts = {
+  "architect→researcher": {
+    required: ["requirements", "research_request"],
+    validate: (data) => {
+      if (!data.requirements?.services?.length) {
+        throw new Error("requirements.services required");
+      }
+      return true;
+    }
+  },
+  "builder→qa": {
+    required: ["workflow.id", "workflow.node_count"],
+    validate: (data) => {
+      if (!data.workflow?.id) {
+        throw new Error("workflow.id required for QA");
+      }
+      return true;
+    }
+  }
+};
+
+// Before handoff:
+function handoff(from, to, data) {
+  const contract = handoff_contracts[`${from}→${to}`];
+  try {
+    contract.validate(data);
+    log(`✅ Handoff ${from}→${to} valid`);
+  } catch (error) {
+    log(`❌ Handoff ${from}→${to} FAILED: ${error.message}`);
+    throw new HandoffError(from, to, error);
+  }
+}
+```
+
+### Handoff Failure Recovery
+
+```
+❌ Handoff Failed: researcher→builder
+
+Missing: build_guidance.node_configs
+
+Recovery options:
+1. Re-run Researcher with explicit request
+2. Fill missing data manually
+3. Skip to Builder with partial data (risky)
+
+Выбор?
+```
+
+---
 
 ## Output
 
