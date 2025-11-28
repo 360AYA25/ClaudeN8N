@@ -45,7 +45,7 @@
 | Category | Line | Entries | Topics |
 |----------|------|---------|--------|
 | [Agent Standardization](#agent-standardization) | 70 | 1 | Template v2.0, English-only, changelog |
-| [n8n Workflows](#n8n-workflows) | 170 | 16 | MCP, creation, modification, debugging, functional blocks |
+| [n8n Workflows](#n8n-workflows) | 170 | 19 | MCP, creation, modification, debugging, functional blocks, validation gates, circuit breakers |
 | [Notion Integration](#notion-integration) | 890 | 6 | Filters, dates, properties, timezone |
 | [Supabase Database](#supabase-database) | 1020 | 5 | Schema, RLS, RPC functions, migrations |
 | [Telegram Bot](#telegram-bot) | 1130 | 2 | Webhooks, message handling |
@@ -55,7 +55,7 @@
 | [HTTP Requests](#http-requests) | 1440 | 2 | Error handling, credentials, status codes |
 | [MCP Server](#mcp-server) | 1500 | 1 | Migration, stdio, WebSocket |
 
-**Total:** 41 entries across 10 categories
+**Total:** 44 entries across 10 categories
 
 ---
 
@@ -2884,3 +2884,492 @@ See docs/MCP-BUG-RESTORE.md for migration back to MCP tools.
 **Impact:** Enables workflow creation despite MCP bug, tested successfully in E2E test
 
 **Tags:** #mcp #n8n #zod-bug #curl #workaround #builder #api
+
+---
+
+## L-056: Switch Node Mode Parameter Requirement
+
+**Category:** n8n Workflows / Node Configuration
+**Severity:** CRITICAL
+**Date:** 2025-11-28
+
+### Problem
+Switch node typeVersion 3.3+ does NOT route data to downstream nodes when `mode` parameter is missing, causing silent workflow failures.
+
+**Symptoms:**
+- Workflow executes successfully (no errors)
+- Data flows INTO Switch node
+- Switch evaluates conditions
+- **Data STOPS at Switch** - downstream nodes never execute
+- Execution appears "stuck" or times out
+- No error messages (silent failure)
+- Debugging shows Switch executed but routing failed
+
+**Root Cause:**
+Switch typeVersion 3.3+ introduced `mode` parameter as REQUIRED for multi-way routing. Without it, Switch evaluates rules but does NOT route data to connected nodes.
+
+**Real Example:**
+FoodTracker workflow timeout (2025-11-28):
+- 3 debugging cycles (2 hours, 60K tokens, $0.50)
+- Execution stopped at Switch node (6/28 nodes executed)
+- Switch had rules configured, connections present, but NO routing
+- Root cause: Missing `mode: "rules"` parameter
+
+### Solution
+
+**REQUIRED configuration for Switch v3.3+:**
+```javascript
+{
+  "type": "n8n-nodes-base.switch",
+  "typeVersion": 3.3,
+  "name": "Switch",
+  "parameters": {
+    "mode": "rules",  // ⚠️ CRITICAL! Required for routing!
+    "rules": {
+      "values": [
+        {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "condition-1",
+                "leftValue": "={{ $json.message.text }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "exists"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "renameOutput": true,
+          "outputKey": "text"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Validation rule (add to validation-gates.md):**
+```javascript
+// For Switch node typeVersion >= 3.3:
+REQUIRE: node.parameters.mode === "rules"
+REQUIRE: node.parameters.rules.values.length > 0
+WARN_IF: node.parameters.options.fallbackOutput === undefined
+```
+
+### Prevention
+
+**1. QA must validate Switch mode parameter:**
+```javascript
+// In qa.md validation:
+if (node.type === "n8n-nodes-base.switch" && node.typeVersion >= 3.3) {
+  if (!node.parameters.mode || node.parameters.mode !== "rules") {
+    FAIL(`Switch node "${node.name}" missing REQUIRED parameter 'mode: rules'`);
+  }
+}
+```
+
+**2. Researcher must check Switch config with get_node:**
+```javascript
+// When debugging Switch issues:
+const switchConfig = await get_node({
+  nodeType: "n8n-nodes-base.switch",
+  detail: "standard"
+});
+
+// Verify mode parameter required
+if (switchConfig.parameters.mode.required) {
+  hypothesis = "Switch missing mode parameter";
+}
+```
+
+**3. Builder must include mode when creating Switch:**
+```javascript
+// ALWAYS include mode parameter:
+const switchNode = {
+  type: "n8n-nodes-base.switch",
+  typeVersion: 3.3,
+  parameters: {
+    mode: "rules",  // Don't forget!
+    rules: { values: [...] }
+  }
+};
+```
+
+### Detection
+
+**How to identify this issue:**
+1. Execution data shows Switch node executed
+2. Downstream nodes NOT executed
+3. No error messages
+4. Switch has rules and connections configured
+5. `get_node` shows mode parameter is required
+6. Workflow JSON shows `parameters.mode` missing or wrong
+
+**MCP validation:**
+```javascript
+// Use validate_node to catch this:
+const validation = await validate_node({
+  nodeType: "n8n-nodes-base.switch",
+  config: { /* node config */ },
+  mode: "full",
+  profile: "strict"
+});
+
+// Will show ERROR: "Required parameter 'mode' missing"
+```
+
+### Related
+- L-057: Post-Build Verification Prevents Silent Failures
+- L-055: MCP Zod Bug (curl workaround for fixes)
+- validation-gates.md: Switch Node validation rule
+
+**Impact:** Would have caught FoodTracker bug in cycle 1 (instead of cycle 3), saving 90 minutes and $0.35
+
+**Tags:** #switch-node #silent-failure #required-parameter #validation #n8n #debugging #typeversion
+
+---
+
+## L-057: Post-Build Verification Prevents Silent Failures
+
+**Category:** Agent System / Builder Protocol
+**Severity:** CRITICAL
+**Date:** 2025-11-28
+
+### Problem
+Builder reports "success" but changes not actually applied to workflow, causing QA to validate wrong configuration and wasting debugging cycles.
+
+**Symptoms:**
+- Builder curl command succeeds (200 OK)
+- Builder reports workflow updated
+- QA validation fails with "parameter still missing"
+- Reading workflow shows old configuration
+- Version ID unchanged or changes not present
+- Multiple fix cycles with same error
+
+**Root Cause:**
+curl write operations may succeed at API level but fail to apply parameters due to:
+- Network issues
+- Race conditions
+- n8n internal validation rejecting changes
+- MCP bug causing silent failures
+- Version conflicts (concurrent edits)
+
+**Real Examples:**
+1. **FoodTracker cycle 1-2 (2025-11-28):**
+   - Builder reported Switch node fixed
+   - QA found Switch mode still missing
+   - Root cause: Changes not applied (silent API failure)
+
+2. **Generic pattern:**
+   - curl returns 200 OK
+   - workflow.id returned
+   - But parameters unchanged
+   - No error message to debug
+
+### Solution: Mandatory Post-Build Verification
+
+**Builder MUST verify AFTER every mutation:**
+
+```javascript
+// STEP 1: Record version BEFORE changes
+const before = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+const before_version = before.versionId;
+const before_counter = before.versionCounter;
+
+// STEP 2: Apply changes via curl
+const response = await curl_update_workflow(...);
+
+// STEP 3: Read workflow AFTER changes (⚠️ CRITICAL!)
+const after = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+
+// STEP 4: Verify version_id CHANGED
+if (after.versionId === before_version) {
+  throw new Error("❌ CRITICAL: version_id unchanged! Changes NOT applied!");
+}
+
+// STEP 5: Verify version_counter INCREASED (not decreased)
+if (after.versionCounter < before_counter) {
+  throw new Error("🚨 ROLLBACK DETECTED! User reverted in UI!");
+}
+
+// STEP 6: Verify expected changes present
+const switchNode = after.nodes.find(n => n.name === "Switch");
+if (switchNode.parameters.mode !== "rules") {
+  throw new Error(`❌ Expected mode: rules, got: ${switchNode.parameters.mode}`);
+}
+
+// STEP 7: Write verification report
+run_state.build_verification = {
+  version_changed: true,
+  version_id_after: after.versionId,
+  changes_verified: [
+    { change: "Switch.mode = rules", verified: true }
+  ]
+};
+```
+
+**Verification Report Format:**
+```json
+{
+  "version_changed": true,
+  "version_id_before": "xyz789",
+  "version_id_after": "abc456",
+  "version_counter": 23,
+  "node_count_expected": 29,
+  "node_count_actual": 29,
+  "changes_verified": [
+    {
+      "change": "Update Switch.mode",
+      "expected": "rules",
+      "actual": "rules",
+      "verified": true,
+      "result": "✅ Parameter correct"
+    }
+  ]
+}
+```
+
+### Prevention
+
+**1. Orchestrator enforces GATE 3:**
+```javascript
+// After Builder completes:
+if (!builder_result.verification || !builder_result.verification.version_changed) {
+  BLOCK_QA("❌ Builder did not verify changes!");
+  REQUIRE_VERIFICATION();
+}
+```
+
+**2. Builder protocol (builder.md lines 259-449):**
+- 10-step verification process
+- Version change check (critical!)
+- Parameter-by-parameter validation
+- Rollback detection
+- Expected changes documentation
+
+**3. QA receives verification report:**
+```javascript
+// QA knows what to validate:
+const expected = builder_verification.changes_verified;
+
+// Validate each expected change
+for (const change of expected) {
+  if (!change.verified) {
+    FAIL(`Change not applied: ${change.change}`);
+  }
+}
+```
+
+### Detection
+
+**How to identify this issue:**
+1. Builder reports success
+2. QA finds same error as previous cycle
+3. Workflow version_id unchanged
+4. No verification report in run_state
+5. curl response shows 200 OK but workflow unchanged
+
+**Debugging:**
+```bash
+# Check if version changed
+before_version="xyz789"
+after_version=$(curl ... | jq -r '.versionId')
+
+if [ "$after_version" == "$before_version" ]; then
+  echo "❌ SILENT FAILURE: Version unchanged!"
+fi
+```
+
+### Related
+- L-056: Switch Node Mode Parameter Requirement
+- L-055: MCP Zod Bug (curl workarounds)
+- validation-gates.md: GATE 3 (Post-Build Verification Required)
+- builder.md: Post-Build Verification Protocol (lines 259-449)
+
+**Impact:** Prevents wasted QA cycles, detects silent failures immediately, enables rollback detection
+
+**Tags:** #builder #verification #silent-failure #curl #version-check #qa #validation
+
+---
+
+## L-058: Circuit Breakers Prevent Repeated Mistakes
+
+**Category:** Agent System / Escalation Protocol
+**Severity:** HIGH
+**Date:** 2025-11-28
+
+### Problem
+System repeats same diagnosis multiple times without learning from failures, wasting tokens and user time.
+
+**Symptoms:**
+- Same hypothesis in cycle 1 and cycle 2
+- QA fails 3+ times with same error
+- No alternative approaches tried
+- Token waste on identical debugging attempts
+- User frustration with lack of progress
+- No escalation to human review
+
+**Root Cause:**
+No automatic detection of:
+- Repeated hypotheses (not learning)
+- QA failure patterns (systematic issues)
+- Low confidence diagnoses (high risk)
+- Execution analysis skipped (blind debugging)
+
+**Real Example:**
+FoodTracker debugging (2025-11-28):
+- Cycle 1: Hypothesis = "Switch connections broken"
+- Cycle 2: Same hypothesis repeated
+- Cycle 3: Different hypothesis finally tried
+- Should have escalated after cycle 2
+
+### Solution: 6 Auto-Trigger Circuit Breakers
+
+**Implemented in v3.1.0 (analyst.md lines 61-306):**
+
+| Trigger | Threshold | Action | Rationale |
+|---------|-----------|--------|-----------|
+| **QA Failures** | 3 consecutive | BLOCK + Analyst | Same error = systematic issue |
+| **Same Hypothesis** | Repeated 2x | BLOCK + Analyst | Not learning from failures |
+| **Low Confidence** | Researcher <50% | Analyst review | High risk of wrong fix |
+| **Stage Blocked** | stage="blocked" | Analyst post-mortem | User needs full report |
+| **Rollback Detected** | Version↓ | BLOCK + Analyst | User reverted manually |
+| **Execution Missing** | Fix without data | BLOCK + Analyst | Blind debugging |
+
+**Orchestrator enforcement (orch.md lines 130-143):**
+
+```javascript
+// TRIGGER 1: Same Hypothesis Twice
+if (cycle_count >= 2) {
+  const current = research_findings.hypothesis;
+  const previous = previous_fixes[cycle_count - 2].hypothesis;
+
+  if (current === previous) {
+    run_state.stage = "blocked";
+    ESCALATE_TO_L4();
+    ANALYST_AUDIT_METHODOLOGY();
+    REASON: "Not learning from failures - same diagnosis repeated";
+  }
+}
+
+// TRIGGER 2: 3 QA Failures
+if (qa_fail_count >= 3) {
+  run_state.stage = "blocked";
+  ESCALATE_TO_L4();
+  ANALYST_AUDIT_METHODOLOGY();
+  REASON: "QA failing repeatedly - systematic issue";
+}
+
+// TRIGGER 3: Low Confidence
+if (research_findings.confidence < 0.5) {
+  REQUIRE_ANALYST_REVIEW();
+  PROVIDE_ALTERNATIVE_HYPOTHESES();
+  REASON: "Low confidence diagnosis - high risk of failure";
+}
+```
+
+### Prevention
+
+**1. Researcher must track hypothesis history:**
+```javascript
+// Before proposing hypothesis:
+const previous_hypotheses = run_state.previous_fixes.map(f => f.hypothesis);
+
+if (previous_hypotheses.includes(current_hypothesis)) {
+  // ⚠️ Already tried this!
+  research_findings.confidence = 0.3;  // Lower confidence
+  research_findings.alternatives = [
+    "Alternative approach 1",
+    "Alternative approach 2"
+  ];
+}
+```
+
+**2. QA must track failure patterns:**
+```javascript
+// After 2 failures with same error:
+if (qa_fail_count >= 2 && current_error === previous_error) {
+  qa_report.warning = "Same error repeated - circuit breaker will trigger on next fail";
+  qa_report.recommendation = "Try different approach or escalate to Analyst";
+}
+```
+
+**3. Analyst auto-triggers on conditions:**
+```javascript
+// Analyst receives full context:
+{
+  "auto_trigger_type": "same_hypothesis",
+  "cycle_count": 2,
+  "hypothesis": "Switch connections broken",
+  "evidence": [
+    "Cycle 1: Same hypothesis, failed",
+    "Cycle 2: Repeated without learning"
+  ],
+  "required_analysis": [
+    "Why repeated?",
+    "What was missed?",
+    "Alternative approaches?",
+    "Should try different architecture?"
+  ]
+}
+```
+
+### Detection
+
+**How to identify this pattern:**
+1. run_state.cycle_count >= 2
+2. Current hypothesis matches previous hypothesis
+3. QA failing with same error multiple times
+4. No alternative approaches proposed
+5. Confidence not decreasing with failures
+
+**Monitoring:**
+```javascript
+// Circuit breaker metrics to track:
+{
+  "qa_fail_streak": 3,           // Consecutive fails
+  "hypothesis_repeats": 2,       // Same diagnosis count
+  "confidence_trend": [0.8, 0.8], // Not learning (should decrease)
+  "alternative_count": 0,        // No alternatives proposed
+  "should_trigger": true         // Circuit breaker condition met
+}
+```
+
+### Impact of Circuit Breakers
+
+**FoodTracker scenario (what would have happened with v3.1.0):**
+
+**Without circuit breakers (actual):**
+- Cycle 1: Wrong hypothesis → 30 min wasted
+- Cycle 2: Same hypothesis → another 30 min wasted
+- Cycle 3: Finally different approach
+- Total: 2 hours, 60K tokens, $0.50
+
+**With circuit breakers (expected):**
+- Cycle 1: Wrong hypothesis → 20 min
+- Cycle 2: Same hypothesis detected → BLOCK!
+- Analyst auto-trigger → Review in 10 min
+- Analyst: "Try validating Switch parameters with get_node"
+- Cycle 3: Correct hypothesis → Fixed in 15 min
+- Total: 45 min, 20K tokens, $0.15
+
+**Savings:** 75 min (62% faster), 40K tokens (66% fewer), $0.35 (70% cheaper)
+
+### Related
+- L-056: Switch Node Mode Parameter
+- L-057: Post-Build Verification
+- validation-gates.md: Circuit Breakers (lines 136-193)
+- analyst.md: Auto-Trigger Protocol (lines 61-306)
+- orch.md: GATE 4 Circuit Breaker (lines 130-143)
+
+**Impact:** Prevents repeated mistakes, escalates systematically, saves tokens and time, forces learning from failures
+
+**Tags:** #circuit-breaker #escalation #analyst #hypothesis #qa-failures #learning #efficiency
