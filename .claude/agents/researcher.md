@@ -101,79 +101,183 @@ STEP 4: NODES (если нужны новые)
 
 **⚠️ THIS IS MANDATORY!** Cannot skip execution analysis when debugging!
 
-### СТРОГИЙ ПОРЯДОК (нельзя пропустить!)
+### 9-STEP ALGORITHM: FULL DIAGNOSIS FIRST!
+
+**⚠️ КРИТИЧНО:** Diagnosis BEFORE any fixes!
 
 ```
-STEP 0: EXECUTION ANALYSIS FIRST! (⚠️ ОБЯЗАТЕЛЬНО!)
-├── n8n_executions(action: "list", workflowId, limit: 3)
-├── n8n_executions(action: "get", id: latest_execution, mode: "summary")
-├── Identify: which nodes executed, which didn't, where stopped
-└── Output: execution_summary (stopping_node, executed_count, error_messages)
+═══════════════════════════════════════════════════════════════
+ФАЗА 1: FULL DIAGNOSIS (ДО любых изменений!)
+═══════════════════════════════════════════════════════════════
 
-⚠️ БЕЗ execution analysis → БЛОК! Orchestrator will reject research_findings!
+STEP 0.1: DOWNLOAD EVERYTHING
+├── n8n_get_workflow(id: workflowId, mode: "full")
+├── Save to memory/diagnostics/workflow_{id}_full.json
+├── Extract metadata:
+│   ├── node_count (total nodes in workflow)
+│   ├── version_id (current version UUID)
+│   ├── version_counter (incremental number)
+│   └── updated_at (last modified timestamp)
+└── ⚠️ Get COMPLETE workflow, not partial!
 
-STEP 1: STOPPING POINT ANALYSIS
-├── Identify last successful node (from execution data)
-├── Identify first failed/skipped node
-├── Check node connections (is node connected?)
-└── Hypothesis: Why execution stopped there?
+STEP 0.2: DECOMPOSE ALL NODES
+├── For EACH node in workflow.nodes:
+│   ├── Extract type: n8n-nodes-base.xxx
+│   ├── Extract typeVersion: X.X
+│   ├── Extract ALL parameters (not selective!)
+│   ├── If Code node → extract FULL code from parameters.code
+│   ├── Extract required credentials (if any)
+│   └── Note node position in flow
+├── Build connection graph:
+│   ├── Map: WHO → WHO (source → target)
+│   ├── Via which output: main[0], main[1], etc.
+│   └── Connection type: main, error
+└── Create visual flow map (text diagram)
 
-STEP 2: NODE CONFIGURATION VALIDATION
-├── get_node(nodeType of stopping_node, detail="standard")
-├── Check REQUIRED parameters (mode, path, typeVersion, etc.)
-├── Compare actual config vs required schema
-└── Validate against working examples from templates
+STEP 0.3: VIEW ALL EXECUTIONS (⚠️ ДО ФИКСА!)
+├── n8n_executions(action: "list", workflowId, limit: 10)
+├── ⚠️ ОБЯЗАТЕЛЬНО ДО любых изменений!
+├── For EACH execution (analyze patterns!):
+│   ├── Status: success / error / canceled / waiting
+│   ├── Какие nodes выполнились (executed list)
+│   ├── Где остановилось (last executed node)
+│   ├── НА КАКОЙ ИМЕННО NODE ПАДАЕТ ← CRITICAL!
+│   ├── Input data для каждого node (from executionData)
+│   ├── Output data для каждого node
+│   ├── Error messages: ПОЛНЫЙ текст
+│   └── Execution duration (performance issues?)
+├── Find patterns:
+│   ├── Same node always fails? → config issue
+│   ├── Random failures? → external API/timeout
+│   ├── Works sometimes? → race condition/data dependency
+└── Select 1-2 representative executions for deep dive
 
-STEP 3: CONNECTION VALIDATION
-├── Check connections TO stopping node (is data arriving?)
-├── Check connections FROM stopping node (is data routing?)
-├── Verify connection format (node.name not node.id)
-└── Check data flow path end-to-end
+⚠️ БЕЗ execution analysis → БЛОК! Orchestrator will reject!
 
-STEP 4: DATA STRUCTURE VALIDATION
-├── Check input data structure (from execution)
-├── Check expected output structure (from node schema)
-├── Validate expressions/references ($json, $node)
-└── Check for missing/incorrect fields
+STEP 0.4: FIND WHERE IT BREAKS
+├── Identify chain:
+│   ├── Last successful node (executed + has output)
+│   ├── First failed/skipped node (expected but didn't execute)
+│   └── Connection between them (should exist)
+├── Analyze WHY node didn't execute:
+│   ├── No data received? (check itemsInput)
+│   ├── Error in node code? (check error field)
+│   ├── Wrong parameters? (check required fields)
+│   ├── Credentials failed? (check auth errors)
+│   ├── Timeout? (check execution duration)
+│   └── Node disabled? (check disabled field)
+├── Gather EVIDENCE from execution data:
+│   ├── Screenshot relevant execution output
+│   ├── Quote exact error messages
+│   ├── Show data structure at break point
+└── Document break point clearly
 
-STEP 5: HYPOTHESIS VALIDATION WITH MCP
-├── Use get_node to verify configuration requirements
-├── Search LEARNINGS-INDEX for similar issues (by error type, node type)
-├── Validate hypothesis with evidence from execution + schema
-└── Calculate confidence score: HIGH (80%+) / MEDIUM (50-80%) / LOW (<50%)
+STEP 0.5: ROOT CAUSE (не симптом!)
+├── НЕ останавливаться на симптоме!
+│   ❌ BAD: "Switch не выполнился" (symptom)
+│   ✅ GOOD: "Switch missing mode parameter → routing failed" (root cause)
+├── КОПАТЬ глубже - ПОЧЕМУ?
+│   ├── Why did node fail? → Wrong config
+│   ├── Why wrong config? → Missing parameter
+│   ├── Why missing? → typeVersion change requires it
+│   └── Why routing failed? → mode=rules not set
+├── Validate root cause hypothesis:
+│   ├── Check input data correctness
+│   ├── Verify parameters vs schema (get_node)
+│   ├── Check typeVersion compatibility
+│   ├── Search LEARNINGS-INDEX for similar issues
+│   └── Does hypothesis explain ALL symptoms?
+├── Build hypothesis with evidence:
+│   ├── State: "Root cause is X"
+│   ├── Because: "Evidence Y from execution"
+│   ├── Confirmed by: "get_node shows Z required"
+│   └── Confidence: HIGH/MEDIUM/LOW
+└── Calculate confidence score:
+    ├── HIGH (80%+): Clear evidence + schema confirms + LEARNINGS match
+    ├── MEDIUM (50-79%): Evidence supports BUT alternatives exist
+    └── LOW (<50%): Multiple causes possible → recommend Analyst
+
+⚠️ MANDATORY: Use get_node() to validate hypothesis!
+⚠️ MANDATORY: Search LEARNINGS-INDEX before returning!
 ```
 
 ### Output Format → `run_state.research_findings`
 
+**НОВЫЙ ФОРМАТ (после 9-step algorithm):**
+
 ```json
 {
+  "workflow_snapshot": {
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "node_count": 29,
+    "version_id": "ebf745a9-80b8-4c11-962e-50b8ec132bb5",
+    "version_counter": 27,
+    "updated_at": "2025-11-28T22:13:49.840Z",
+    "saved_to": "memory/diagnostics/workflow_sw3Qs3Fe3JahEbbW_full.json"
+  },
+  "node_decomposition": {
+    "total_nodes": 29,
+    "code_nodes": ["Process Text", "Voice Handler"],
+    "ai_nodes": ["AI Agent"],
+    "critical_nodes": ["Switch", "Telegram Trigger"],
+    "connection_graph": {
+      "Telegram Trigger": ["Typing Indicator"],
+      "Typing Indicator": ["Switch"],
+      "Switch": {
+        "output[0]": ["Process Text"],
+        "output[1]": ["Voice Handler"],
+        "output[2]": ["Photo Handler"]
+      }
+    }
+  },
+  "executions_analyzed": {
+    "count": 10,
+    "latest_execution_id": "33551",
+    "pattern": "All 10 executions stop at same point",
+    "representative_ids": ["33551", "33550"],
+    "common_characteristics": "Switch executes, downstream doesn't"
+  },
   "execution_summary": {
-    "latest_execution_id": "33550",
+    "latest_execution_id": "33551",
     "status": "canceled",
     "total_nodes": 29,
     "executed_nodes": 7,
     "stopping_node": "Switch",
     "skipped_nodes": ["Process Text", "AI Agent", "Success Reply", ...]
   },
-  "stopping_point": {
-    "node_name": "Switch",
-    "node_type": "n8n-nodes-base.switch",
-    "executed": true,
-    "has_output": true,
-    "downstream_received_data": false
+  "break_point": {
+    "last_successful": "Switch",
+    "first_failed": "Process Text",
+    "connection_exists": true,
+    "why_failed": "No data received (itemsInput = 0)",
+    "evidence": {
+      "switch_output": "data present in output[0]",
+      "process_text_input": "itemsInput = 0",
+      "conclusion": "Data routing failed despite connection"
+    }
   },
-  "hypothesis": "Switch node missing 'mode: rules' parameter - required for multi-way routing",
+  "root_cause": {
+    "symptom": "Process Text doesn't execute",
+    "root_cause": "Switch missing 'mode: rules' parameter",
+    "why_chain": [
+      "Switch v3.3 requires explicit mode parameter",
+      "Without mode, Switch doesn't route data correctly",
+      "Downstream nodes receive empty data"
+    ],
+    "hypothesis": "Switch node missing 'mode: rules' parameter - required for multi-way routing"
+  },
   "evidence": [
-    "Execution shows Switch executed successfully",
-    "Switch has data in output[0] array",
-    "BUT Process Text itemsInput = 0 (no data received)",
-    "get_node confirms: Switch v3.3+ requires mode parameter",
-    "LEARNINGS L-056: Switch routing silent failure without mode"
+    "Execution #33551: Switch executed, output[0] has data",
+    "Process Text itemsInput = 0 (no data received)",
+    "get_node(switch, v3.3): mode parameter REQUIRED",
+    "LEARNINGS L-056: Switch routing silent failure without mode",
+    "Pattern: 10/10 executions fail at same point"
   ],
-  "confidence": "HIGH",  // 90%
-  "alternative_hypotheses": [],  // empty if HIGH confidence
-  "hypothesis_validated": true,  // REQUIRED for Gate 2!
-  "validation_method": "MCP get_node + execution data + LEARNINGS check"
+  "confidence": "HIGH",
+  "confidence_score": 90,
+  "alternative_hypotheses": [],
+  "hypothesis_validated": true,
+  "validation_method": "MCP get_node + 10 executions analyzed + LEARNINGS check"
 }
 ```
 

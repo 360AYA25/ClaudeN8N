@@ -495,10 +495,24 @@ Level 2: TARGETED_DEBUG (2 agents, ~2K tokens)
 ├── Builder: Apply fix
 └── Escalate if: root cause unclear → L3
 
-Level 3: FULL_INVESTIGATION (all agents, ~10K+ tokens)
-├── Trigger: Complex issue, escalated from L1/L2
-├── Full system: Architect → Researcher → Builder → QA → Analyst
-└── Used for: architectural issues, multiple failures
+Level 3: FULL_INVESTIGATION (NEW 9-STEP ALGORITHM!)
+├── Trigger: Complex issue, user reports "bot not working"
+├── **PHASE 1: FULL DIAGNOSIS** (Researcher only!)
+│   ├── Download COMPLETE workflow (mode="full")
+│   ├── Decompose ALL nodes (types, params, code, credentials)
+│   ├── Analyze 10 executions (patterns, break points)
+│   ├── Find WHERE it breaks (exact node + reason)
+│   ├── Identify ROOT CAUSE (not symptom!)
+│   └── Output: diagnosis_complete.json with hypothesis
+├── Orchestrator presents findings to User
+│   └── "Found: X breaks at node Y because Z. Approve fix?"
+├── **PHASE 2: FIX + TEST**
+│   ├── Builder: Create snapshot → Apply fix → Verify
+│   ├── Architect → User: "Send test message to bot"
+│   ├── User sends message
+│   ├── QA: Phase 5 Real Testing (did bot respond?)
+│   └── If bot responded → SUCCESS, else → back to PHASE 1
+└── Used for: bot debugging, multi-failure workflows
 ```
 
 ### Auto-Detection: Which Level?

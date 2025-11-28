@@ -247,11 +247,123 @@ for (const connKey of Object.keys(workflow.connections)) {
 
 ---
 
+### Phase 5: REAL TESTING (🔥 MANDATORY for bot workflows!)
+
+**⚠️ КРИТИЧНО:** Structure validation НЕ ДОСТАТОЧНО!
+
+**Purpose:** Verify workflow works in REAL conditions, not just structure!
+
+**Trigger:** ALWAYS for Telegram bots / webhook workflows
+
+```javascript
+// Phase 5 Protocol
+
+STEP 1: PREPARE FOR TEST
+├── Verify workflow ACTIVE
+├── Verify webhook URL accessible (if applicable)
+└── Ready to receive real data
+
+STEP 2: REQUEST USER TEST
+├── Via Architect → User: "Please send test message to bot"
+├── Specify: what message to send (e.g., "Send text: 'А курицу я уже добавил?'")
+├── Wait for user confirmation: "Sent"
+└── Record timestamp of test
+
+STEP 3: WAIT FOR RESPONSE (timeout: 10 seconds)
+├── Start timer: 10s countdown
+├── Monitor: Did bot respond to user?
+├── User confirms: "Bot responded" OR "No response"
+└── If no response after 10s → FAILED
+
+STEP 4: ANALYZE EXECUTION DATA
+if (bot did NOT respond) {
+  // Get latest execution AFTER user sent message
+  execution = n8n_executions(action: "list", limit: 1);
+
+  // Find where it stopped
+  stopping_point = {
+    executed_nodes: execution.data.executedNodes,
+    last_node: execution.data.stoppedAt || execution.data.executedNodes[-1],
+    error: execution.data.error || null
+  };
+
+  // Report EXACT failure point
+  report = {
+    ready_for_deploy: FALSE,
+    real_test_status: "FAILED",
+    bot_responded: false,
+    execution_id: execution.id,
+    stopped_at: stopping_point.last_node,
+    reason: stopping_point.error || "Execution stopped without error",
+    recommendation: "Return to Researcher for deep analysis"
+  };
+}
+
+if (bot responded) {
+  // Verify response correctness
+  ask_user = "Is bot response correct? (да/нет)";
+
+  if (user_confirms_correct) {
+    report = {
+      ready_for_deploy: TRUE,
+      real_test_status: "PASSED",
+      bot_responded: true,
+      response_correct: true
+    };
+  } else {
+    report = {
+      ready_for_deploy: FALSE,
+      real_test_status: "FAILED",
+      bot_responded: true,
+      response_correct: false,
+      recommendation: "Logic error - return to Builder"
+    };
+  }
+}
+
+STEP 5: FINAL VERDICT
+├── Structure valid? ✅
+├── Node parameters valid? ✅
+├── Execution comparison OK? ✅
+├── Connection format valid? ✅
+├── ⚠️ BOT RESPONDED? ← THIS IS THE REAL TEST!
+└── Only if ALL ✅ → ready_for_deploy: TRUE
+```
+
+**⚠️ CRITICAL RULE:**
+```
+QA CANNOT say "PASSED" until real test succeeds!
+
+Validation Gates check STRUCTURE.
+Phase 5 checks FUNCTIONALITY.
+
+BOTH required for success!
+```
+
+**Output to run_state.qa_report:**
+```json
+{
+  "phase_5_real_test": {
+    "test_requested": "2025-11-28T23:00:00Z",
+    "user_sent_message": true,
+    "bot_responded": false,
+    "execution_analyzed": "33552",
+    "stopped_at_node": "Process Text",
+    "reason": "Code error: undefined variable 'context'",
+    "recommendation": "Return to Builder - fix code error"
+  },
+  "ready_for_deploy": false,
+  "final_verdict": "FAILED - bot did not respond to test message"
+}
+```
+
+---
+
 ## Activation & Test Protocol
 
-1. **Validate** - Run all 4 phases above (MCP ✅)
+1. **Validate** - Run all 5 phases above (1-4: structure, 5: real test!)
 2. **Activate** - curl PATCH (MCP broken!)
-3. **Smoke test** - trigger_webhook (MCP ✅)
+3. **Smoke test** - trigger_webhook (MCP ✅) ← NOW MANDATORY via Phase 5!
 4. **Report** - ready_for_deploy: true/false
 
 ## Workflow

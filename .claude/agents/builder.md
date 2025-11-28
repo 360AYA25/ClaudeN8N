@@ -256,6 +256,114 @@ return { success: true, workflow_id: workflow_id };
 
 ---
 
+## Snapshot Protocol (🔥 MANDATORY BEFORE ANY CHANGES!)
+
+**⚠️ КРИТИЧНО:** Create snapshot BEFORE modifying workflow!
+
+**Purpose:** Enable rollback if fix breaks workflow worse
+
+### When to Create Snapshot
+- Before EVERY workflow modification
+- Before applying fix (even "simple" parameter change!)
+- Before delete + recreate operations
+- ⚠️ ALWAYS - no exceptions!
+
+### Snapshot Steps (ALL REQUIRED!)
+
+```javascript
+// STEP 1: Get CURRENT workflow state
+const current_workflow = await n8n_get_workflow({
+  id: workflowId,
+  mode: "full"  // Get COMPLETE workflow!
+});
+
+// STEP 2: Save to snapshot file
+const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+const snapshot_path = `memory/snapshots/workflow_${workflowId}_before_${timestamp}.json`;
+
+await write_file(snapshot_path, JSON.stringify({
+  workflow: current_workflow,
+  snapshot_created: timestamp,
+  version_id_before: current_workflow.versionId,
+  version_counter_before: current_workflow.versionId,
+  reason: "Pre-modification snapshot",
+  modification_planned: "Fix: Add mode parameter to Switch node",
+  run_id: run_state.id,
+  cycle: run_state.cycle_count
+}, null, 2));
+
+// STEP 3: Create rollback instructions
+const rollback_instructions = `
+# Rollback Instructions
+
+## If fix makes workflow WORSE:
+
+\`\`\`bash
+# 1. Restore from snapshot
+curl -X PUT "${N8N_API_URL}/api/v1/workflows/${workflowId}" \\
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \\
+  -H "Content-Type: application/json" \\
+  -d @${snapshot_path}
+
+# 2. Verify version restored
+# Expected version_id: ${current_workflow.versionId}
+\`\`\`
+
+## Snapshot Details:
+- File: ${snapshot_path}
+- Version ID: ${current_workflow.versionId}
+- Version Counter: ${current_workflow.versionId}
+- Node Count: ${current_workflow.nodes.length}
+- Created: ${timestamp}
+`;
+
+await write_file(
+  `memory/snapshots/ROLLBACK_${workflowId}_${timestamp}.md`,
+  rollback_instructions
+);
+
+// STEP 4: Record in run_state
+run_state.snapshot_created = {
+  path: snapshot_path,
+  rollback_instructions: `memory/snapshots/ROLLBACK_${workflowId}_${timestamp}.md`,
+  version_id_before: current_workflow.versionId,
+  version_counter_before: current_workflow.versionId,
+  timestamp: timestamp
+};
+```
+
+### Snapshot File Structure
+
+```json
+{
+  "workflow": {
+    "id": "sw3Qs3Fe3JahEbbW",
+    "name": "FoodTracker",
+    "nodes": [...],  // FULL nodes array
+    "connections": {...},  // FULL connections
+    "settings": {...},
+    "versionId": "ebf745a9-80b8-4c11-962e-50b8ec132bb5"
+  },
+  "snapshot_created": "2025-11-28T23-00-00-000Z",
+  "version_id_before": "ebf745a9-80b8-4c11-962e-50b8ec132bb5",
+  "version_counter_before": 27,
+  "reason": "Pre-modification snapshot",
+  "modification_planned": "Fix: Add mode parameter to Switch node",
+  "run_id": "l3-foodtracker-timeout-97cbcba9",
+  "cycle": 4
+}
+```
+
+**⚠️ CRITICAL RULE:**
+```
+NO snapshot → NO changes!
+
+If snapshot creation fails → STOP, report error.
+Never proceed with modifications without snapshot.
+```
+
+---
+
 ## Post-Build Verification Protocol (ОБЯЗАТЕЛЬНО!)
 
 **⚠️ CRITICAL: After EVERY workflow mutation, Builder MUST verify changes applied!**
