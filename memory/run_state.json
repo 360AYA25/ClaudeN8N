@@ -1,52 +1,96 @@
 {
-  "id": "fix-foodtracker-model-20251128",
+  "id": "fix-foodtracker-vector-store-20251128",
   "project_id": "food-tracker",
   "project_path": "/Users/sergey/Projects/MultiBOT/bots/food-tracker",
-  "user_request": "Fix FoodTracker workflow: change OpenAI Chat Model from 'gpt-4.1-mini' to 'gpt-4o-mini'",
-  "goal": "Fix model name typo causing 300s timeout",
-  "stage": "quick_fix_l1",
+  "user_request": "Remove Supabase Vector Store from FoodTracker workflow",
+  "goal": "Fix timeout by removing problematic Vector Store nodes",
+  "stage": "complete",
   "cycle_count": 0,
   "workflow_id": "sw3Qs3Fe3JahEbbW",
-  "target_node": {
-    "id": "18d2242f-51eb-48c9-8d1c-1fef81ce9974",
-    "name": "OpenAI Chat Model",
-    "issue": "model value 'gpt-4.1-mini' doesn't exist",
-    "fix": "change to 'gpt-4o-mini'"
+  "fix_applied": {
+    "ts": "2025-11-28T17:46:45Z",
+    "action": "Removed Supabase Vector Store and Embeddings OpenAI nodes",
+    "method": "curl PUT (MCP bug workaround)",
+    "nodes_removed": [
+      {
+        "id": "021fb145-c3a6-411b-96f6-e0de0cb7016d",
+        "name": "Supabase Vector Store",
+        "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase"
+      },
+      {
+        "id": "23864b22-b8aa-4e84-9c34-d0e6fe4f6038",
+        "name": "Embeddings OpenAI",
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi"
+      }
+    ],
+    "connections_removed": [
+      "Supabase Vector Store → AI Agent (ai_tool)",
+      "Embeddings OpenAI → Supabase Vector Store (ai_embedding)"
+    ]
   },
-  "additional_concerns": [
-    "Supabase Vector Store may need embedding column - consider disabling temporarily"
-  ],
-  "mcp_workaround": "Use curl PUT (MCP update tools broken due to Zod bug)",
-  "worklog": [
+  "workflow_state": {
+    "node_count_before": 30,
+    "node_count_after": 28,
+    "version_id_before": "e0c8c8bd-56b9-4621-8610-19a71e28ae66",
+    "version_id_after": "2a9c89b8-0478-4d48-94ac-7c070feceab5",
+    "active": true
+  },
+  "remaining_ai_tools": [
     {
-      "ts": "2025-11-28T17:30:00Z",
-      "cycle": 0,
-      "agent": "orchestrator",
-      "action": "initialize_l1_fix",
-      "outcome": "Detected L1 Quick Fix - delegating to Builder"
+      "name": "Save Food Entry",
+      "type": "HTTP Request Tool",
+      "purpose": "Save food entries via Supabase RPC"
     },
     {
-      "ts": "2025-11-28T17:35:00Z",
-      "cycle": 0,
-      "agent": "orchestrator",
-      "action": "fix_model_name_direct",
-      "outcome": "Fixed model via Node.js script: gpt-4.1-mini → gpt-4o-mini. Version ID: 801c6d5b-f7a5-4750-a6a1-42868ed072bf"
+      "name": "Create a row in Supabase",
+      "type": "Supabase Tool",
+      "purpose": "CRUD operations on foodtracker_entries table"
     }
   ],
-  "agent_log": [],
-  "fix_applied": {
-    "ts": "2025-11-28T17:35:00Z",
-    "node_id": "18d2242f-51eb-48c9-8d1c-1fef81ce9974",
-    "node_name": "OpenAI Chat Model",
-    "change": "model: gpt-4.1-mini → gpt-4o-mini",
-    "version_id": "801c6d5b-f7a5-4750-a6a1-42868ed072bf",
-    "method": "curl_workaround_via_nodejs"
+  "validation_result": {
+    "valid": false,
+    "errors": 3,
+    "warnings": 57,
+    "critical_errors": [
+      "Create a row in Supabase: Unknown node type (false positive - LangChain node)"
+    ],
+    "non_critical_warnings": [
+      "Outdated typeVersions",
+      "Expression format suggestions",
+      "Missing error handling"
+    ]
+  },
+  "worklog": [
+    {
+      "ts": "2025-11-28T17:46:00Z",
+      "cycle": 0,
+      "agent": "builder",
+      "action": "remove_vector_store_nodes",
+      "outcome": "Successfully removed 2 nodes (Vector Store + Embeddings) and updated connections"
+    }
+  ],
+  "agent_log": [
+    {
+      "ts": "2025-11-28T17:46:45Z",
+      "agent": "builder",
+      "action": "workflow_update_via_curl",
+      "tokens": 8669
+    }
+  ],
+  "token_usage": {
+    "builder": 8669,
+    "total": 8669,
+    "cost_usd": 0.03
   },
   "usage": {
-    "tokens_used": 3500,
+    "tokens_used": 8669,
     "agent_calls": 1,
     "qa_cycles": 0,
-    "cost_usd": 0.005
+    "cost_usd": 0.03
   },
-  "stage": "test_required"
+  "next_steps": [
+    "Test workflow with pinned data",
+    "Verify AI Agent responds without timeout",
+    "If working: run live test with Telegram bot"
+  ]
 }

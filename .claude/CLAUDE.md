@@ -311,3 +311,43 @@ Before n8n work, check:
 | **Builder** | node-configuration, expression-syntax, code-javascript, code-python | Creating/modifying nodes, writing expressions/code |
 | **QA** | validation-expert, mcp-tools-expert | Interpreting errors, choosing validation tools |
 | **Analyst** | workflow-patterns, validation-expert | Analyzing patterns, classifying errors |
+
+---
+
+## Auto-Approved Tools (No User Confirmation)
+
+**MCP tools that should execute without approval prompts:**
+
+```
+# n8n MCP tools (all read operations + safe writes)
+mcp__n8n-mcp__search_nodes
+mcp__n8n-mcp__get_node
+mcp__n8n-mcp__search_templates
+mcp__n8n-mcp__get_template
+mcp__n8n-mcp__n8n_list_workflows
+mcp__n8n-mcp__n8n_get_workflow
+mcp__n8n-mcp__validate_workflow
+mcp__n8n-mcp__validate_node
+mcp__n8n-mcp__n8n_validate_workflow
+mcp__n8n-mcp__n8n_autofix_workflow
+mcp__n8n-mcp__n8n_executions
+mcp__n8n-mcp__n8n_health_check
+mcp__n8n-mcp__n8n_workflow_versions
+mcp__n8n-mcp__tools_documentation
+
+# Supabase MCP tools (safe reads)
+mcp__supabase__search_docs
+mcp__supabase__list_tables
+mcp__supabase__list_extensions
+mcp__supabase__list_migrations
+mcp__supabase__execute_sql
+mcp__supabase__get_logs
+mcp__supabase__get_advisors
+mcp__supabase__get_project_url
+mcp__supabase__get_anon_key
+mcp__supabase__generate_typescript_types
+mcp__supabase__list_edge_functions
+mcp__supabase__get_edge_function
+```
+
+**Note:** Write operations (create/update/delete workflows, apply migrations) still require approval for safety.
