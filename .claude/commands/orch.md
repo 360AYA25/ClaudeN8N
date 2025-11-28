@@ -168,6 +168,9 @@ if [[ "$user_request" =~ --project=([a-z-]+) ]]; then
     "food-tracker")
       project_path="/Users/sergey/Projects/MultiBOT/bots/food-tracker"
       ;;
+    "health-tracker")
+      project_path="/Users/sergey/Projects/MultiBOT/bots/health-tracker"
+      ;;
     "clauden8n"|"")
       project_path="/Users/sergey/Projects/ClaudeN8N"
       project_id="clauden8n"

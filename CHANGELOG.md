@@ -2,6 +2,123 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.0.0] - 2025-01-28
+
+### 🎯 PM Semi-Automatic Mode + Health Tracker (Phase 3 Complete)
+
+**Project Manager now supports external projects with human-in-the-loop workflow.**
+
+### New Features
+
+**PM Semi-Automatic Workflow:**
+- Multi-project support via `--project=` flag (food-tracker, health-tracker)
+- TIER 1/TIER 2 file structure (PM reads 5 mandatory files for full context)
+- 7-step workflow with explicit user approval at critical steps:
+  1. Load full project context (README, ARCHITECTURE, PLAN, SESSION_CONTEXT, TODO)
+  2. Analyze & propose next task with detailed rationale
+  3. Present proposal to user (50-100 tokens format)
+  4. Handle response (Y/N/Skip/Details with rejection menu)
+  5. Launch orchestrator (`/orch --project=ID`)
+  6. Wait for user verification (test in n8n)
+  7. Ask permission & update docs (TODO, SESSION_CONTEXT, PROGRESS)
+- PM understands WHY tasks matter (reads full architecture, not just TODO)
+- Rejection handling: show all tasks / manual input / skip to next
+- Always asks permission before updating documentation
+
+**Health Tracker Bot Initialized:**
+- Complete project structure created in `/Users/sergey/Projects/MultiBOT/bots/health-tracker`
+- TIER 1 files: README, ARCHITECTURE, PLAN, SESSION_CONTEXT, TODO, PROGRESS
+- 6-week timeline (3 phases, 18 tasks)
+- 30-node n8n workflow architecture designed
+- 5 health metrics: weight, BP, sleep, exercise, water
+- AI Agent with GPT-4o-mini (cost target: <$0.30/day)
+- Database schema: 3 tables, 5 RPC functions
+- Ready for `/pm --project=health-tracker continue`
+
+**Bot Project Template:**
+- Universal template: `~/.claude/shared/BOT-PROJECT-TEMPLATE.md`
+- Standard TIER 1/2 file structure for all PM-managed projects
+- Reusable for future bots
+- Lessons learned from Food Tracker v2.0
+
+### Files Modified/Created
+
+| File | Status | Changes |
+|------|--------|---------|
+| `.claude/commands/pm.md` | Modified | +246 lines (Multi-Project Support + Semi-Automatic workflow) |
+| `.claude/commands/orch.md` | Modified | +3 lines (health-tracker mapping) |
+| `~/.claude/shared/BOT-PROJECT-TEMPLATE.md` | Created | Universal bot template (735 lines) |
+| `MultiBOT/bots/HEALTH-TRACKER-INIT-PLAN.md` | Created | Initialization plan (240 lines) |
+| `MultiBOT/bots/health-tracker/README.md` | Created | Project overview |
+| `MultiBOT/bots/health-tracker/ARCHITECTURE.md` | Created | 30-node workflow design |
+| `MultiBOT/bots/health-tracker/PLAN.md` | Created | 6-week timeline |
+| `MultiBOT/bots/health-tracker/SESSION_CONTEXT.md` | Created | Current state |
+| `MultiBOT/bots/health-tracker/TODO.md` | Created | 6 Phase 1 tasks |
+| `MultiBOT/bots/health-tracker/PROGRESS.md` | Created | Progress log |
+
+**Total:** ~1,300 lines, 11 files
+
+### Usage Examples
+
+**PM with External Project:**
+```bash
+# Work on food-tracker
+/pm --project=food-tracker continue
+
+# PM reads TIER 1 files (5 files):
+# 1. README.md → what is this project
+# 2. ARCHITECTURE.md → how it's built
+# 3. PLAN.md → strategic timeline
+# 4. SESSION_CONTEXT.md → current state
+# 5. TODO.md → active tasks
+
+# PM proposes next task with WHY:
+📋 Current State:
+- Phase 2 (43.75% done)
+- Task 2.2 ✅ Complete (AI Agent working)
+
+🎯 Next Task:
+Task 2.3 - Memory Management (1 day)
+
+Rationale:
+- AI Agent is ready and tested
+- Conversations need history (last 5 messages)
+- Critical for conversational UX
+
+Implementation:
+- Add Window Buffer Memory node
+- Fetch last 5 from conversation_memory
+- Save new messages after processing
+
+Approve? [Y/N/Skip/Details]
+
+# User approves → PM launches:
+/orch --project=food-tracker workflow_id=X Add Window Buffer Memory
+
+# After orchestrator → User tests in n8n → Approves
+# PM asks: Update docs? [Y/N]
+# User approves → PM updates TODO, SESSION_CONTEXT, PROGRESS
+```
+
+**Start New Bot Project:**
+```bash
+/pm --project=health-tracker continue
+
+# PM reads TIER 1 files
+# PM proposes Task 1.1 - Database schema
+# User approves → /orch --project=health-tracker ...
+```
+
+### Breaking Changes
+- None (backward compatible with Phase 2)
+
+### Migration Notes
+- Existing projects work as before
+- New PM workflow is opt-in via `--project=` flag
+- ClaudeN8N defaults to old behavior if no flag
+
+---
+
 ## [2.12.0] - 2025-11-28
 
 ### 🔗 Multi-Project Support (Phase 2 Complete)

@@ -103,35 +103,242 @@ Bash: pwd
 
 ---
 
-## SCENARIO A: CONTINUE (15 seconds)
+## 🌐 MULTI-PROJECT SUPPORT
+
+**Detect project from flag:**
 
 ```bash
-# 1. Read cached state (TOKEN EFFICIENT!)
-Read: SESSION_CONTEXT.md
-# → Current phase, active task, blockers
-# → ~200 tokens vs ~2,000 (90% savings!)
+# Parse --project= flag from input
+if [[ "$input" =~ --project=([a-z-]+) ]]; then
+  project_id="${BASH_REMATCH[1]}"
 
-# 2. If stale (>1 day), refresh:
-Read: PLAN.md
-Read: TODO.md
-Read: PROGRESS.md
-# Update SESSION_CONTEXT.md
+  case "$project_id" in
+    "food-tracker"|"multibot")
+      project_path="/Users/sergey/Projects/MultiBOT/bots/food-tracker"
+      ;;
+    "health-tracker")
+      project_path="/Users/sergey/Projects/MultiBOT/bots/health-tracker"
+      ;;
+    "clauden8n"|"")
+      project_path="/Users/sergey/Projects/ClaudeN8N"
+      project_id="clauden8n"
+      ;;
+    *)
+      echo "Unknown project: $project_id"
+      exit 1
+      ;;
+  esac
+else
+  # Default to ClaudeN8N
+  project_path="/Users/sergey/Projects/ClaudeN8N"
+  project_id="clauden8n"
+fi
 
-# 3. Identify next task
-next_task = SESSION_CONTEXT.nextActions[0]
-or TODO.md "In Progress" first item
-
-# 4. Present to user (COMPACT!)
-"Phase {X}: {Y}% ({m}/{n} tasks)
-
-Current: {task_name} (in progress)
-Next: {next_task}
-Blocks: {None or list}
-
-Continue? [Y/N]"
+# All file paths now use $project_path
+# Example: Read "$project_path/SESSION_CONTEXT.md"
 ```
 
-**Result:** Ready to execute in 15 sec
+**Usage:**
+```bash
+/pm --project=food-tracker continue    # Work on food-tracker
+/pm --project=health-tracker continue  # Work on health-tracker
+/pm continue                           # Work on ClaudeN8N (default)
+```
+
+---
+
+## SCENARIO A: SEMI-AUTOMATIC CONTINUE
+
+> **Human-in-the-loop workflow with explicit approval at critical steps**
+
+### Step 1: Load Full Project Context (15-20 sec)
+
+**TIER 1 - ALWAYS read (mandatory for context):**
+```bash
+# 1. Project overview
+Read: "$project_path/README.md"
+# → What is this project, main goal, key features
+
+# 2. Complete architecture
+Read: "$project_path/ARCHITECTURE.md"
+# → Full system design (37 nodes for food-tracker)
+# → Data flow, components, integrations
+
+# 3. Strategic plan
+Read: "$project_path/PLAN.md"
+# → 6-phase timeline, milestones, dependencies
+
+# 4. Current state (cached)
+Read: "$project_path/SESSION_CONTEXT.md"
+# → Current phase, active task, blockers, last session
+
+# 5. Active tasks
+Read: "$project_path/TODO.md"
+# → In progress, next up, blocked, completed
+```
+
+**TIER 2 - Read on first session or if unclear:**
+```bash
+# Technical details (if needed for decision)
+Read: "$project_path/TECHNICAL-SPEC.md"
+
+# Database schema (if task involves DB)
+Read: "$project_path/SUPABASE-SCHEMA.md"
+
+# Execution history (if analyzing progress)
+Read: "$project_path/PROGRESS.md"
+```
+
+**Result:** PM has FULL context of:
+- What the project is (README)
+- How it's built (ARCHITECTURE)
+- What's the plan (PLAN)
+- Where we are now (SESSION_CONTEXT)
+- What's next (TODO)
+
+### Step 2: Analyze & Propose (10 sec)
+
+**Now PM has full context and can:**
+- Understand WHY next task is important (ARCHITECTURE shows dependencies)
+- See timeline (PLAN shows phase roadmap)
+- Know constraints (README explains approach)
+- Identify risks (SESSION_CONTEXT lists blockers)
+
+```bash
+# Determine next task
+if active_task.status == "in_progress":
+  if active_task.needs_user_test:
+    action = "WAIT_FOR_TEST"
+  else:
+    action = "CONTINUE_TASK"
+else:
+  next_task = TODO.md "Next Up" first item
+  action = "START_NEXT"
+
+# Explain rationale based on full context
+rationale = why_this_task(next_task, context)
+```
+
+### Step 3: Present Proposal (AskUserQuestion)
+
+**Format: Detailed (50-100 tokens)**
+
+```bash
+proposal = `
+📋 Current State:
+- Phase ${current_phase} (${phase_progress}% done)
+- Task ${prev_task} ✅ Complete
+- Blocker: ${blocker || "None"}
+
+🎯 Next Task:
+Task ${task_number} - ${task_name} (${duration})
+
+Rationale:
+- ${reason_1}
+- ${reason_2}
+- ${reason_3}
+
+Implementation:
+- ${step_1}
+- ${step_2}
+- ${step_3}
+
+Approve? [Y/N/Skip/Details]
+`
+
+AskUserQuestion({
+  question: proposal,
+  options: ["Y", "N", "Skip", "Details"]
+})
+```
+
+### Step 4: Handle Response
+
+```bash
+if response == "Y":
+  → Step 5: Launch Orchestrator
+
+elif response == "N":
+  → Show Rejection Menu:
+    AskUserQuestion({
+      question: "Task rejected. Options:\n1. Show all pending tasks\n2. Manual input\n3. Skip to next\nChoose:",
+      options: ["1", "2", "3"]
+    })
+
+    if choice == "1":
+      # List all tasks from TODO.md "Next Up" section
+      # User selects by number
+    elif choice == "2":
+      # User types custom task description
+      # PM confirms understanding → Step 5
+    elif choice == "3":
+      # Mark current as skipped, propose next → Step 3
+
+elif response == "Skip":
+  → Mark task as skipped, propose next
+
+elif response == "Details":
+  → Show full task details, ask again
+```
+
+### Step 5: Launch Orchestrator
+
+```bash
+# For external projects (food-tracker, health-tracker):
+SlashCommand({
+  command: `/orch --project=${project_id} ${task_description}`
+})
+
+# For ClaudeN8N:
+SlashCommand({
+  command: `/orch ${task_description}`
+})
+
+# Orchestrator runs 5-phase flow:
+# clarification → research → decision → implementation → build
+```
+
+### Step 6: Wait for User Verification
+
+```bash
+# After orchestrator completes
+AskUserQuestion({
+  question: "Orchestrator complete. Check workflow in n8n and test.\n\nApprove result? [Y/N/Retry]",
+  options: ["Y", "N", "Retry"]
+})
+
+if response == "N" or response == "Retry":
+  → Return to Step 3 (propose fix or alternative)
+```
+
+### Step 7: Ask Permission & Update Docs
+
+```bash
+# ALWAYS ask permission before updating docs
+AskUserQuestion({
+  question: "Update TODO.md, SESSION_CONTEXT.md, PROGRESS.md? [Y/N]",
+  options: ["Y", "N"]
+})
+
+if response == "Y":
+  # Update files
+  Edit: "$project_path/TODO.md"
+  # → Move task from "Next Up" to "Completed"
+  # → Move next task to "In Progress"
+
+  Edit: "$project_path/SESSION_CONTEXT.md"
+  # → Update current_task, last_session, phaseProgress
+  # → Add to recent activity
+
+  Edit: "$project_path/PROGRESS.md"
+  # → Log task completion with date
+
+  # Then propose next task → Loop to Step 2
+else:
+  # User will update manually, just propose next → Step 2
+```
+
+**Result:** One complete task cycle (~5-15 min)
 
 ---
 
@@ -230,6 +437,14 @@ if (input.includes("continue") || input.includes("status")) {
 
 ### For n8n workflow tasks → `/orch`
 
+**External projects (food-tracker, health-tracker):**
+```javascript
+SlashCommand({ command: "/orch --project=food-tracker Create webhook for Telegram bot" })
+SlashCommand({ command: "/orch --project=food-tracker workflow_id=X Fix Supabase error" })
+SlashCommand({ command: "/orch --project=health-tracker Test workflow ABC123" })
+```
+
+**ClaudeN8N (default):**
 ```javascript
 SlashCommand({ command: "/orch Create webhook for Telegram bot" })
 SlashCommand({ command: "/orch workflow_id=X Fix Supabase error" })
