@@ -34,11 +34,11 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 44
+- **Total Entries:** 47
 - **Categories:** 11
 - **Node Types Covered:** 15+
-- **Error Types Cataloged:** 22+
-- **File Size:** 2,285 lines (~65,000 tokens)
+- **Error Types Cataloged:** 25+
+- **File Size:** 2,886 lines (~82,000 tokens)
 - **Index Size:** ~600 tokens (99% reduction)
 
 ---
@@ -58,7 +58,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Memory (AI Agent)** | 2 | 1639-1683 | Session ID, context passing, customKey |
 | **Code Node** | 2 | 1570-1602 | IF routing, regex escaping |
 | **Switch Node** | 2 | 1415-1441, 2145-2279 | Data flow after routing, fan-out patterns |
-| **IF Node** | 1 | 1570-1586 | Debugging, Code Node fallback |
+| **IF Node** | 2 | 1570-1586, 2616-2675 | Debugging, Code Node fallback, v2.2 validator false positive (L-053) |
 | **AI Agent** | 3 | 1639-1683 | Parameters, clarification, tools, memory |
 | **Generic (MCP)** | 8 | 190-890 | Workflow creation, modification, validation, debugging |
 
@@ -80,8 +80,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Regex Escaping** | 1 | Code Node | 1586-1602 |
 | **Status Code Handling** | 2 | HTTP Request, continueOnFail | 1528-1710 |
 | **Partial Update Deletion** | 1 | n8n API Critical | 1602-1639 |
-| **MCP Server Issues** | 2 | stdio vs WebSocket, Migration | 1117-1163, 1729+ |
-| **False Positives** | 1 | Validation, continueOnFail+onError | 2051-2143 |
+| **MCP Server Issues** | 3 | stdio vs WebSocket, Migration, Zod v4 bug (L-055) | 1117-1163, 1729+, 2772-2886 |
+| **False Positives** | 4 | Validation, continueOnFail+onError, IF combinator (L-053), QA override (L-054) | 2051-2143, 2616-2771 |
 | **Fan-Out Routing** | 1 | Switch Node, Multi-Way | 2145-2279 |
 
 ### By Category (from Quick Index)
@@ -95,7 +95,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | Supabase Database | 1020-1130 | 5 | Schema, RLS, RPC, insert/update, get vs getAll |
 | Telegram Bot | 1130-1190 | 2 | Webhooks, message handling, parameters |
 | Git & GitHub | 1190-1250 | 3 | Monorepo, PRs, pull/rebase, secrets |
-| Error Handling | 1250-1340, 2051-2143 | 4 | continueOnFail, 404 handling, validation, false positives |
+| Error Handling | 1250-1340, 2051-2143, 2616-2886 | 7 | continueOnFail, 404 handling, validation, false positives, IF validator bug (L-053), QA L3 override (L-054), MCP Zod bug (L-055) |
 | AI Agents | 1340-1440 | 3 | Parameters, tools, prompts, memory, clarification |
 | HTTP Requests | 1440-1530 | 2 | Error handling, credentials, status codes |
 | MCP Server | 1500-1757 | 1 | stdio, WebSocket, migration |
@@ -133,6 +133,9 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-11-28 | L-055: MCP Zod v4 Bug - curl Workaround Guide | 2772 | Error Handling / MCP |
+| 2025-11-28 | L-054: QA L3 Escalation - False Positive Override | 2677 | Error Handling / QA |
+| 2025-11-28 | L-053: IF Node v2.2 Validator False Positive | 2616 | Error Handling / Validator |
 | 2025-11-27 | L-052: Task Tool Syntax - agent vs subagent_type | 295 | Claude Code |
 | 2025-11-27 | L-051: Chat Trigger vs Webhook Trigger | 172 | n8n Workflows |
 | 2025-11-26 | L-050: Builder Timeout on Large Workflows | 295 | n8n Workflows |
@@ -274,7 +277,7 @@ node scripts/generate-learnings-index.js
 
 ---
 
-**Last Updated:** 2025-11-27
-**Version:** 1.2.0
+**Last Updated:** 2025-11-28
+**Version:** 1.3.0
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent

@@ -2613,3 +2613,274 @@ if ($json.error) {
 ## 📝 Add New Learnings Below
 
 <!-- New entries go here - use standard format -->
+
+---
+
+## L-053: IF Node v2.2 Validator False Positive - Combinator Field
+
+**Category:** Error Handling / Validator False Positives
+**Severity:** MEDIUM (blocks QA cycle but not functionality)
+**Date:** 2025-11-27
+
+### Problem
+Validator reports "Filter must have a combinator field" for IF v2.2 nodes even when combinator IS present at correct path.
+
+**Symptoms:**
+- Critical validation error on IF nodes
+- Error persists after Builder adds combinator field
+- Manual JSON inspection shows combinator='and' at conditions.options.combinator
+
+**Root Cause:**
+Validator schema bug or incorrect path lookup. Validator may be looking for combinator at wrong location (e.g., conditions.combinator instead of conditions.options.combinator).
+
+### Solution
+
+**Step 1: QA Manual Verification**
+```javascript
+// QA Agent manually inspects workflow JSON for IF nodes
+// Check path: parameters.conditions.options.combinator (should be 'and' or 'or')
+// If present → Classify as FALSE_POSITIVE
+```
+
+**Step 2: Verification Command**
+```bash
+# Extract IF node config from workflow JSON
+jq '.nodes[] | select(.type=="n8n-nodes-base.if") | .parameters.conditions.options.combinator' workflow.json
+
+# Expected output: "and" or "or"
+# If present, validator error is false positive
+```
+
+**Step 3: QA Recommendation**
+- Override validator and proceed to testing
+- Trigger L3 escalation if error persists after 2 fix cycles
+- Document in qa_report.validator_false_positives array
+
+**Prevention:**
+- QA should recognize this pattern after first occurrence
+- Skip re-validation of IF combinator if manual check confirms presence
+- Document in qa_report.validator_false_positives array
+
+**Frequency:** 2/2 IF v2.2 nodes in E2E test (100% false positive rate)
+
+**Related:**
+- Node: n8n-nodes-base.if v2.2
+- Validator: n8n-mcp validate_workflow, profile: ai-friendly
+- Pattern: FP-004 (IF Node Combinator False Positive)
+- Learning: L-054 (QA L3 Escalation Override Protocol)
+
+**Impact:** Prevents L3 escalation infinite loops, saves 2-3 fix cycles per workflow
+
+**Tags:** #n8n #if-node #validator #false-positive #qa-loop #L3-escalation
+
+---
+
+## L-054: QA L3 Escalation - Validator False Positive Override Protocol
+
+**Category:** Error Handling / QA Loop Optimization
+**Severity:** MEDIUM (process improvement)
+**Date:** 2025-11-27
+
+### Problem
+When validator reports persistent errors after Builder fixes, system needs protocol to distinguish real errors from validator bugs.
+
+**Symptoms:**
+- QA reports errors in cycle 2+ after Builder fixed them
+- Builder fix was applied correctly (verified in workflow JSON)
+- Error message unchanged from cycle 1
+
+**Root Cause:**
+Validator limitations or bugs cause false positives that persist despite correct fixes.
+
+### Solution Protocol
+
+**Step 1: QA Manual Verification (Cycle 2)**
+```javascript
+// If error persists in cycle 2:
+1. Read workflow JSON from memory/agent_results/workflow_{id}.json
+2. Locate problematic node by node_id
+3. Verify fix was applied (check exact path from edit_scope)
+4. If fix IS present → classify as FALSE_POSITIVE
+5. Document in qa_report.validator_false_positives array
+```
+
+**Step 2: QA Report Format**
+```json
+{
+  "status": "BLOCKED",
+  "cycle": 2,
+  "validator_false_positives": 2,
+  "actual_critical_errors": 0,
+  "validator_errors": [
+    {
+      "node": "IF - Check Message Type",
+      "message": "Filter must have a combinator field",
+      "classification": "FALSE_POSITIVE",
+      "reason": "combinator='and' IS present at conditions.options.combinator, verified in workflow JSON"
+    }
+  ],
+  "recommendation": "OVERRIDE validator and proceed to activation + testing. Workflow is structurally sound."
+}
+```
+
+**Step 3: Orchestrator Override Decision**
+```javascript
+// Orchestrator checks:
+1. Read qa_report.validator_false_positives count
+2. If > 0 AND qa_report.actual_critical_errors == 0:
+   - Verify QA reasoning in validator_errors[].reason
+   - Spot-check 1-2 nodes manually if unsure
+   - If confident: Override and proceed to stage="test"
+   - Document decision in worklog
+```
+
+**Triggers for Override:**
+- 2+ validation cycles with same error
+- Builder fix verified in workflow JSON
+- No actual structural issues found
+- QA recommends override with clear reasoning
+
+**Do NOT Override If:**
+- New errors appear in cycle 2 (regression)
+- QA unsure about classification
+- Error is in credential or connection structure
+- Workflow has never been tested
+
+**Prevention:**
+- Build validator false positive knowledge base (LEARNINGS.md FP-XXX series)
+- QA should recognize patterns from previous workflows
+- Add validator version to qa_report for bug tracking
+
+**Impact:** Prevents infinite QA loops, allows progress despite validator bugs
+
+**Related:**
+- L-053 (IF Node Combinator False Positive)
+- L-043 (Set v3.4 False Positive, line 285)
+- Pattern: L3 escalation rules (QA loop max 7 cycles)
+
+**Tags:** #n8n #qa-loop #validator #false-positive #L3-escalation #override-protocol
+
+---
+
+## L-055: MCP Zod v4 Bug - Comprehensive curl Workaround Guide
+
+**Category:** MCP Server / n8n API
+**Severity:** HIGH (affects all write operations)
+**Date:** 2025-11-27
+
+### Problem
+n8n-mcp write tools broken due to Zod v4 schema validation bug (GitHub #444, #447).
+
+**Affected Tools:**
+- n8n_create_workflow → Use curl POST
+- n8n_update_full_workflow → Use curl PUT
+- n8n_update_partial_workflow → Use curl PUT
+- n8n_autofix_workflow (apply mode) → Preview MCP + curl PUT
+- n8n_workflow_versions (rollback) → Use curl PUT
+
+**Working Tools (READ operations):**
+- search_nodes, get_node ✓
+- search_templates, get_template ✓
+- n8n_list_workflows, n8n_get_workflow ✓
+- validate_node, n8n_validate_workflow ✓
+- n8n_trigger_webhook_workflow ✓
+- n8n_executions ✓
+- n8n_delete_workflow ✓
+
+### Solution
+
+**1. Environment Variables (Builder must load):**
+```bash
+N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')
+N8N_API_KEY=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_KEY')
+```
+
+**2. Create Workflow (POST):**
+```bash
+curl -s -X POST "${N8N_API_URL}/api/v1/workflows" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Workflow Name",
+    "nodes": [...],
+    "connections": {...},
+    "settings": {}
+  }'
+```
+
+**3. Update Workflow (PUT - CRITICAL: settings required!):**
+```bash
+curl -s -X PUT "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Name",
+    "nodes": [...],
+    "connections": {...},
+    "settings": {}  // REQUIRED! Even if empty
+  }'
+```
+
+**4. Activate Workflow (PATCH - lightweight):**
+```bash
+curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
+  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"active": true}'
+```
+
+### CRITICAL DETAILS
+
+**A. Connections use node.name, NOT node.id:**
+```json
+{
+  "connections": {
+    "Manual Trigger": {  // ✅ CORRECT (node name)
+      "main": [[{ "node": "Set", "type": "main", "index": 0 }]]
+    }
+    // ❌ WRONG: "trigger-1": {...}
+  }
+}
+```
+
+**B. PUT requires ALL fields (name, nodes, connections, settings):**
+```json
+// ❌ WRONG: Missing settings
+{ "name": "...", "nodes": [...], "connections": {...} }
+
+// ✅ CORRECT: All fields present
+{ "name": "...", "nodes": [...], "connections": {...}, "settings": {} }
+```
+
+**C. Response handling:**
+```bash
+# Capture workflow ID from creation
+WORKFLOW_ID=$(curl ... | jq -r '.id')
+
+# Verify success
+if [ -z "$WORKFLOW_ID" ]; then
+  echo "ERROR: Workflow creation failed"
+  exit 1
+fi
+```
+
+**Builder Implementation Checklist:**
+- [ ] Load N8N_API_URL and N8N_API_KEY from .mcp.json
+- [ ] Use POST for new workflows
+- [ ] Use PUT for updates (include settings!)
+- [ ] Use PATCH for activation only
+- [ ] Verify connections use node.name
+- [ ] Capture workflow ID from response
+- [ ] Handle errors gracefully
+
+**When Bug is Fixed:**
+See docs/MCP-BUG-RESTORE.md for migration back to MCP tools.
+
+**Related:**
+- GitHub Issues: n8n-mcp #444, #447
+- Workaround doc: docs/MCP-BUG-RESTORE.md
+- Pattern: MCP bug workarounds
+
+**Impact:** Enables workflow creation despite MCP bug, tested successfully in E2E test
+
+**Tags:** #mcp #n8n #zod-bug #curl #workaround #builder #api

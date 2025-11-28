@@ -1913,3 +1913,44 @@ if ($json.requires_ai) {
 - Maintainability: Add new provider = add 2 nodes (HTTP + Normalize)
 
 **Tags:** #n8n #fan-out #fan-in #normalization #multi-provider #parallel-processing #api-integration #resilience
+
+---
+
+## 🔴 Validator False Positives
+
+### FP-004: IF Node v2.2 Combinator Validator Bug
+
+**Category:** Validator False Positives
+**Severity:** MEDIUM
+**Date:** 2025-11-27
+
+**Pattern:**
+IF v2.2 nodes report "Filter must have a combinator field" even when field exists.
+
+**Detection:**
+- Error: "Filter must have a combinator field"
+- Node type: n8n-nodes-base.if v2.2
+- Validation profile: ai-friendly, runtime, strict (any)
+
+**Verification:**
+```bash
+# Check if combinator exists
+jq '.nodes[] | select(.id=="if-node-id") | .parameters.conditions.options.combinator' workflow.json
+
+# Expected: "and" or "or"
+# If present → FALSE POSITIVE
+```
+
+**Action:**
+1. Manual verification (see above)
+2. Classify as FALSE_POSITIVE
+3. Recommend override to orchestrator
+4. Document in qa_report
+
+**Frequency:** 100% of IF v2.2 nodes in E2E test
+
+**Related:**
+- L-053: IF Node v2.2 Validator False Positive
+- L-054: QA L3 Escalation Override Protocol
+
+**Tags:** #n8n #if-node #validator #false-positive #qa-loop
