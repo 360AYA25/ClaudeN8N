@@ -1,0 +1,389 @@
+{
+  "investigation_summary": {
+    "root_cause": "Switch node connections are structurally correct in workflow definition, but data not flowing through outputs 0/1/2",
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "problem_node": "Switch (id: 52133fd5-62ec-4aaa-a265-c225274c6c16)",
+    "confidence": 95,
+    "evidence": [
+      "Execution #33547 shows Switch executed (2ms) but Process Text never ran",
+      "Connections exist in workflow.connections object with correct structure",
+      "Switch has 3 rules (text/voice/photo) matching 3 main outputs",
+      "Connection syntax uses node.name (not id) - correct for MCP bug workaround"
+    ]
+  },
+
+  "current_state_analysis": {
+    "switch_node_config": {
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": "3.3",
+      "rules_count": 3,
+      "rules": [
+        {
+          "output_index": 0,
+          "condition": "message.text !== undefined",
+          "target_node": "Process Text",
+          "test_case": "User sends text: 'А курицу я уже добавил?'"
+        },
+        {
+          "output_index": 1,
+          "condition": "message.voice !== undefined",
+          "target_node": "Process Voice",
+          "test_case": "User sends voice message"
+        },
+        {
+          "output_index": 2,
+          "condition": "message.photo !== undefined",
+          "target_node": "Process Photo",
+          "test_case": "User sends photo"
+        }
+      ]
+    },
+
+    "current_connections": {
+      "Switch": {
+        "main": [
+          [{"node": "Process Text", "type": "main", "index": 0}],
+          [{"node": "Process Voice", "type": "main", "index": 0}],
+          [{"node": "Process Photo", "type": "main", "index": 0}]
+        ]
+      }
+    },
+
+    "connection_analysis": {
+      "structure": "CORRECT - 3 arrays (one per output)",
+      "node_names": "CORRECT - using names not IDs (MCP bug workaround)",
+      "potential_issue": "Switch node may need recreation due to internal state corruption or typeVersion mismatch"
+    }
+  },
+
+  "learnings_applied": [
+    {
+      "id": "NC-003",
+      "title": "Switch Node Multi-Way Routing",
+      "line": 2476,
+      "key_insight": "Switch node connections must be array of arrays - one array per output",
+      "applied": "Verified current connections match this pattern"
+    },
+    {
+      "id": "L-055",
+      "title": "MCP Zod v4 Bug - curl Workaround",
+      "line": 2772,
+      "key_insight": "All write operations via MCP broken, use curl with node.name in connections",
+      "applied": "Will use curl PUT for fix, connections already use node.name correctly"
+    },
+    {
+      "id": "Partial Update Warning",
+      "line": 1415,
+      "key_insight": "n8n partial update REPLACES all parameters, not merges",
+      "applied": "Will preserve complete Switch node configuration when updating"
+    }
+  ],
+
+  "fix_strategy": {
+    "approach": "Recreate Switch node with identical configuration to fix internal state",
+    "why_recreate": [
+      "Connections structurally correct but data not flowing",
+      "Suggests internal node state corruption",
+      "Safest fix: delete + recreate with same config",
+      "Alternative updates may not fix internal state issue"
+    ],
+    "fallback_if_recreate_fails": "Manually recreate Switch node in UI (known to work)"
+  },
+
+  "step_by_step_fix": [
+    {
+      "step": 1,
+      "action": "Read current workflow to get exact Switch node configuration",
+      "command": "n8n_get_workflow(id=sw3Qs3Fe3JahEbbW, mode=full)",
+      "extract": "Switch node complete parameters + id",
+      "validate": "Confirm node id: 52133fd5-62ec-4aaa-a265-c225274c6c16"
+    },
+    {
+      "step": 2,
+      "action": "Delete broken Switch node",
+      "method": "curl PUT",
+      "command": "Remove Switch node from workflow.nodes array",
+      "critical": "Save complete workflow minus Switch node",
+      "preserve": "All other nodes, all connections to/from other nodes"
+    },
+    {
+      "step": 3,
+      "action": "Recreate Switch node with IDENTICAL configuration",
+      "method": "curl PUT",
+      "node_config": {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $node[\"Telegram Trigger\"].json.message.text !== undefined }}",
+                      "rightValue": true,
+                      "operator": {"type": "boolean", "operation": "equals"},
+                      "id": "74cb4b04-8df1-4c6f-a696-f709584ba27f"
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "1edfb71b-a343-4284-a523-89c63609fa2b",
+                      "leftValue": "={{ $node[\"Telegram Trigger\"].json.message.voice !== undefined }}",
+                      "rightValue": true,
+                      "operator": {"type": "boolean", "operation": "equals"}
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "dd99d955-b636-4ae1-a060-dbe543fcf36f",
+                      "leftValue": "={{ $node[\"Telegram Trigger\"].json.message.photo !== undefined }}",
+                      "rightValue": true,
+                      "operator": {"type": "boolean", "operation": "equals"}
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.3,
+        "position": [-352, 128],
+        "id": "52133fd5-62ec-4aaa-a265-c225274c6c16",
+        "name": "Switch"
+      }
+    },
+    {
+      "step": 4,
+      "action": "Recreate connections",
+      "critical_rule": "Use node NAMES not IDs in connections (MCP bug workaround)",
+      "connections": {
+        "Typing Indicator": {
+          "main": [
+            [{"node": "Switch", "type": "main", "index": 0}]
+          ]
+        },
+        "Switch": {
+          "main": [
+            [{"node": "Process Text", "type": "main", "index": 0}],
+            [{"node": "Process Voice", "type": "main", "index": 0}],
+            [{"node": "Process Photo", "type": "main", "index": 0}]
+          ]
+        }
+      },
+      "explanation": "Switch.main is array of 3 arrays - one per output (0=text, 1=voice, 2=photo)"
+    },
+    {
+      "step": 5,
+      "action": "Test with execution",
+      "test_message": "А курицу я уже добавил?",
+      "expected_flow": "Telegram Trigger → Log → Check User → IF Registered → Typing → Switch → Process Text → AI Agent → Success Reply",
+      "success_criteria": "Process Text appears in execution data after Switch",
+      "failure_recovery": "Escalate to manual UI recreation"
+    }
+  ],
+
+  "node_configs": {
+    "switch_node_full": {
+      "critical_fields": [
+        "rules.values[].conditions.options.version = 2",
+        "rules.values[].conditions.combinator = 'and'",
+        "typeVersion = 3.3",
+        "Each rule outputs to different index (0, 1, 2)"
+      ],
+      "gotchas": [
+        "conditions.conditions double nesting is REQUIRED",
+        "Each condition needs unique id (UUIDs)",
+        "leftValue uses expression syntax: ={{...}}",
+        "operator has type + operation structure"
+      ]
+    }
+  },
+
+  "connection_syntax": {
+    "format": "connections object keyed by node NAME (not ID)",
+    "example": {
+      "Switch": {
+        "main": "Array of arrays - CRITICAL: outer array = outputs, inner arrays = targets per output"
+      }
+    },
+    "common_mistake": "Using single array instead of array of arrays for multi-output nodes",
+    "correct_pattern": [
+      "Output 0: [array of targets]",
+      "Output 1: [array of targets]",
+      "Output 2: [array of targets]"
+    ]
+  },
+
+  "curl_template": {
+    "read_env": [
+      "N8N_API_URL=$(cat /Users/sergey/Projects/ClaudeN8N/.mcp.json | jq -r '.mcpServers[\"n8n-mcp\"].env.N8N_API_URL')",
+      "N8N_API_KEY=$(cat /Users/sergey/Projects/ClaudeN8N/.mcp.json | jq -r '.mcpServers[\"n8n-mcp\"].env.N8N_API_KEY')"
+    ],
+    "update_workflow": [
+      "curl -s -X PUT \"${N8N_API_URL}/api/v1/workflows/sw3Qs3Fe3JahEbbW\" \\",
+      "  -H \"X-N8N-API-KEY: ${N8N_API_KEY}\" \\",
+      "  -H \"Content-Type: application/json\" \\",
+      "  -d '{\"name\":\"FoodTracker\",\"nodes\":[...],\"connections\":{...},\"settings\":{...}}'"
+    ],
+    "critical_note": "MUST include settings object even if empty: {\"executionOrder\":\"v1\",...}"
+  },
+
+  "validation_checks": [
+    {
+      "check": "Switch node has 3 outputs in connections",
+      "command": "Check connections.Switch.main.length === 3",
+      "expected": true
+    },
+    {
+      "check": "Each output has target node",
+      "command": "Check each connections.Switch.main[i] is non-empty array",
+      "expected": "All 3 arrays have at least one target"
+    },
+    {
+      "check": "Typing Indicator connects TO Switch",
+      "command": "Check connections['Typing Indicator'].main[0] includes Switch",
+      "expected": true
+    },
+    {
+      "check": "Process Text receives FROM Switch output 0",
+      "command": "Check connections.Switch.main[0] includes Process Text",
+      "expected": true
+    },
+    {
+      "check": "Test execution reaches Process Text",
+      "method": "Trigger with text message, verify Process Text in execution data",
+      "success": "Process Text node appears in execution list after Switch"
+    }
+  ],
+
+  "warnings": [
+    {
+      "level": "CRITICAL",
+      "warning": "curl PUT requires COMPLETE workflow JSON including all nodes, connections, AND settings",
+      "impact": "Missing settings will cause workflow save failure",
+      "mitigation": "Read current workflow first, preserve all fields except Switch node"
+    },
+    {
+      "level": "HIGH",
+      "warning": "Connections use node.name not node.id due to MCP Zod bug",
+      "impact": "Using IDs will break connections",
+      "mitigation": "Always reference nodes by 'name' field in connections object"
+    },
+    {
+      "level": "MEDIUM",
+      "warning": "Switch node typeVersion must match (3.3)",
+      "impact": "Version mismatch may cause validation errors",
+      "mitigation": "Preserve exact typeVersion from current workflow"
+    },
+    {
+      "level": "LOW",
+      "warning": "Recreating node will reset its internal execution state",
+      "impact": "Any cached data in Switch node will be lost (acceptable)",
+      "mitigation": "None needed - desired outcome"
+    }
+  ],
+
+  "gotchas": [
+    "Switch node conditions.conditions double nesting is NOT a typo - it's required structure",
+    "Each condition id must be unique UUID - preserve from original or generate new",
+    "options.version: 2 in conditions is separate from typeVersion: 3.3 on node",
+    "Empty options: {} object still required in parameters",
+    "Connection arrays MUST be nested: main: [[targets_output_0], [targets_output_1], [targets_output_2]]",
+    "Position array format: [x, y] not {x: ..., y: ...}",
+    "Settings object required in workflow root: {executionOrder, callerPolicy, availableInMCP}"
+  ],
+
+  "expression_examples": [
+    {
+      "context": "Check if text message exists",
+      "expression": "={{ $node[\"Telegram Trigger\"].json.message.text !== undefined }}",
+      "explanation": "Access Telegram Trigger node output, check message.text field exists",
+      "returns": "boolean true/false"
+    },
+    {
+      "context": "Access user data from Check User node",
+      "expression": "={{ $node[\"Check User\"].json.telegram_user_id }}",
+      "explanation": "Reference previous node output by name",
+      "note": "Used in Process Text/Voice/Photo nodes"
+    }
+  ],
+
+  "code_snippets": [
+    {
+      "node_role": "Process Text - Extract text message and user data",
+      "language": "javascript",
+      "code": "const message = $node[\"Telegram Trigger\"].json.message;\nconst user = $node[\"Check User\"].json;\n\n// Validate user data is available\nif (!user || !user.telegram_user_id) {\n  throw new Error(\"User data not found in execution context\");\n}\n\nreturn [{ type: 'text', data: message.text, telegram_user_id: user.telegram_user_id, user_id: user.id, owner: user.owner }];",
+      "notes": "Already correct, no changes needed"
+    }
+  ],
+
+  "ripple_analysis": {
+    "nodes_affected": ["Switch"],
+    "nodes_unchanged": ["Process Text", "Process Voice", "Process Photo", "Typing Indicator"],
+    "connections_affected": [
+      "Typing Indicator → Switch",
+      "Switch → Process Text (output 0)",
+      "Switch → Process Voice (output 1)",
+      "Switch → Process Photo (output 2)"
+    ],
+    "risk_level": "LOW - isolated change to single node, connections pattern well-understood"
+  },
+
+  "success_criteria": {
+    "immediate": [
+      "curl PUT returns 200 OK",
+      "n8n_get_workflow shows Switch node present",
+      "connections.Switch.main has 3 arrays"
+    ],
+    "functional": [
+      "Test message 'А курицу я уже добавил?' triggers execution",
+      "Execution data shows: Telegram Trigger → ... → Switch → Process Text",
+      "Process Text node appears in execution list",
+      "AI Agent receives data and responds"
+    ],
+    "complete": [
+      "Bot responds to text messages",
+      "Bot responds to voice messages (separate test)",
+      "Bot responds to photo messages (separate test)",
+      "All 3 Switch outputs working"
+    ]
+  },
+
+  "estimated_effort": "5-10 minutes (read workflow, construct curl, update, test)",
+
+  "rollback_plan": {
+    "if_fix_fails": "Revert to version 3765b15d-551d-41dd-8aae-2b2d71bea808 (last working version before fix attempts)",
+    "command": "n8n_workflow_versions(mode='rollback', workflowId='sw3Qs3Fe3JahEbbW', versionId='3765b15d-551d-41dd-8aae-2b2d71bea808')",
+    "alternative": "Ask user to manually recreate Switch node in n8n UI"
+  }
+}

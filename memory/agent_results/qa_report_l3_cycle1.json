@@ -1,0 +1,116 @@
+{
+  "qa_id": "l3-foodtracker-timeout-97cbcba9-cycle1",
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "validation_ts": "2025-11-28T18:50:00Z",
+  "cycle": 1,
+  "stage": "validate",
+
+  "validation_status": "failed",
+  "ready_for_deploy": false,
+  "user_test_required": true,
+
+  "summary": {
+    "error_count": 3,
+    "warning_count": 57,
+    "switch_fix_status": "appears_fixed",
+    "execution_test_status": "pending_user_trigger",
+    "blocking_issues": 3
+  },
+
+  "critical_errors": [
+    {
+      "node_name": "Not Registered",
+      "severity": "error",
+      "category": "invalid_operation",
+      "message": "Invalid value for 'operation'. Must be one of: deleteMessage, editMessageText, pinChatMessage, sendAnimation, sendAudio, sendChatAction, sendDocument, sendLocation, sendMediaGroup, sendMessage, sendAndWait, sendPhoto, sendSticker, sendVideo, unpinChatMessage",
+      "current_value": "Unknown (not in workflow data)",
+      "impact": "Node will fail when executed",
+      "fix_required": "Change operation to valid Telegram operation"
+    },
+    {
+      "node_name": "Success Reply",
+      "severity": "error",
+      "category": "invalid_operation",
+      "message": "Invalid value for 'operation'. Must be one of: deleteMessage, editMessageText, pinChatMessage, sendAnimation, sendAudio, sendChatAction, sendDocument, sendLocation, sendMediaGroup, sendMessage, sendAndWait, sendPhoto, sendSticker, sendVideo, unpinChatMessage",
+      "current_value": "Unknown (not in workflow data)",
+      "impact": "Node will fail when executed - bot cannot send success response",
+      "fix_required": "Change operation to 'sendMessage'"
+    },
+    {
+      "node_name": "Create a row in Supabase",
+      "severity": "error",
+      "category": "unknown_node_type",
+      "message": "Unknown node type: \"nodes-base.supabaseTool\". No similar nodes found. Node types must include the package prefix (e.g., \"n8n-nodes-base.webhook\").",
+      "current_value": "nodes-base.supabaseTool",
+      "impact": "Node will not execute",
+      "fix_required": "Change to correct node type or remove if unused"
+    }
+  ],
+
+  "switch_fix_verification": {
+    "connections_valid": true,
+    "no_connection_errors": true,
+    "structure_intact": true,
+    "conclusion": "Switch node connections appear fixed",
+    "verification_method": "Validation passed connection checks",
+    "caveat": "No execution data to confirm actual data flow"
+  },
+
+  "execution_analysis": {
+    "last_execution_id": "33547",
+    "last_execution_ts": "2025-11-28T18:03:11.281Z",
+    "last_execution_status": "canceled",
+    "fix_applied_ts": "2025-11-28T18:46:35Z",
+    "time_gap": "Fix applied 43 minutes AFTER last execution",
+    "new_executions_after_fix": 0,
+    "test_status": "WAITING_FOR_USER_TRIGGER",
+    "recommendation": "User must send test message to trigger new execution"
+  },
+
+  "warnings_ignored": {
+    "count": 57,
+    "categories": [
+      "Outdated typeVersion (non-critical)",
+      "Code node best practices (functional as-is)",
+      "Error handling recommendations (optional)",
+      "Expression format suggestions (working but deprecated)"
+    ],
+    "rationale": "Warnings do not block execution. Focus on 3 critical errors first."
+  },
+
+  "next_steps": {
+    "immediate": [
+      "User sends test message in Telegram",
+      "Monitor execution to verify Process Text runs after Switch",
+      "If execution hangs again → Switch fix failed, escalate to Builder",
+      "If execution completes but errors on Telegram nodes → fix 3 critical errors"
+    ],
+    "if_switch_works": [
+      "Builder fixes 3 critical node errors",
+      "QA re-validates",
+      "Full deployment test"
+    ],
+    "if_switch_fails": [
+      "stage=build",
+      "edit_scope: [Switch, Process Text, Process Voice, Process Photo]",
+      "Builder investigates deeper connection issue"
+    ]
+  },
+
+  "edit_scope_if_fail": [
+    "Not Registered",
+    "Success Reply",
+    "Create a row in Supabase"
+  ],
+
+  "recommended_action": "WAIT_FOR_USER_TEST",
+  "user_instruction": "Пожалуйста, отправь тестовое сообщение боту в Telegram (например: '200г курицы'). Мне нужно увидеть новое выполнение workflow после применённого фикса.",
+
+  "detailed_analysis": {
+    "what_was_fixed": "Switch node recreated via curl PUT. Connections restored: Typing Indicator → Switch → Process Text/Voice/Photo",
+    "what_validation_shows": "No connection errors. Switch structure valid. 3 unrelated node configuration errors.",
+    "what_is_unknown": "Whether Process Text actually executes after Switch during real execution (no execution data after fix)",
+    "confidence_level": 70,
+    "confidence_reasoning": "Validation shows structure is correct, but cannot confirm data flow without execution test"
+  }
+}
