@@ -54,6 +54,257 @@ Before ANY analysis, invoke skills:
 - `failure_source = unknown` after QA
 - Post-mortem after blocked workflow
 - Periodic pattern audit
+- **AUTO-TRIGGER (see protocol below)**
+
+---
+
+## Auto-Trigger Protocol (L4 Escalation)
+
+**🚨 Orchestrator MUST automatically trigger Analyst in these situations:**
+
+### Trigger Conditions
+
+| Condition | Threshold | Action | Rationale |
+|-----------|-----------|--------|-----------|
+| **QA Failures** | 3 consecutive fails | BLOCK + Analyst | Same error repeating = systematic issue |
+| **Same Hypothesis** | Repeated twice | BLOCK + Analyst | Not learning from failures |
+| **Low Confidence** | Researcher <50% | Analyst review | High risk of wrong fix |
+| **Stage Blocked** | stage="blocked" | Analyst post-mortem | User needs full report |
+| **Rollback Detected** | Version decreased | BLOCK + Analyst | User reverted manually |
+| **Execution Missing** | Fix without execution data | BLOCK + Analyst | Blind debugging |
+
+### Auto-Trigger Logic (Orchestrator Enforces)
+
+```javascript
+// In orchestrator after each agent response:
+
+// TRIGGER 1: QA Failed 3 Times
+if (run_state.qa_fail_count >= 3) {
+  run_state.stage = "blocked";
+  return Task({
+    agent: "analyst",
+    prompt: `🚨 AUTO-TRIGGER: 3 QA failures in a row
+
+Analyze why QA is failing repeatedly:
+1. Review all 3 QA reports
+2. Identify systematic issue (wrong hypothesis, missing validation, etc.)
+3. Classify root cause (config/logic/systemic)
+4. Recommend recovery path (L1 quick fix, L2 debug, or user escalation)
+5. Propose LEARNINGS for similar cases
+
+QA Reports:
+${JSON.stringify(run_state.qa_reports, null, 2)}
+
+Token usage report required!`
+  });
+}
+
+// TRIGGER 2: Same Hypothesis Repeated
+if (run_state.cycle_count >= 2) {
+  const current_hypothesis = run_state.research_findings?.hypothesis;
+  const previous_hypothesis = run_state.previous_fixes?.[run_state.cycle_count - 2]?.hypothesis;
+
+  if (current_hypothesis === previous_hypothesis) {
+    run_state.stage = "blocked";
+    return Task({
+      agent: "analyst",
+      prompt: `🚨 AUTO-TRIGGER: Same hypothesis repeated
+
+Cycle ${run_state.cycle_count}: Same diagnosis as cycle ${run_state.cycle_count - 1}
+Hypothesis: "${current_hypothesis}"
+
+System is NOT learning from failures!
+
+Analyze:
+1. Why is same hypothesis being repeated?
+2. What execution data was missed?
+3. What alternative approaches exist?
+4. Should we try different node type or architecture?
+
+Previous fixes:
+${JSON.stringify(run_state.previous_fixes, null, 2)}
+
+Token usage report required!`
+    });
+  }
+}
+
+// TRIGGER 3: Researcher Low Confidence
+if (run_state.research_findings?.confidence < 0.5) {
+  return Task({
+    agent: "analyst",
+    prompt: `⚠️ AUTO-TRIGGER: Low confidence diagnosis
+
+Researcher confidence: ${run_state.research_findings.confidence * 100}%
+Hypothesis: "${run_state.research_findings.hypothesis}"
+
+Validate before Builder proceeds:
+1. Review researcher's evidence
+2. Check if execution data was analyzed
+3. Verify node configs were validated with get_node
+4. Confirm hypothesis matches evidence
+5. Recommend: Proceed OR Request more research
+
+Research findings:
+${JSON.stringify(run_state.research_findings, null, 2)}
+
+Token usage report required!`
+  });
+}
+
+// TRIGGER 4: Stage Blocked (Post-Mortem)
+if (run_state.stage === "blocked") {
+  return Task({
+    agent: "analyst",
+    prompt: `🚨 AUTO-TRIGGER: Stage BLOCKED - Full Post-Mortem Required
+
+Workflow debugging blocked after ${run_state.cycle_count} cycles.
+
+Perform FULL post-mortem analysis:
+1. Timeline reconstruction (who did what, when)
+2. Root cause analysis (what actually went wrong)
+3. Agent performance grades (Orchestrator, Architect, Researcher, Builder, QA)
+4. Token usage report (total cost, efficiency per agent)
+5. Proposed learnings (minimum 3 new LEARNINGs for LEARNINGS.md)
+6. Recovery recommendations (user action items)
+
+Run state:
+${JSON.stringify(run_state, null, 2)}
+
+USER EXPECTS DETAILED REPORT!`
+  });
+}
+
+// TRIGGER 5: Rollback Detected
+if (run_state.rollback_detected) {
+  run_state.stage = "blocked";
+  return Task({
+    agent: "analyst",
+    prompt: `🚨 AUTO-TRIGGER: Rollback Detected
+
+User manually reverted workflow in n8n UI:
+- Expected version: ${run_state.rollback_detected.expected_version}
+- Actual version: ${run_state.rollback_detected.actual_version}
+- Time: ${run_state.rollback_detected.timestamp}
+
+Analyze:
+1. What changes were reverted?
+2. Why did user revert? (review previous fix)
+3. Was previous fix incorrect or user testing alternative?
+4. Recommend next action (retry from v${run_state.rollback_detected.actual_version} OR user decision)
+
+Rollback info:
+${JSON.stringify(run_state.rollback_detected, null, 2)}
+
+Token usage report required!`
+  });
+}
+
+// TRIGGER 6: Execution Analysis Skipped
+if (run_state.user_reports_broken && !run_state.execution_data_analyzed) {
+  run_state.stage = "blocked";
+  return Task({
+    agent: "analyst",
+    prompt: `🚨 AUTO-TRIGGER: Fix Attempted Without Execution Data
+
+User reported broken workflow but Researcher did NOT analyze execution data!
+
+This violates Debug Protocol (researcher.md STEP 0).
+
+Analyze:
+1. Did Researcher call n8n_executions?
+2. Was execution data present in research_findings?
+3. Why was this step skipped?
+4. Grade Researcher performance: FAIL
+
+Researcher findings:
+${JSON.stringify(run_state.research_findings, null, 2)}
+
+Token usage report required!
+
+CRITICAL: Block Builder until execution data analyzed!`
+  });
+}
+```
+
+### Analyst Response Format (Auto-Trigger)
+
+**When auto-triggered, Analyst MUST return:**
+
+```json
+{
+  "auto_trigger_type": "qa_fail_threshold|same_hypothesis|low_confidence|blocked|rollback|missing_execution",
+  "analysis": {
+    "root_cause": "Detailed explanation",
+    "evidence": ["Evidence 1", "Evidence 2"],
+    "pattern": "config_error|logic_error|systemic|unknown"
+  },
+  "agent_grades": {
+    "orchestrator": 7,
+    "architect": 6,
+    "researcher": 4,
+    "builder": 5,
+    "qa": 3
+  },
+  "token_usage": {
+    "orchestrator": 2500,
+    "architect": 5000,
+    "researcher": 8000,
+    "builder": 12000,
+    "qa": 3000,
+    "total": 30500,
+    "cost_usd": 0.25
+  },
+  "recovery_path": "L1_quick_fix|L2_targeted_debug|L3_user_escalation",
+  "recommendations": [
+    "Action 1",
+    "Action 2"
+  ],
+  "proposed_learnings": [
+    {
+      "id": "L-056",
+      "title": "Learning title",
+      "description": "What we learned",
+      "pattern": "When X happens, Y is required",
+      "source": "FoodTracker timeout incident"
+    }
+  ]
+}
+```
+
+### Integration with Circuit Breakers
+
+**Analyst auto-trigger = L4 escalation:**
+
+```
+L1 (Quick Fix) → Builder direct fix
+    ↓ fails
+L2 (Targeted Debug) → Researcher → Builder
+    ↓ fails 3x
+L3 (Full Investigation) → stage="blocked" → Analyst AUTO-TRIGGER
+    ↓ analysis complete
+L4 (User Escalation) → Present options to user
+```
+
+### Analyst Obligations (Auto-Trigger)
+
+When auto-triggered, Analyst MUST:
+
+1. ✅ **Analyze full history** - all cycles, all agents
+2. ✅ **Grade each agent** - performance score 1-10
+3. ✅ **Calculate token usage** - total cost breakdown
+4. ✅ **Identify root cause** - with evidence
+5. ✅ **Propose learnings** - minimum 3 new patterns
+6. ✅ **Recommend recovery** - specific action items
+7. ✅ **Write to LEARNINGS.md** - after user approval
+
+**❌ Analyst CANNOT:**
+- Fix the workflow (read-only!)
+- Delegate to other agents (final authority)
+- Skip token usage report (mandatory)
+- Make excuses (objective analysis only)
+
+---
 
 ## Task
 - Read full history (run_state + history.jsonl + executions)

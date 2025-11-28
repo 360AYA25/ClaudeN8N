@@ -82,12 +82,65 @@ Task({ subagent_type: "architect", prompt: "..." })
 3. **Agent writes**: Results to run_state + `memory/agent_results/`
 4. **Return**: Summary only (~500 tokens max)
 
-### 🛑 Validation Gates (Mandatory Checks)
+### 🛑 MANDATORY Validation Gates
 
-**Before calling Builder:**
-- ❌ FORBIDDEN without `research_findings` in run_state
-- ❌ FORBIDDEN without `build_guidance` file in agent_results/
-- ❌ FORBIDDEN without user approval (if modifying workflow)
+**See `.claude/agents/validation-gates.md` for full rules.**
+
+**GATE 1: Execution Analysis Required (DEBUGGING ONLY)**
+```javascript
+// BEFORE any fix attempt:
+if (user_reports_broken && !execution_data_analyzed) {
+  BLOCK("❌ FORBIDDEN: Fix without execution analysis!");
+  REQUIRE: researcher.analyze_execution_data();
+  // Researcher MUST get execution logs, identify stopping point
+}
+```
+
+**GATE 2: Hypothesis Validation Required**
+```javascript
+// BEFORE calling Builder:
+if (!research_findings.hypothesis_validated) {
+  BLOCK("❌ FORBIDDEN: Unvalidated hypothesis!");
+  REQUIRE: researcher.validate_with_mcp_tools();
+  // Researcher MUST use get_node to verify configuration
+}
+
+if (!research_findings || !build_guidance_file_exists) {
+  BLOCK("❌ FORBIDDEN: Missing research or build_guidance!");
+}
+
+if (modifying_workflow && !user_approval) {
+  BLOCK("❌ FORBIDDEN: User approval required for modifications!");
+}
+```
+
+**GATE 3: Post-Build Verification Required**
+```javascript
+// AFTER Builder completes:
+if (builder_result.version_id) {
+  REQUIRE: orchestrator.verify_changes_applied();
+  // 1. Read workflow via MCP
+  // 2. Check version_id changed
+  // 3. Verify expected parameters present
+  // 4. Detect rollback (version_counter decreased)
+}
+```
+
+**GATE 4: Circuit Breaker**
+```javascript
+// If 2 cycles with same hypothesis:
+if (cycle_count >= 2 && current_hypothesis === previous_hypothesis) {
+  ESCALATE_TO_L4();
+  REQUIRE: analyst.audit_methodology();
+  REASON: "Not learning from failures";
+}
+
+// If 3 QA failures in a row:
+if (qa_fail_count >= 3) {
+  ESCALATE_TO_L4();
+  ANALYST_AUDIT_METHODOLOGY();
+}
+```
 
 **Before workflow mutation:**
 - ❌ FORBIDDEN if 3+ nodes AND NOT incremental mode
@@ -289,6 +342,60 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 ├── Cycle 6-7: Analyst diagnoses root cause
 └── After 7 fails → stage="blocked" → report to user with full history
 ```
+
+---
+
+## Post-Build Verification Protocol
+
+**Orchestrator MUST verify AFTER every Builder execution:**
+
+```bash
+# 1. Read updated workflow
+workflow=$(mcp__n8n-mcp__n8n_get_workflow id=$workflow_id mode="full")
+
+# 2. Verify version changed
+current_version=$(echo $workflow | jq -r '.versionId')
+if [ "$current_version" == "$previous_version" ]; then
+  FAIL("❌ CRITICAL: Workflow version didn't change! Update may have failed silently.");
+  BLOCK_QA();
+  REPORT_TO_USER();
+fi
+
+# 3. Verify specific changes (from build_guidance expected_changes)
+for change in "${expected_changes[@]}"; do
+  node=$(echo $workflow | jq ".nodes[] | select(.name == \"${change.node}\")")
+  actual_value=$(echo $node | jq -r ".parameters.${change.parameter}")
+
+  if [ "$actual_value" != "${change.value}" ]; then
+    FAIL("❌ Change not applied: ${change.node}.${change.parameter} = $actual_value (expected: ${change.value})");
+    BLOCK_QA();
+  fi
+done
+
+# 4. Detect rollback
+version_counter=$(echo $workflow | jq -r '.versionCounter')
+if [ $version_counter -lt $previous_counter ]; then
+  CRITICAL_ALERT("⚠️ Version rollback detected! User may have reverted changes in UI.");
+  STOP_BUILD_CYCLE();
+  NOTIFY_USER("Workflow was rolled back after our update. Previous: $previous_counter, Current: $version_counter");
+fi
+
+# 5. Check node count matches
+if [ $(echo $workflow | jq '.nodes | length') != $expected_node_count ]; then
+  WARN("Node count mismatch - possible data corruption");
+fi
+```
+
+**If verification fails:**
+1. BLOCK QA from running
+2. Report failure details to user
+3. Provide rollback option
+4. Do NOT continue build cycle
+
+**If rollback detected:**
+1. STOP immediately
+2. Alert user: "Workflow reverted in UI - conflicts with our changes"
+3. Ask: Re-apply fix? OR Abort?
 
 ## Test Mode
 

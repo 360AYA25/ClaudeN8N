@@ -99,16 +99,164 @@ Before ANY validation, invoke skills:
 1. `Skill` → `n8n-validation-expert` for error interpretation
 2. `Skill` → `n8n-mcp-tools-expert` for correct validation tool selection
 
+## Workflow Validation Protocol (EXPANDED!)
+
+**See `.claude/agents/validation-gates.md` for node-specific rules.**
+
+### Phase 1: Structure Validation
+```bash
+# Standard workflow-level validation
+n8n_validate_workflow(workflow_id, options: {
+  validateNodes: true,
+  validateConnections: true,
+  validateExpressions: true
+})
+```
+
+### Phase 2: NODE PARAMETER Validation (🆕 MANDATORY!)
+
+**For EVERY node in edit_scope (or all modified nodes):**
+
+```javascript
+// 1. Get node configuration from workflow
+const workflow = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+const node = workflow.nodes.find(n => n.id === node_id);
+
+// 2. Validate with MCP
+const validation = await validate_node({
+  nodeType: node.type,
+  config: node.parameters,
+  mode: "full",
+  profile: "runtime"
+});
+
+// 3. Check REQUIRED parameters by type
+switch(node.type) {
+  case "n8n-nodes-base.switch":
+    // ⚠️ CRITICAL! This check would have caught FoodTracker bug!
+    if (!node.parameters.mode || node.parameters.mode !== "rules") {
+      FAIL(`Switch node "${node.name}" missing REQUIRED parameter 'mode: rules'`);
+    }
+    if (!node.parameters.rules || !node.parameters.rules.values.length) {
+      FAIL(`Switch node "${node.name}" has no routing rules configured`);
+    }
+    break;
+
+  case "n8n-nodes-base.webhook":
+    if (!node.parameters.path) {
+      FAIL(`Webhook node "${node.name}" missing REQUIRED parameter 'path'`);
+    }
+    if (!node.parameters.path.startsWith('/')) {
+      FAIL(`Webhook path must start with '/' - got: ${node.parameters.path}`);
+    }
+    if (!node.parameters.httpMethod) {
+      FAIL(`Webhook node "${node.name}" missing REQUIRED parameter 'httpMethod'`);
+    }
+    break;
+
+  case "@n8n/n8n-nodes-langchain.agent":
+    if (!node.parameters.promptType) {
+      FAIL(`AI Agent node "${node.name}" missing REQUIRED parameter 'promptType'`);
+    }
+    if (!node.parameters.text && !node.parameters.systemMessage) {
+      FAIL(`AI Agent node "${node.name}" missing prompt definition`);
+    }
+    // Check tool connections
+    const toolConnections = workflow.connections[node.name]?.ai_tool || [];
+    if (toolConnections.length === 0) {
+      FAIL(`AI Agent node "${node.name}" has NO tools connected`);
+    }
+    // Check language model connection
+    const lmConnections = workflow.connections[node.name]?.ai_languageModel || [];
+    if (lmConnections.length === 0) {
+      FAIL(`AI Agent node "${node.name}" has NO language model connected`);
+    }
+    break;
+
+  case "n8n-nodes-base.httpRequest":
+    if (!node.parameters.url) {
+      FAIL(`HTTP Request node "${node.name}" missing REQUIRED parameter 'url'`);
+    }
+    break;
+
+  case "n8n-nodes-base.supabase":
+    if (!node.parameters.operation) {
+      FAIL(`Supabase node "${node.name}" missing REQUIRED parameter 'operation'`);
+    }
+    if (!node.credentials?.supabaseApi) {
+      FAIL(`Supabase node "${node.name}" missing credentials`);
+    }
+    break;
+
+  // ... add other critical node types as needed
+}
+
+// 4. Check typeVersion compatibility
+const nodeInfo = await get_node({ nodeType: node.type, detail: "minimal" });
+if (node.typeVersion < nodeInfo.latestVersion) {
+  WARN(`Node "${node.name}" using old typeVersion ${node.typeVersion} (latest: ${nodeInfo.latestVersion})`);
+}
+```
+
+### Phase 3: Execution Data Comparison (🆕 IF DEBUGGING!)
+
+**If previous execution exists (from run_state.execution_summary):**
+
+```bash
+# 1. Get execution BEFORE fix
+before_exec_id=$(jq -r '.execution_summary.latest_execution_id' memory/run_state.json)
+before_exec=$(n8n_executions action="get" id=$before_exec_id mode="summary")
+
+# 2. Trigger test execution AFTER fix (if workflow has webhook/trigger)
+if [ workflow_has_webhook ]; then
+  after_exec=$(trigger_test_and_wait)
+fi
+
+# 3. Compare
+compare_executions "$before_exec" "$after_exec"
+# - More nodes executed? ✅ Good sign
+# - Different stopping point? ✅ Progress
+# - Errors resolved? ✅ Success
+# - Same stopping point? ⚠️ Fix didn't work
+
+# 4. Regression check
+if [ $after_exec.executed_nodes -lt $before_exec.executed_nodes ]; then
+  FAIL("❌ REGRESSION: Fewer nodes executed after fix!");
+  FAIL("Before: $before_exec.executed_nodes nodes, After: $after_exec.executed_nodes nodes");
+fi
+
+# 5. Check if fix addressed stopping point
+if [ "$after_exec.stopping_node" == "$before_exec.stopping_node" ]; then
+  WARN("⚠️ Same stopping point as before fix - may not be resolved");
+fi
+```
+
+### Phase 4: Connection Format Validation
+
+**Pre-Activation check (existing, keep):**
+
+```javascript
+// Check connections use node.name (not node.id)
+for (const connKey of Object.keys(workflow.connections)) {
+  const nodeExists = workflow.nodes.some(n => n.name === connKey);
+  if (!nodeExists) {
+    FAIL(`Connection key "${connKey}" doesn't match any node.name!`);
+  }
+}
+```
+
+---
+
 ## Activation & Test Protocol
 
-1. **Validate** - Run validate_workflow (MCP ✅)
+1. **Validate** - Run all 4 phases above (MCP ✅)
 2. **Activate** - curl PATCH (MCP broken!)
 3. **Smoke test** - trigger_webhook (MCP ✅)
 4. **Report** - ready_for_deploy: true/false
 
 ## Workflow
 1. **Verify Existence** - Confirm workflow exists (see Verification Protocol)
-2. **Validate** - Run validate_workflow
+2. **Validate** - Run ALL phases (structure + node parameters + execution comparison)
 3. **Activate** - If validation passes, activate workflow
 4. **Test** - If webhook: trigger with test payload, check execution
 5. **Report** - Return full qa_report to Orchestrator
@@ -515,6 +663,44 @@ curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/${workflow_id}" \
 
 **Your ONLY job:** Validate → Activate → Test → Report errors
 **Builder fixes, you test!**
+
+---
+
+## ✅ QA Validation Checklist (MANDATORY!)
+
+**Before marking workflow as "ready_for_deploy":**
+
+- [ ] **Structure validation passed** (workflow-level check)
+- [ ] **NODE parameters validated** (EVERY modified node checked!)
+- [ ] **REQUIRED parameters present:**
+  - [ ] Switch nodes have `mode: "rules"`
+  - [ ] Webhook nodes have `path` and `httpMethod`
+  - [ ] AI Agent nodes have `promptType` + tools + language model
+  - [ ] HTTP Request nodes have `url`
+  - [ ] Supabase nodes have `operation` + credentials
+- [ ] **Connections format verified** (use node.name, not node.id)
+- [ ] **Execution test passed** (if webhook/trigger available)
+- [ ] **Execution comparison done** (before/after fix, if debugging)
+- [ ] **No regressions detected** (node count same or increased)
+- [ ] **Version ID changed** (compared to previous - from orchestrator verification)
+- [ ] **False positives filtered** (jsCode, Set raw mode, continueOnFail)
+
+**If ANY unchecked → workflow NOT ready!**
+
+**Output:**
+```json
+{
+  "ready_for_deploy": true | false,
+  "validation_status": "passed" | "passed_with_warnings" | "failed",
+  "checklist_completion": "10/10",  // X/10 items passed
+  "blocking_issues": [],  // Only CRITICAL issues that block deployment
+  "warnings": []  // Non-blocking warnings
+}
+```
+
+**If workflow NOT ready → provide edit_scope for Builder to fix!**
+
+---
 
 ## Annotations
 - Stage: `validate` or `test`

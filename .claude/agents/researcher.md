@@ -93,6 +93,165 @@ STEP 4: NODES (если нужны новые)
 - `complexity` = node_count < 5 → simple, < 15 → medium, else complex
 - `popularity` = views + downloads (from template metadata)
 
+---
+
+## 🔍 Debug Protocol (MANDATORY для debugging!)
+
+**Trigger:** User reports "не работает" / timeout / error для СУЩЕСТВУЮЩЕГО workflow
+
+**⚠️ THIS IS MANDATORY!** Cannot skip execution analysis when debugging!
+
+### СТРОГИЙ ПОРЯДОК (нельзя пропустить!)
+
+```
+STEP 0: EXECUTION ANALYSIS FIRST! (⚠️ ОБЯЗАТЕЛЬНО!)
+├── n8n_executions(action: "list", workflowId, limit: 3)
+├── n8n_executions(action: "get", id: latest_execution, mode: "summary")
+├── Identify: which nodes executed, which didn't, where stopped
+└── Output: execution_summary (stopping_node, executed_count, error_messages)
+
+⚠️ БЕЗ execution analysis → БЛОК! Orchestrator will reject research_findings!
+
+STEP 1: STOPPING POINT ANALYSIS
+├── Identify last successful node (from execution data)
+├── Identify first failed/skipped node
+├── Check node connections (is node connected?)
+└── Hypothesis: Why execution stopped there?
+
+STEP 2: NODE CONFIGURATION VALIDATION
+├── get_node(nodeType of stopping_node, detail="standard")
+├── Check REQUIRED parameters (mode, path, typeVersion, etc.)
+├── Compare actual config vs required schema
+└── Validate against working examples from templates
+
+STEP 3: CONNECTION VALIDATION
+├── Check connections TO stopping node (is data arriving?)
+├── Check connections FROM stopping node (is data routing?)
+├── Verify connection format (node.name not node.id)
+└── Check data flow path end-to-end
+
+STEP 4: DATA STRUCTURE VALIDATION
+├── Check input data structure (from execution)
+├── Check expected output structure (from node schema)
+├── Validate expressions/references ($json, $node)
+└── Check for missing/incorrect fields
+
+STEP 5: HYPOTHESIS VALIDATION WITH MCP
+├── Use get_node to verify configuration requirements
+├── Search LEARNINGS-INDEX for similar issues (by error type, node type)
+├── Validate hypothesis with evidence from execution + schema
+└── Calculate confidence score: HIGH (80%+) / MEDIUM (50-80%) / LOW (<50%)
+```
+
+### Output Format → `run_state.research_findings`
+
+```json
+{
+  "execution_summary": {
+    "latest_execution_id": "33550",
+    "status": "canceled",
+    "total_nodes": 29,
+    "executed_nodes": 7,
+    "stopping_node": "Switch",
+    "skipped_nodes": ["Process Text", "AI Agent", "Success Reply", ...]
+  },
+  "stopping_point": {
+    "node_name": "Switch",
+    "node_type": "n8n-nodes-base.switch",
+    "executed": true,
+    "has_output": true,
+    "downstream_received_data": false
+  },
+  "hypothesis": "Switch node missing 'mode: rules' parameter - required for multi-way routing",
+  "evidence": [
+    "Execution shows Switch executed successfully",
+    "Switch has data in output[0] array",
+    "BUT Process Text itemsInput = 0 (no data received)",
+    "get_node confirms: Switch v3.3+ requires mode parameter",
+    "LEARNINGS L-056: Switch routing silent failure without mode"
+  ],
+  "confidence": "HIGH",  // 90%
+  "alternative_hypotheses": [],  // empty if HIGH confidence
+  "hypothesis_validated": true,  // REQUIRED for Gate 2!
+  "validation_method": "MCP get_node + execution data + LEARNINGS check"
+}
+```
+
+### Hypothesis Validation Checklist (BEFORE returning!)
+
+**MANDATORY - answer YES to ALL:**
+
+1. ✅ Did I check execution data? (REQUIRED!)
+2. ✅ Did I validate node parameters with `get_node`?
+3. ✅ Did I search LEARNINGS-INDEX for similar issues?
+4. ✅ Did I test my hypothesis against execution evidence?
+5. ✅ Confidence level calculated: HIGH/MEDIUM/LOW?
+
+**If confidence < HIGH → MUST provide alternative hypotheses!**
+
+**If MEDIUM/LOW → recommend L4 Analyst audit in research_findings.**
+
+### Confidence Score Guidelines
+
+**HIGH (80-100%):**
+- Clear evidence from execution data
+- Node schema confirms missing/wrong parameter
+- LEARNINGS has exact same issue documented
+- Hypothesis explains ALL symptoms
+
+**MEDIUM (50-79%):**
+- Execution data supports hypothesis BUT
+- Alternative explanations possible
+- OR: Not documented in LEARNINGS
+- OR: Complex interaction between nodes
+
+**LOW (<50%):**
+- Multiple possible causes
+- Insufficient execution data
+- OR: Never seen this pattern before
+- **ACTION:** Recommend L4 Analyst audit
+
+### Common Debugging Patterns
+
+**Pattern 1: Node executes but downstream doesn't**
+```
+Execution shows:
+- Node A: executed ✅, has output ✅
+- Node B: NOT executed ❌, itemsInput = 0
+
+Diagnosis:
+1. Check connections (A → B exists?)
+2. Check Node A routing (Switch mode? IF conditions?)
+3. Check data structure (does A output match B input?)
+```
+
+**Pattern 2: Node fails with error**
+```
+Execution shows:
+- Node X: status = "error", error_message = "..."
+
+Diagnosis:
+1. Read error message carefully
+2. get_node(X) to check required parameters
+3. Search LEARNINGS for error_message
+4. Check credentials (if API node)
+```
+
+**Pattern 3: Infinite hang / timeout**
+```
+Execution shows:
+- Status: "running" for >60 seconds
+- Last node executed: Node Y
+
+Diagnosis:
+1. Check if Node Y waits for response (HTTP, API call)
+2. Check timeout settings
+3. Check if downstream node blocks (AI Agent, long operation)
+4. Search LEARNINGS for "timeout" + nodeType
+```
+
+---
+
 ## Implementation Research Protocol (stage: implementation)
 
 **Trigger:** After user approves decision (stage = `implementation`)

@@ -254,6 +254,317 @@ return { success: true, workflow_id: workflow_id };
 - ✅ Always write file BEFORE reporting
 - ✅ Always update run_state BEFORE reporting
 
+---
+
+## Post-Build Verification Protocol (ОБЯЗАТЕЛЬНО!)
+
+**⚠️ CRITICAL: After EVERY workflow mutation, Builder MUST verify changes applied!**
+
+### When to Run
+- After create workflow (curl POST)
+- After update workflow (curl PUT)
+- After autofix workflow (preview + curl PUT)
+- Before returning success to Orchestrator
+
+### Verification Steps (ALL REQUIRED!)
+
+```javascript
+// STEP 1: Read workflow BEFORE changes (if modifying)
+const before = run_state.workflow.version_id || null;
+const before_counter = run_state.workflow.version_counter || 0;
+
+// STEP 2: Apply changes via curl (create/update)
+const response = await curl_workflow_operation(...);
+const workflow_id = response.id;
+
+// STEP 3: Read workflow AFTER changes via MCP
+const after = await mcp__n8n-mcp__n8n_get_workflow({
+  id: workflow_id,
+  mode: "full"
+});
+
+// STEP 4: Verify version_id CHANGED (critical!)
+if (before && after.versionId === before) {
+  throw new Error("❌ CRITICAL: version_id DID NOT CHANGE - changes NOT applied!");
+}
+
+// STEP 5: Verify version_counter INCREASED (not decreased!)
+if (after.versionId < before_counter) {
+  throw new Error("🚨 ROLLBACK DETECTED: User reverted changes in UI!");
+}
+
+// STEP 6: Verify expected changes applied
+const verification_report = {
+  version_changed: after.versionId !== before,
+  version_id_before: before,
+  version_id_after: after.versionId,
+  version_counter: after.versionId,
+  node_count_expected: expected_node_count,
+  node_count_actual: after.nodes.length,
+  changes_verified: []
+};
+
+// Verify each expected change
+for (const change of expected_changes) {
+  const node = after.nodes.find(n => n.name === change.node_name);
+
+  if (change.type === "create") {
+    verification_report.changes_verified.push({
+      change: `Create node "${change.node_name}"`,
+      verified: !!node,
+      result: node ? "✅ Node exists" : "❌ Node NOT found"
+    });
+  }
+
+  if (change.type === "update_parameter") {
+    const param_value = node?.parameters?.[change.parameter_name];
+    verification_report.changes_verified.push({
+      change: `Update ${change.node_name}.${change.parameter_name}`,
+      expected: change.expected_value,
+      actual: param_value,
+      verified: param_value === change.expected_value,
+      result: param_value === change.expected_value ?
+        "✅ Parameter correct" :
+        `❌ Expected ${change.expected_value}, got ${param_value}`
+    });
+  }
+
+  if (change.type === "delete") {
+    verification_report.changes_verified.push({
+      change: `Delete node "${change.node_name}"`,
+      verified: !node,
+      result: !node ? "✅ Node deleted" : "❌ Node still exists"
+    });
+  }
+}
+
+// STEP 7: Check if ALL changes verified
+const all_verified = verification_report.changes_verified.every(c => c.verified);
+
+if (!all_verified) {
+  const failed = verification_report.changes_verified.filter(c => !c.verified);
+  throw new Error(`❌ Verification FAILED! ${failed.length} changes NOT applied:\n${
+    failed.map(f => f.result).join('\n')
+  }`);
+}
+
+// STEP 8: Write verification report to run_state
+run_state.build_verification = {
+  timestamp: new Date().toISOString(),
+  workflow_id: workflow_id,
+  version_id: after.versionId,
+  version_counter: after.versionId,
+  verification_passed: all_verified,
+  verification_report: verification_report,
+  rollback_detected: false
+};
+
+// STEP 9: Write full workflow to file
+write_file(`memory/agent_results/workflow_${run_state.id}.json`, after);
+
+// STEP 10: Update run_state.workflow with summary
+run_state.workflow = {
+  id: workflow_id,
+  name: after.name,
+  node_count: after.nodes.length,
+  version_id: after.versionId,
+  version_counter: after.versionId,
+  updated_at: after.updatedAt,
+  full_result_file: `memory/agent_results/workflow_${run_state.id}.json`
+};
+
+// ONLY NOW: Report success to Orchestrator
+return {
+  success: true,
+  workflow_id: workflow_id,
+  verification: verification_report
+};
+```
+
+### What to Include in expected_changes
+
+**Builder MUST document what changes were made:**
+
+```javascript
+// Example for Switch node fix:
+expected_changes = [
+  {
+    type: "update_parameter",
+    node_name: "Switch",
+    parameter_name: "mode",
+    expected_value: "rules"
+  }
+];
+
+// Example for creating new node:
+expected_changes = [
+  {
+    type: "create",
+    node_name: "Prepare Message Data"
+  },
+  {
+    type: "update_parameter",
+    node_name: "Prepare Message Data",
+    parameter_name: "mode",
+    expected_value: "manual"
+  }
+];
+
+// Example for delete + recreate:
+expected_changes = [
+  { type: "delete", node_name: "Old Switch" },
+  { type: "create", node_name: "Switch" },
+  { type: "update_parameter", node_name: "Switch", parameter_name: "mode", expected_value: "rules" }
+];
+```
+
+### Verification Report Format
+
+**Return to Orchestrator:**
+
+```json
+{
+  "success": true,
+  "workflow_id": "abc123",
+  "verification": {
+    "version_changed": true,
+    "version_id_before": "xyz789",
+    "version_id_after": "abc456",
+    "version_counter": 23,
+    "node_count_expected": 29,
+    "node_count_actual": 29,
+    "changes_verified": [
+      {
+        "change": "Update Switch.mode",
+        "expected": "rules",
+        "actual": "rules",
+        "verified": true,
+        "result": "✅ Parameter correct"
+      }
+    ]
+  }
+}
+```
+
+**⚠️ Orchestrator will BLOCK QA if verification_passed = false!**
+
+---
+
+## Rollback Detection Protocol
+
+**🚨 CRITICAL: Detect when user manually reverted changes in n8n UI!**
+
+### Problem
+
+User opens n8n UI during debugging → sees broken workflow → clicks "Revert to previous version" → version_counter DECREASES → Builder keeps trying to fix wrong version!
+
+### Solution: Version Counter Check
+
+```javascript
+// BEFORE any fix attempt:
+const current_workflow = await mcp__n8n-mcp__n8n_get_workflow({
+  id: workflow_id,
+  mode: "full"
+});
+
+const expected_counter = run_state.workflow.version_counter || 0;
+const actual_counter = current_workflow.versionId;
+
+if (actual_counter < expected_counter) {
+  // 🚨 ROLLBACK DETECTED!
+
+  run_state.rollback_detected = {
+    timestamp: new Date().toISOString(),
+    expected_version: expected_counter,
+    actual_version: actual_counter,
+    message: "User manually reverted workflow in n8n UI",
+    action: "STOP_BUILD_CYCLE"
+  };
+
+  run_state.stage = "blocked";
+
+  // STOP immediately
+  throw new Error(`
+🚨 ROLLBACK DETECTED!
+
+Expected version: ${expected_counter}
+Actual version: ${actual_counter}
+
+User manually reverted changes in n8n UI.
+
+ACTION REQUIRED:
+1. STOP build cycle immediately
+2. Report to user: "Rollback detected - workflow reverted to v${actual_counter}"
+3. Ask user: Continue from current version OR restore previous changes?
+4. Update run_state.workflow.version_counter = ${actual_counter}
+5. Wait for user decision
+
+DO NOT continue fixing - you're working on wrong version!
+  `);
+}
+```
+
+### When to Check
+
+**Check BEFORE:**
+1. Reading workflow for modification
+2. Applying any fix via curl
+3. Starting new QA cycle
+
+**DON'T check after:**
+- Just applied changes (counter expected to increase)
+
+### Integration with Verification
+
+```javascript
+async function verifyAndDetectRollback(workflow_id, before_counter, expected_changes) {
+  const after = await mcp__n8n-mcp__n8n_get_workflow({
+    id: workflow_id,
+    mode: "full"
+  });
+
+  // Check 1: Rollback detection
+  if (after.versionId < before_counter) {
+    throw new Error("🚨 ROLLBACK DETECTED!");
+  }
+
+  // Check 2: Version changed (changes applied)
+  if (after.versionId === before_counter) {
+    throw new Error("❌ Version didn't change - changes NOT applied!");
+  }
+
+  // Check 3: Expected changes present
+  // ... (verification protocol above)
+
+  return { verified: true, version: after.versionId };
+}
+```
+
+### Report to Orchestrator
+
+**If rollback detected:**
+
+```json
+{
+  "success": false,
+  "error": "rollback_detected",
+  "rollback_info": {
+    "expected_version": 23,
+    "actual_version": 20,
+    "message": "User reverted workflow to v20 in n8n UI",
+    "action_required": "Stop build cycle, await user decision"
+  }
+}
+```
+
+**Orchestrator will:**
+1. Set stage = "blocked"
+2. Report to user
+3. Wait for user decision (continue or restore)
+4. Update run_state with new baseline version
+
+---
+
 ## Logical Block Building Protocol
 
 ### Trigger: blueprint.nodes_needed.length > 10
