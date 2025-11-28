@@ -1,0 +1,71 @@
+{
+  "workflow_id": "eUsPqMOJNPw0Gjxt",
+  "workflow_name": "E2E Test - Chat AI Agent [2025-11-27]",
+  "created_at": "2025-11-28T01:23:59.345Z",
+  "node_count": 23,
+  "active": false,
+  "nodes_by_type": {
+    "chatTrigger": 1,
+    "set": 7,
+    "if": 2,
+    "switch": 1,
+    "agent": 1,
+    "lmChatOpenAi": 1,
+    "memoryBufferWindow": 1,
+    "toolHttpRequest": 1,
+    "httpRequest": 1,
+    "supabase": 1,
+    "telegram": 1,
+    "respondToWebhook": 1,
+    "noOp": 4
+  },
+  "services_integrated": [
+    "OpenAI (Chat Model)",
+    "Supabase (Insert)",
+    "Telegram (Notifications)",
+    "HTTP (External API)"
+  ],
+  "credentials_used": {
+    "openAiApi": "NPHTuT9Bime92Mku",
+    "supabaseApi": "DYpIGQK8a652aosj",
+    "telegramApi": "ofhXzaw3ObXDT5JY"
+  },
+  "validation_summary": {
+    "valid": false,
+    "errors": 4,
+    "warnings": 22,
+    "critical_issues": [
+      "IF nodes missing combinator field (v2 syntax issue)",
+      "OpenAI Chat Model typeVersion 1.7 exceeds max 1.3",
+      "HTTP Request Tool missing toolDescription"
+    ],
+    "non_critical_warnings": [
+      "Set nodes validation warnings (false positives - assignments ARE configured)",
+      "continueOnFail deprecated (should use onError)",
+      "typeVersion outdated on some nodes"
+    ]
+  },
+  "graph_hash": "e2e_test_chat_ai_23nodes_2025-11-27",
+  "features": [
+    "Chat Trigger (dual mode: UI + webhook)",
+    "AI Agent with OpenAI",
+    "Memory Buffer (10 messages)",
+    "HTTP Request Tool for AI",
+    "Command routing (Switch: /start, /help)",
+    "Message type detection (IF)",
+    "Supabase chat log persistence",
+    "Telegram notifications",
+    "Error handling (4 NoOp handlers)",
+    "Response formatting (Set nodes)"
+  ],
+  "testing_notes": {
+    "manual_ui_test": "Access Chat Trigger UI via n8n interface",
+    "webhook_test": "POST to workflow webhook endpoint",
+    "validation_status": "Has errors - needs fixes before production",
+    "priority_fixes": [
+      "Fix IF node combinator fields",
+      "Update OpenAI typeVersion to 1.3 or lower",
+      "Add toolDescription to HTTP Request Tool"
+    ]
+  }
+}

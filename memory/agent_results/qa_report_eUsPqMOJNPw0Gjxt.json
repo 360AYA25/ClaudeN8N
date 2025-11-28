@@ -1,0 +1,258 @@
+{
+  "workflow_id": "eUsPqMOJNPw0Gjxt",
+  "workflow_name": "E2E Test - Chat AI Agent [2025-11-27]",
+  "validation_timestamp": "2025-11-28T01:24:00Z",
+  "status": "FAIL",
+  "node_count": 23,
+  "profile_used": "ai-friendly",
+
+  "summary": {
+    "critical_errors": 3,
+    "warnings": 22,
+    "blockers": 0,
+    "must_fix_before_test": true
+  },
+
+  "critical_errors": [
+    {
+      "severity": "CRITICAL",
+      "node_id": "if-message-type-1",
+      "node_name": "IF - Check Message Type",
+      "error": "Filter must have a combinator field",
+      "category": "STRUCTURE",
+      "impact": "Node will fail to execute - IF node requires combinator field in conditions",
+      "fix_guidance": "Add combinator: 'and' to conditions.options in IF node configuration"
+    },
+    {
+      "severity": "CRITICAL",
+      "node_id": "if-notification-1",
+      "node_name": "IF - Check Notification",
+      "error": "Filter must have a combinator field",
+      "category": "STRUCTURE",
+      "impact": "Node will fail to execute - IF node requires combinator field in conditions",
+      "fix_guidance": "Add combinator: 'and' to conditions.options in IF node configuration"
+    },
+    {
+      "severity": "CRITICAL",
+      "node_id": "openai-model-1",
+      "node_name": "OpenAI Chat Model",
+      "error": "typeVersion 1.7 exceeds maximum supported version 1.3",
+      "category": "VERSION",
+      "impact": "Invalid typeVersion - will cause workflow errors in n8n UI",
+      "fix_guidance": "Change typeVersion from 1.7 to 1.3 (maximum supported version)"
+    }
+  ],
+
+  "errors_non_critical": [
+    {
+      "severity": "MEDIUM",
+      "node_id": "http-tool-1",
+      "node_name": "HTTP Request Tool",
+      "error": "HTTP Request Tool has no toolDescription",
+      "category": "AI_TOOL",
+      "impact": "AI Agent won't know when to use this tool - reduces effectiveness",
+      "fix_guidance": "Add toolDescription: 'Fetch inspirational quotes from GitHub Zen API' to parameters"
+    }
+  ],
+
+  "warnings_false_positives": [
+    {
+      "node_name": "Set - Prepare Input",
+      "warning": "Set node has no fields configured - will output empty items",
+      "reason": "FALSE POSITIVE - assignments.assignments array exists with 3 fields (userId, input, timestamp). Validator doesn't recognize v3.4 structure.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Set - Format Response",
+      "warning": "Set node has no fields configured - will output empty items",
+      "reason": "FALSE POSITIVE - assignments.assignments array exists with 3 fields (output, userId, input). Validator doesn't recognize v3.4 structure.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Set - Error Response",
+      "warning": "Set node has no fields configured - will output empty items",
+      "reason": "FALSE POSITIVE - assignments.assignments array exists with 1 field (output). Validator doesn't recognize v3.4 structure.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Set - Start Message",
+      "warning": "Set node has no fields configured - will output empty items",
+      "reason": "FALSE POSITIVE - assignments.assignments array exists with 1 field (output). Validator doesn't recognize v3.4 structure.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Set - Help Message",
+      "warning": "Set node has no fields configured - will output empty items",
+      "reason": "FALSE POSITIVE - assignments.assignments array exists with 1 field (output). Validator doesn't recognize v3.4 structure.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Set - Unknown Command",
+      "warning": "Set node has no fields configured - will output empty items",
+      "reason": "FALSE POSITIVE - assignments.assignments array exists with 1 field (output). Validator doesn't recognize v3.4 structure.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Set - Process API Response",
+      "warning": "Set node has no fields configured - will output empty items",
+      "reason": "FALSE POSITIVE - assignments.assignments array exists with 1 field (apiData). Validator doesn't recognize v3.4 structure.",
+      "action": "IGNORE"
+    }
+  ],
+
+  "warnings_can_ignore": [
+    {
+      "node_name": "AI Agent",
+      "warning": "Outdated typeVersion: 1.9. Latest is 3",
+      "reason": "OPTIONAL - typeVersion 1.9 still works, upgrading is not critical for E2E test",
+      "action": "CAN FIX LATER"
+    },
+    {
+      "node_name": "Respond to Chat",
+      "warning": "Outdated typeVersion: 1.1. Latest is 1.4",
+      "reason": "OPTIONAL - typeVersion 1.1 still works",
+      "action": "CAN FIX LATER"
+    },
+    {
+      "node_name": "HTTP Request - External API",
+      "warning": "API endpoints typically require authentication",
+      "reason": "EXPECTED - GitHub Zen API is public, no auth needed",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Supabase - Insert Chat Log",
+      "warning": "Using deprecated continueOnFail: true",
+      "reason": "WORKS - continueOnFail still functional, onError is newer syntax",
+      "action": "CAN FIX LATER"
+    },
+    {
+      "node_name": "Telegram - Send Notification",
+      "warning": "Using deprecated continueOnFail: true",
+      "reason": "WORKS - continueOnFail still functional",
+      "action": "CAN FIX LATER"
+    },
+    {
+      "node_name": "HTTP Request - External API",
+      "warning": "Using deprecated continueOnFail: true",
+      "reason": "WORKS - continueOnFail still functional",
+      "action": "CAN FIX LATER"
+    },
+    {
+      "node_name": "AI Agent",
+      "warning": "AI Agent has no tools connected",
+      "reason": "FALSE - HTTP Request Tool IS connected via ai_tool connection",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "AI Agent",
+      "warning": "AI Agent has no systemMessage",
+      "reason": "FALSE - systemMessage exists: 'You are a helpful AI assistant for E2E testing...'",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Telegram - Send Notification",
+      "warning": "chatId should use resource locator format",
+      "reason": "OPTIONAL - expression format works, resource locator is UI preference",
+      "action": "CAN FIX LATER"
+    }
+  ],
+
+  "warnings_informational": [
+    {
+      "node_name": "IF - Check Message Type",
+      "warning": "Node has error output connections in main[1] but missing onError",
+      "reason": "INFO - main[1] is FALSE branch, not error output. Validator confused.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "Switch - Command Router",
+      "warning": "Node has error output connections in main[1] but missing onError",
+      "reason": "INFO - main[1] is switch output branch, not error output. Validator confused.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "IF - Check Notification",
+      "warning": "Node has error output connections in main[1] but missing onError",
+      "reason": "INFO - main[1] is FALSE branch, not error output. Validator confused.",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "OpenAI Chat Model",
+      "warning": "lmchatopenai node without error handling",
+      "reason": "INFO - AI sub-nodes inherit error handling from parent AI Agent",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "HTTP Request Tool",
+      "warning": "HTTP Request node without error handling",
+      "reason": "INFO - AI tool nodes have built-in error handling",
+      "action": "IGNORE"
+    },
+    {
+      "node_name": "AI Agent",
+      "warning": "Community node AI Agent is being used as an AI tool",
+      "reason": "INFO - This is @n8n/n8n-nodes-langchain (official), not community. Validator confused.",
+      "action": "IGNORE"
+    }
+  ],
+
+  "edit_scope": [
+    {
+      "node_id": "if-message-type-1",
+      "node_name": "IF - Check Message Type",
+      "fix_required": "Add combinator: 'and' to parameters.conditions.options",
+      "current_structure": "conditions: { options: { version: 2 }, conditions: [...] }",
+      "fixed_structure": "conditions: { options: { version: 2, combinator: 'and' }, conditions: [...] }"
+    },
+    {
+      "node_id": "if-notification-1",
+      "node_name": "IF - Check Notification",
+      "fix_required": "Add combinator: 'and' to parameters.conditions.options",
+      "current_structure": "conditions: { options: { version: 2 }, conditions: [...] }",
+      "fixed_structure": "conditions: { options: { version: 2, combinator: 'and' }, conditions: [...] }"
+    },
+    {
+      "node_id": "openai-model-1",
+      "node_name": "OpenAI Chat Model",
+      "fix_required": "Change typeVersion from 1.7 to 1.3",
+      "current_value": "typeVersion: 1.7",
+      "fixed_value": "typeVersion: 1.3"
+    },
+    {
+      "node_id": "http-tool-1",
+      "node_name": "HTTP Request Tool",
+      "fix_required": "Add toolDescription parameter",
+      "current_structure": "parameters: { method: 'GET', url: '...', options: {} }",
+      "fixed_structure": "parameters: { method: 'GET', url: '...', toolDescription: 'Fetch inspirational quotes from GitHub Zen API', options: {} }"
+    }
+  ],
+
+  "next_stage": "fix",
+  "cycle_count": 1,
+  "can_auto_fix": true,
+  "estimated_fix_time": "2 minutes",
+
+  "regression_check": {
+    "nodes_removed": 0,
+    "connections_broken": 0,
+    "credentials_lost": 0,
+    "new_issues": 0
+  },
+
+  "qa_agent_notes": [
+    "Workflow structure is EXCELLENT - all 23 nodes created correctly with proper connections",
+    "Main flow logic is SOUND - Chat Trigger → Set → IF → AI Agent → Supabase → Telegram → Respond",
+    "Command routing works correctly via Switch node with 3 branches (start/help/unknown)",
+    "Error handling structure exists but uses deprecated continueOnFail (still works)",
+    "AI Agent configuration is correct with proper sub-nodes (OpenAI, Memory, HTTP Tool)",
+    "Set node v3.4 syntax is CORRECT - validator has false positives for assignments structure",
+    "3 CRITICAL errors MUST be fixed before testing (2x IF combinator, 1x typeVersion)",
+    "1 medium error recommended (HTTP Tool description helps AI effectiveness)",
+    "Workflow WILL work after fixing the 3 critical errors - structure is solid"
+  ],
+
+  "confidence": "HIGH",
+  "ready_for_builder": true,
+  "blocking_issues": false,
+  "recommendation": "Send to Builder for targeted fixes on 4 nodes (3 critical + 1 medium). Workflow structure is production-quality."
+}
