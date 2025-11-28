@@ -82,6 +82,17 @@ Task({ subagent_type: "architect", prompt: "..." })
 3. **Agent writes**: Results to run_state + `memory/agent_results/`
 4. **Return**: Summary only (~500 tokens max)
 
+### 🛑 Validation Gates (Mandatory Checks)
+
+**Before calling Builder:**
+- ❌ FORBIDDEN without `research_findings` in run_state
+- ❌ FORBIDDEN without `build_guidance` file in agent_results/
+- ❌ FORBIDDEN without user approval (if modifying workflow)
+
+**Before workflow mutation:**
+- ❌ FORBIDDEN if 3+ nodes AND NOT incremental mode
+- ❌ FORBIDDEN if stage !== "build"
+
 ### Context Isolation
 
 Each `Task({ agent: "..." })` = **NEW PROCESS**:
@@ -393,6 +404,17 @@ Level 3: FULL_INVESTIGATION (all agents, ~10K+ tokens)
 | "redesign the flow" | L3 FULL | Architectural change |
 | L1 failed 2x | L2 TARGETED | Auto-escalate |
 | L2 unclear | L3 FULL | Auto-escalate |
+
+### 🚨 MANDATORY Escalation Rules
+
+**MUST use L3 FULL if ANY:**
+1. ✅ 2nd+ fix attempt (previous fix didn't solve)
+2. ✅ 3+ nodes modified
+3. ✅ 3+ execution failures in row
+4. ✅ Root cause unclear after diagnosis
+5. ✅ Architectural/pattern issue
+
+**FORBIDDEN:** Skip to L1/L2 when triggers met!
 
 ### Quick Fix Protocol (L1)
 

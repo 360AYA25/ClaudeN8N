@@ -2,6 +2,50 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.0.3] - 2025-11-28
+
+### 🚨 Critical: Protocol Enforcement Rules
+
+**Added mandatory rules to prevent protocol violations and shortcuts.**
+
+### Changes
+
+**Escalation Rules (orch.md):**
+- MUST use L3 FULL if 2nd+ fix attempt
+- MUST use L3 FULL if 3+ nodes modified
+- MUST use L3 FULL if 3+ execution failures
+- MUST use L3 FULL if root cause unclear
+- MUST use L3 FULL if architectural issue
+- FORBIDDEN: Skip to L1/L2 when triggers met
+
+**Validation Gates (orch.md):**
+- FORBIDDEN: Builder without research_findings
+- FORBIDDEN: Builder without build_guidance file
+- FORBIDDEN: Builder without user approval (workflow mutation)
+- FORBIDDEN: 3+ nodes mutation without incremental mode
+- FORBIDDEN: Mutation if stage !== "build"
+
+**Protocol Priority (CLAUDE.md):**
+- Protocol Compliance > Token Economy (when conflict)
+- Safety protocols > Token savings (ALWAYS)
+- User control > Automation (ALWAYS)
+- Knowledge preservation > Speed (ALWAYS)
+- Token economy applies to format, NOT protocol steps
+
+**Why This Change:**
+Root cause analysis after protocol violation: Orchestrator chose L2 shortcut instead of L3 FULL for 3rd consecutive fix, skipped Researcher, skipped user approvals, lost 8K tokens context between agents. New rules enforce proper flow.
+
+**Files Modified:**
+- `.claude/commands/orch.md` (+17 lines: Escalation Rules, Validation Gates)
+- `~/.claude/CLAUDE.md` (+18 lines: Protocol Compliance priority)
+
+### Impact
+- Prevents token-saving shortcuts that sacrifice quality
+- Enforces file-based context passing (agent_results/)
+- Mandates Researcher before Builder
+- Requires user approval for workflow mutations
+- Escalates complex issues to L3 FULL automatically
+
 ## [3.0.2] - 2025-01-28
 
 ### 🚨 Critical: Strengthened PM Delegation Rules
