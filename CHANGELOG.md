@@ -2,6 +2,44 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.0.1] - 2025-11-28
+
+### 🔌 Supabase MCP Integration
+
+**Added Supabase MCP server for direct database access.**
+
+### New Features
+
+**MCP Configuration:**
+- Added Supabase MCP server to `.mcp.json`
+- HTTP-based MCP connection
+- Project ref: `qyemyvplvtzpukvktkae`
+- Authentication via Bearer token
+
+**Available Tools (after restart):**
+- `mcp__supabase__*` - Database operations, migrations, logs, advisors
+- Direct Supabase API access from agents
+- GraphQL docs search
+
+### Files Modified
+
+| File | Status | Changes |
+|------|--------|---------|
+| `.mcp.json` | Modified | +8 lines (Supabase MCP server config) |
+
+### Active MCP Servers
+
+| MCP | Purpose | Status |
+|-----|---------|--------|
+| n8n-mcp | n8n workflow operations | ✅ Active |
+| supabase | Direct Supabase database access | ✅ Active |
+
+### Usage
+
+Requires Claude Code restart to activate Supabase tools.
+
+---
+
 ## [3.0.0] - 2025-01-28
 
 ### 🎯 PM Semi-Automatic Mode + Health Tracker (Phase 3 Complete)
