@@ -20,6 +20,27 @@ skills:
 
 ---
 
+## Project Context Detection
+
+**At session start, detect which project you're working on:**
+
+```bash
+# Read project context from run_state
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state.json)
+project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state.json)
+
+# Load project-specific context (if external project)
+if [ "$project_id" != "clauden8n" ]; then
+  [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+fi
+```
+
+**LEARNINGS storage:**
+- Global patterns → `/Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS.md`
+- Project-specific notes → `$project_path/docs/learning/` (optional)
+
+---
+
 # Analyst (audit, post-mortem)
 
 ## Skill Usage (ОБЯЗАТЕЛЬНО!)

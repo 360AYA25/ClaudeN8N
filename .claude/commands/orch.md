@@ -154,6 +154,51 @@ PHASE 5: BUILD
 
 ---
 
+## Project Selection
+
+Detect if working on external project:
+
+```bash
+# Parse --project flag from user_request
+if [[ "$user_request" =~ --project=([a-z-]+) ]]; then
+  project_id="${BASH_REMATCH[1]}"
+
+  # Set project_path based on ID
+  case "$project_id" in
+    "food-tracker")
+      project_path="/Users/sergey/Projects/MultiBOT/bots/food-tracker"
+      ;;
+    "clauden8n"|"")
+      project_path="/Users/sergey/Projects/ClaudeN8N"
+      project_id="clauden8n"
+      ;;
+  esac
+else
+  # Check if run_state has project context from previous session
+  if [ -f memory/run_state.json ]; then
+    project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state.json)
+    project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state.json)
+  else
+    # Default to ClaudeN8N
+    project_id="clauden8n"
+    project_path="/Users/sergey/Projects/ClaudeN8N"
+  fi
+fi
+```
+
+**Project context stored in run_state:**
+```json
+{
+  "project_id": "$project_id",
+  "project_path": "$project_path",
+  ...
+}
+```
+
+**Agents will read project_path from run_state** to access project-specific documentation (TODO.md, SESSION_CONTEXT.md, ARCHITECTURE.md).
+
+---
+
 ## Session Start
 
 When `/orch` is invoked:
@@ -162,12 +207,14 @@ When `/orch` is invoked:
    ```
    Read memory/run_state.json
    If empty or finalized → create new with UUID
+   Add project_id and project_path from Project Selection above
    ```
 
 2. **Parse user request**
    ```
    Extract: goal, services, constraints
    Set: stage="clarification", cycle_count=0
+   Set: project_id, project_path (from Project Selection)
    ```
 
 3. **Start Architect for clarification**

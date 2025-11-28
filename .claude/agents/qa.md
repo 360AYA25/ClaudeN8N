@@ -63,6 +63,29 @@ for (const connKey of Object.keys(workflow.connections)) {
 
 ---
 
+## Project Context Detection
+
+**At session start, detect which project you're working on:**
+
+```bash
+# Read project context from run_state
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state.json)
+project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state.json)
+
+# Load project-specific context (if external project)
+if [ "$project_id" != "clauden8n" ]; then
+  [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
+  [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+fi
+
+# LEARNINGS always from ClaudeN8N (shared knowledge base)
+Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
+```
+
+**Priority:** Validate against project-specific ARCHITECTURE.md requirements
+
+---
+
 # QA (validate and test)
 
 ## Task

@@ -2,6 +2,173 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [2.12.0] - 2025-11-28
+
+### 🔗 Multi-Project Support (Phase 2 Complete)
+
+**System can now work on external projects while keeping shared knowledge base in ClaudeN8N.**
+
+### New Features
+
+**Multi-Project Routing:**
+- `--project=food-tracker` flag support in `/orch` command
+- Project context stored in `run_state.json` (project_id, project_path)
+- Automatic persistence across sessions
+- Agents read external project docs (SESSION_CONTEXT.md, ARCHITECTURE.md, TODO.md)
+
+**Agent Updates (all 4 agents):**
+- **researcher.md** — reads external ARCHITECTURE.md + TODO.md, uses ClaudeN8N LEARNINGS
+- **builder.md** — reads external ARCHITECTURE.md, saves backups to external workflows/
+- **qa.md** — validates against external project requirements
+- **analyst.md** — stores global learnings in ClaudeN8N, optional project-specific notes
+
+### Files Modified
+
+| File | Changes | Lines Added |
+|------|---------|-------------|
+| `.claude/commands/orch.md` | Project Selection logic | +51 |
+| `.claude/agents/researcher.md` | Project Context Detection | +22 |
+| `.claude/agents/builder.md` | Project Context Detection + backups | +26 |
+| `.claude/agents/qa.md` | Project Context Detection | +20 |
+| `.claude/agents/analyst.md` | Project Context Detection | +17 |
+| `MULTIBOT-INTEGRATION-PLAN.md` | Integration plan & status | NEW |
+
+**Total:** ~136 lines, 6 files
+
+### Usage Examples
+
+```bash
+# Work on external project (food-tracker)
+/orch --project=food-tracker workflow_id=NhyjL9bCPSrTM6XG Add Window Buffer Memory
+
+# Switch back to ClaudeN8N
+/orch --project=clauden8n Create demo workflow
+
+# Continue on last project (remembered from run_state)
+/orch Add error handling
+```
+
+### Integration Details
+
+**Project Detection Flow:**
+1. Parse `--project=` flag from user request
+2. Map to project_path via case statement
+3. Store in `run_state.json` (project_id, project_path)
+4. Agents read from run_state on session start
+5. Load external docs if project_id != "clauden8n"
+
+**Knowledge Base Priority:**
+- External project ARCHITECTURE.md → highest priority
+- ClaudeN8N LEARNINGS.md → shared patterns (always read)
+- External TODO.md → project-specific tasks
+
+### Next Steps (Phase 3 & 4)
+
+- [ ] PM integration (optional) — auto-delegate n8n tasks to `/orch`
+- [ ] End-to-end testing with food-tracker Task 2.3
+- [ ] Add more projects to project_path mapping
+
+**See:** `MULTIBOT-INTEGRATION-PLAN.md` for full integration details
+
+---
+
+## [2.11.0] - 2025-11-27
+
+### 🚀 Incremental Workflow Modification System (16 Improvements)
+
+**Major upgrade: System now optimized for modifying existing workflows, not just creating new ones.**
+
+### QA Loop: 3 → 7 Cycles (Progressive Escalation)
+
+| Cycles | Who Helps | Action |
+|--------|-----------|--------|
+| 1-3 | Builder only | Direct fixes |
+| 4-5 | +Researcher | Search alternatives in LEARNINGS/templates |
+| 6-7 | +Analyst | Root cause analysis |
+| 8+ | BLOCKED | Full report to user |
+
+### New /orch Modes
+
+| Command | Description | Tokens |
+|---------|-------------|--------|
+| `/orch workflow_id=X <task>` | MODIFY flow with checkpoints | ~5K |
+| `/orch --fix workflow_id=X node="Y" error="Z"` | L1 Quick Fix | ~500 |
+| `/orch --debug workflow_id=X` | L2 Targeted Debug | ~2K |
+
+### New Protocols
+
+**Architect:**
+- **Impact Analysis Mode** — dependency graph, modification zone, blast radius
+- **AI Node Configuration Dialog** — system prompt, tools, memory, output format
+
+**Builder:**
+- **Incremental Modification Protocol** — snapshot → apply → verify → checkpoint
+- **Blue-Green Workflow Pattern** — clone-test-swap for safe modifications
+
+**QA:**
+- **Checkpoint QA Protocol** — scoped validation after each modification step
+- **Canary Testing** — synthetic → canary (1 item) → sample (10%) → full
+
+**Analyst:**
+- **Circuit Breaker Monitoring** — per-agent CLOSED/OPEN/HALF_OPEN states
+- **Staged Recovery Protocol** — isolate → diagnose → decide → repair → validate → integrate → post-mortem
+
+**Orchestrator:**
+- **Hard Caps** — 50K tokens, 25 agent calls, 10min, $0.50, 7 QA cycles
+- **Handoff Contracts** — validate data integrity between agent transitions
+- **Debugger Mode L1/L2/L3** — smart routing based on issue complexity
+
+### New run_state Fields
+
+```javascript
+{
+  impact_analysis: { dependency_graph, modification_zone, modification_sequence, parameter_contracts },
+  modification_progress: { total_steps, completed_steps, current_step, snapshots, rollback_available },
+  checkpoint_request: { step, scope, type },
+  checkpoint_reports: [{ step, type, status, scope, issues }],
+  circuit_breaker_state: { agent: { state, failure_count, last_failure } },
+  usage: { tokens_used, agent_calls, qa_cycles, time_elapsed_seconds, cost_usd },
+  ai_configs: { node: { system_prompt, tools, memory, model } },
+  canary_phase: "synthetic|canary|sample|full",
+  node_flags: { node: { enabled, fallback, mock_response } }
+}
+```
+
+### Safety Guards Extended
+
+**Core (existing):**
+1. Wipe Protection (>50% nodes)
+2. edit_scope
+3. Snapshot
+4. Regression Check
+5. QA Loop Limit (now 7 cycles)
+
+**Extended (NEW):**
+6. Blue-Green Workflows
+7. Canary Testing
+8. Circuit Breaker
+9. Checkpoint QA
+10. User Approval Gates
+11. Hard Caps
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `.claude/CLAUDE.md` | QA 7 cycles, escalation levels |
+| `.claude/commands/orch.md` | MODIFY flow, Debugger Mode, Hard Caps, Handoff Contracts |
+| `.claude/agents/architect.md` | Impact Analysis, AI Node Config |
+| `.claude/agents/builder.md` | Incremental Modification, Blue-Green |
+| `.claude/agents/qa.md` | Checkpoint Protocol, 7 cycles, Canary Testing |
+| `.claude/agents/analyst.md` | Circuit Breaker, Staged Recovery |
+| `docs/ARCHITECTURE.md` | Safety Guards expanded |
+| `schemas/run-state.schema.json` | 10 new field definitions |
+
+### Commits
+- `49ad32c` feat: implement 16 improvements for incremental workflow modification
+
+---
+
 ## [2.10.0] - 2025-11-27
 
 ### 🔧 MCP Zod v4 Bug Workaround (Complete Implementation)
