@@ -2,6 +2,55 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.0.2] - 2025-01-28
+
+### 🚨 Critical: Strengthened PM Delegation Rules
+
+**PM can now ONLY coordinate, NEVER execute workflow tasks directly.**
+
+### Changes
+
+**ABSOLUTE DELEGATION RULE:**
+- PM MUST delegate ALL n8n tasks to `/orch` (no exceptions!)
+- PM CANNOT use MCP tools (mcp__n8n-mcp__*)
+- PM CANNOT read/modify workflow JSON
+- PM CANNOT do "quick fixes" or "small changes"
+- PM can ONLY check workflow_id from TODO.md at session start
+
+**Enhanced Checks:**
+- Step 2: Automatic detection if task is n8n-related → DELEGATE_TO_ORCH
+- Step 5: Explicit warnings about PM role (prepare command ONLY)
+- DELEGATION DISCIPLINE section expanded with forbidden/correct examples
+
+**Why This Change:**
+User requirement: PM должен ВСЕГДА делегировать в /orch, независимо от размера задачи. Даже "маленькие" задачи (add 1 node, change text) → /orch. PM = только координатор проекта, НЕ исполнитель.
+
+**Files Modified:**
+- `.claude/commands/pm.md` (+60 lines of strict rules)
+
+### Examples
+
+**Before (WRONG):**
+```javascript
+// PM trying to help with "small" task
+mcp__n8n-mcp__n8n_update_partial_workflow(...)
+```
+
+**After (CORRECT):**
+```javascript
+// PM ALWAYS delegates
+SlashCommand({
+  command: "/orch --project=food-tracker workflow_id=X Change text"
+})
+```
+
+### Migration Notes
+- PM behavior unchanged for non-workflow tasks (docs, planning)
+- ALL workflow tasks (add node, change text, validate, etc.) → `/orch`
+- No "size" exceptions: small task = /orch, large task = /orch
+
+---
+
 ## [3.0.1] - 2025-11-28
 
 ### 🔌 Supabase MCP Integration
