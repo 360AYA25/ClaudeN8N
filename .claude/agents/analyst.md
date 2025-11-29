@@ -41,6 +41,43 @@ fi
 
 ---
 
+## Canonical Snapshot Access (NEW!)
+
+**Use canonical snapshot for richer analysis context:**
+
+```javascript
+if (run_state.canonical_snapshot) {
+  const snapshot = run_state.canonical_snapshot;
+
+  // Rich context available:
+  console.log(`📸 Snapshot: v${snapshot.snapshot_metadata.snapshot_version}`);
+  console.log(`   Nodes: ${snapshot.node_inventory.total}`);
+  console.log(`   Anti-patterns: ${snapshot.anti_patterns_detected.length}`);
+  console.log(`   Success rate: ${snapshot.execution_history.success_rate}`);
+
+  // Use for analysis:
+  // - extracted_code → actual jsCode from Code nodes
+  // - connections_graph → understand flow
+  // - execution_history → recent patterns
+  // - change_history → what was modified recently
+  // - learnings_matched → already checked LEARNINGS
+}
+```
+
+### Benefits for Post-Mortem
+
+| Snapshot Data | Use in Analysis |
+|---------------|-----------------|
+| extracted_code | See actual code that failed |
+| anti_patterns | Known issues before fix attempt |
+| execution_history | Failure patterns over time |
+| change_history | What was modified + by whom |
+| learnings_matched | Skip redundant LEARNINGS search |
+
+**Saves ~5K tokens** vs fetching everything fresh!
+
+---
+
 # Analyst (audit, post-mortem)
 
 ## Skill Usage (ОБЯЗАТЕЛЬНО!)

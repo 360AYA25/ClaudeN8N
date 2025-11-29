@@ -15,6 +15,9 @@
 | `/orch --test agent:architect` | Тест Architect агента |
 | `/orch --test agent:analyst` | Тест Analyst агента |
 | `/orch --test e2e` | Full E2E тест — создает реальный workflow 20+ нод |
+| `/orch snapshot view <workflow_id>` | Посмотреть canonical snapshot |
+| `/orch snapshot rollback <id> [version]` | Откатить snapshot к версии |
+| `/orch snapshot refresh <workflow_id>` | Принудительно обновить snapshot |
 
 ---
 
@@ -292,10 +295,134 @@ When `/orch` is invoked:
    Set: project_id, project_path (from Project Selection)
    ```
 
-3. **Start Architect for clarification**
+3. **Load/Create Canonical Snapshot**
+   ```
+   If workflow_id exists:
+     snapshot_dir = memory/workflow_snapshots/{workflow_id}
+     If canonical.json exists → load it
+     Else → create initial snapshot
+   ```
+
+4. **Start Architect for clarification**
    ```
    Task(agent=architect, prompt="Clarify requirements with user")
    ```
+
+---
+
+## Canonical Snapshot Protocol
+
+### Purpose
+Single Source of Truth для каждого workflow. Детальный анализ сохраняется между сессиями.
+
+### Directory Structure
+```
+memory/workflow_snapshots/
+├── {workflow_id}/
+│   ├── canonical.json       # Current snapshot (~10K tokens)
+│   └── history/
+│       └── v{N}_{date}.json # Previous versions
+└── README.md
+```
+
+### Load Snapshot (at session start)
+
+```javascript
+if (workflow_id) {
+  const snapshot_dir = `memory/workflow_snapshots/${workflow_id}`;
+  const canonical_file = `${snapshot_dir}/canonical.json`;
+
+  if (file_exists(canonical_file)) {
+    // Load existing
+    run_state.canonical_snapshot = read_json(canonical_file);
+    console.log(`📖 Loaded snapshot: ${run_state.canonical_snapshot.node_inventory.total} nodes`);
+  } else {
+    // Create initial
+    console.log("📸 Creating initial canonical snapshot...");
+    run_state.canonical_snapshot = await createCanonicalSnapshot(workflow_id);
+  }
+
+  run_state.snapshot = {
+    dir: snapshot_dir,
+    file: canonical_file,
+    version: run_state.canonical_snapshot.snapshot_metadata.snapshot_version,
+    anti_patterns_count: run_state.canonical_snapshot.anti_patterns_detected.length
+  };
+}
+```
+
+### Update Snapshot (after successful build)
+
+```javascript
+if (build_result.success && workflow_id) {
+  // 1. Archive current to history
+  const current_version = run_state.canonical_snapshot.snapshot_metadata.snapshot_version;
+  const history_file = `${snapshot_dir}/history/v${current_version}_${timestamp}.json`;
+  write_file(history_file, run_state.canonical_snapshot);
+
+  // 2. Create new canonical
+  const new_snapshot = await createCanonicalSnapshot(workflow_id);
+  new_snapshot.change_history.push({
+    version: current_version + 1,
+    timestamp: new Date().toISOString(),
+    action: run_state.stage === "build" ? "feature" : "fix",
+    description: run_state.goal,
+    nodes_changed: build_result.nodes_changed
+  });
+
+  // 3. Save
+  write_file(`${snapshot_dir}/canonical.json`, new_snapshot);
+  console.log(`✅ Snapshot updated: v${current_version} → v${current_version + 1}`);
+}
+```
+
+### Snapshot Commands
+
+**View snapshot:**
+```
+/orch snapshot view sw3Qs3Fe3JahEbbW
+
+📸 Canonical Snapshot: FoodTracker v2.0
+├── Nodes: 29
+├── Anti-patterns: 1 (L-060)
+├── Last updated: 2025-11-28 23:30
+├── History: 5 versions
+└── Recommendations:
+    1. [CRITICAL] Fix deprecated $node["..."] in 7 Code nodes
+```
+
+**Rollback:**
+```
+/orch snapshot rollback sw3Qs3Fe3JahEbbW v4
+→ Restores canonical.json from history/v4_*.json
+```
+
+**Force refresh:**
+```
+/orch snapshot refresh sw3Qs3Fe3JahEbbW
+→ Downloads fresh from n8n, recreates snapshot
+```
+
+### What Snapshot Contains
+
+| Section | Purpose | Size |
+|---------|---------|------|
+| workflow_config | Full nodes + connections | ~5K |
+| extracted_code | All jsCode from Code nodes | ~2K |
+| anti_patterns_detected | L-060, L-056, etc. | ~200 |
+| learnings_matched | Already checked LEARNINGS | ~200 |
+| recommendations | Prioritized fixes | ~300 |
+| execution_history | Last 10 runs summary | ~500 |
+| change_history | Who changed what | ~300 |
+
+### Agent Usage
+
+| Agent | Access | When |
+|-------|--------|------|
+| Researcher | READ | Before debug — use instead of n8n_get_workflow |
+| Builder | READ | Before build — check anti_patterns |
+| QA | READ | Compare before/after |
+| Analyst | READ | Richer context for post-mortem |
 
 ## Context Passed to Agents
 

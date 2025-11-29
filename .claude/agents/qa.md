@@ -77,6 +77,60 @@ if [ "$project_id" != "clauden8n" ]; then
   [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
   [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
 fi
+```
+
+---
+
+## Canonical Snapshot Comparison (NEW!)
+
+**After Builder completes, compare with canonical snapshot:**
+
+```javascript
+if (run_state.canonical_snapshot) {
+  const before = run_state.canonical_snapshot;
+  const after = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+
+  const comparison = {
+    // 1. Anti-patterns fixed?
+    anti_patterns_before: before.anti_patterns_detected.length,
+    anti_patterns_after: detectAntiPatterns(after).length,
+    anti_patterns_fixed: before.anti_patterns_detected.length - detectAntiPatterns(after).length,
+
+    // 2. New issues introduced?
+    new_issues: findNewIssues(before, after),
+
+    // 3. Recommendations applied?
+    recommendations_applied: checkRecommendationsApplied(before.recommendations, after),
+
+    // 4. Node changes
+    nodes_added: after.nodes.length - before.workflow_config.nodes.length,
+    nodes_modified: countModifiedNodes(before.workflow_config.nodes, after.nodes)
+  };
+
+  // Include in QA report
+  run_state.qa_report.snapshot_comparison = comparison;
+
+  if (comparison.anti_patterns_fixed > 0) {
+    console.log(`✅ Fixed ${comparison.anti_patterns_fixed} anti-patterns`);
+  }
+
+  if (comparison.new_issues.length > 0) {
+    console.log(`⚠️ New issues introduced: ${comparison.new_issues.join(", ")}`);
+    // Add to errors for Builder to fix
+  }
+}
+```
+
+### What to Compare
+
+| Check | Pass | Fail |
+|-------|------|------|
+| Anti-patterns decreased | ✅ | Keep fixing |
+| No new anti-patterns | ✅ | Flag regression |
+| Recommendations applied | ✅ | Report skipped |
+| Node count matches expected | ✅ | Investigate |
+
+**Report in qa_report.snapshot_comparison**
 
 # LEARNINGS always from ClaudeN8N (shared knowledge base)
 Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md

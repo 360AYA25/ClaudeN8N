@@ -107,10 +107,28 @@ STEP 4: NODES (если нужны новые)
 
 ```
 ═══════════════════════════════════════════════════════════════
+ФАЗА 0: CHECK CANONICAL SNAPSHOT (NEW - SAVES TOKENS!)
+═══════════════════════════════════════════════════════════════
+
+STEP 0.0: READ CANONICAL SNAPSHOT FIRST
+├── Check: run_state.canonical_snapshot exists?
+├── If YES:
+│   ├── Already have: nodes, connections, extracted_code!
+│   ├── Already have: anti_patterns_detected (L-060, etc.)
+│   ├── Already have: learnings_matched (skip LEARNINGS search!)
+│   ├── Check version_counter vs live workflow:
+│   │   ├── If SAME → use cached data (save API call!)
+│   │   └── If DIFFERENT → refresh snapshot + use fresh
+│   └── Skip STEP 0.1-0.2 if data is fresh!
+├── If NO:
+│   └── Continue to STEP 0.1 (legacy flow)
+└── Token savings: ~3K tokens per debug session!
+
+═══════════════════════════════════════════════════════════════
 ФАЗА 1: FULL DIAGNOSIS (ДО любых изменений!)
 ═══════════════════════════════════════════════════════════════
 
-STEP 0.1: DOWNLOAD EVERYTHING
+STEP 0.1: DOWNLOAD EVERYTHING (skip if snapshot is fresh!)
 ├── n8n_get_workflow(id: workflowId, mode: "full")
 ├── Save to memory/diagnostics/workflow_{id}_full.json
 ├── Extract metadata:
