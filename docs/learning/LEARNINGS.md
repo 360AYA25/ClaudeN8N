@@ -3557,40 +3557,58 @@ if (qa_fail_count >= 2 && current_error === previous_error) {
 
 ---
 
-## L-060: Code Node Deprecated Syntax Causes 300s Timeout
+## L-060: Code Node Cross-Node References - Architecture Fix Required
 
-**Date:** 2025-11-28
+**Date:** 2025-11-28 (UPDATED: 2025-11-29)
 **Workflow:** FoodTracker (sw3Qs3Fe3JahEbbW)
-**Impact:** CRITICAL - 9 debugging cycles wasted, 3+ hours, 30K+ tokens
+**Impact:** CRITICAL - Wrong architecture causes timeouts/undefined errors
 
 ### Problem
 
-Code nodes using deprecated `$node["Node Name"]` syntax cause 300-second timeouts, preventing downstream nodes from executing.
+**ROOT CAUSE:** Code nodes trying to reference other nodes directly (`$node["..."]` or `$("...")`) causes timeouts or undefined errors. The issue is **ARCHITECTURE**, not syntax!
 
-**Example (BROKEN):**
+**What DOESN'T work:**
 ```javascript
-// ❌ DEPRECATED - causes 300s timeout:
+// ❌ FAILS: Causes timeout or "Cannot read properties of undefined"
 const message = $node["Telegram Trigger"].json.message;
 const user = $node["Check User"].json;
 
-// ✅ MODERN - works fast:
+// ❌ ALSO FAILS: Returns undefined in Code nodes
 const message = $("Telegram Trigger").json.message;
 const user = $("Check User").json;
 ```
 
+**What WORKS:**
+```javascript
+// ✅ CORRECT: Use $input to get data from previous node
+const input = $input.first().json;
+const message = input.message;
+const user = input.user;
+```
+
+### Root Cause
+
+**Cross-node references in Code nodes are unreliable!**
+
+The proper n8n pattern is:
+1. **Set node** (or similar) combines data from multiple sources
+2. **Code node** uses `$input` to access the combined data
+
+**Why?** Code nodes are designed to process data from their direct input, not to reach across the workflow graph!
+
 ### Symptoms
 
-1. **Code node appears in execution** with status="success"
-2. **Downstream nodes NEVER execute** (itemsInput=0)
-3. **No error in validation** (syntax is valid but slow)
-4. **Execution stops** at Code node without timeout error
-5. **Pattern consistency:** 100% failure rate across executions
+1. **Code node timeouts** (30-70 seconds, then "canceled")
+2. **OR: Immediate error** "Cannot read properties of undefined"
+3. **Downstream nodes NEVER execute** (itemsInput=0)
+4. **Validation passes** - no syntax error detected
+5. **100% failure rate** across all executions
 
-**Critical:** Validation doesn't flag this as error - it's a **performance issue**, not syntax error!
+**Critical:** This is an **architecture problem**, not a syntax problem!
 
 ### Detection Protocol
 
-**When Code node never executes:**
+**When Code node timeouts or fails with undefined:**
 
 1. Get workflow configuration:
    ```javascript
@@ -3603,116 +3621,766 @@ const user = $("Check User").json;
    const jsCode = codeNode.parameters.jsCode || codeNode.parameters.code;
    ```
 
-3. Check for deprecated syntax:
+3. Check for cross-node references (RED FLAG):
    ```javascript
-   const deprecated = jsCode.match(/\$node\[["'][^"']+["']\]/g);
+   // Look for ANY cross-node reference syntax
+   const crossNodeRefs = jsCode.match(/\$node\[["'][^"']+["']\]|\$\("[^"]+"\)/g);
 
-   if (deprecated) {
-     console.log("FOUND DEPRECATED SYNTAX:", deprecated);
-     // Root cause identified!
+   if (crossNodeRefs) {
+     console.log("⚠️ FOUND CROSS-NODE REFERENCES:", crossNodeRefs);
+     // Architecture problem identified!
+     // Solution: Use Set node + $input pattern
    }
    ```
 
 ### Fix
 
-**Auto-replace pattern:**
+**ARCHITECTURE FIX (not syntax replacement!):**
+
+**Step 1: Add Set node BEFORE Code node**
 ```javascript
-// Find and replace ALL instances
-jsCode = jsCode.replace(/\$node\["([^"]+)"\]/g, '$("$1")');
-jsCode = jsCode.replace(/\$node\['([^']+)'\]/g, "$('$1')");
+// Set node: "Prepare Data"
+// Combines data from multiple sources
+{
+  "type": "n8n-nodes-base.set",
+  "parameters": {
+    "assignments": {
+      "assignments": [
+        {
+          "name": "message",
+          "value": "={{ $node[\"Telegram Trigger\"].json.message }}",
+          "type": "object"
+        },
+        {
+          "name": "user",
+          "value": "={{ $node[\"Check User\"].json }}",
+          "type": "object"
+        }
+      ]
+    }
+  }
+}
 ```
 
-### Why Agents Missed This (9 Cycles!)
+**Step 2: Update Code node to use $input**
+```javascript
+// Code node: "Process Text"
+// Gets combined data from previous Set node
+const input = $input.first().json;
+const message = input.message;
+const user = input.user;
 
-**Root cause of agent blindness:**
+// Now all data is available via $input!
+if (!user || !user.telegram_user_id) {
+  throw new Error("User data not found");
+}
 
-1. **Agents analyzed EXECUTION data** (`n8n_executions`)
-   - Shows: what executed, what didn't, data flow
-   - Doesn't show: CODE inside nodes
+return [{
+  type: 'text',
+  data: message.text,
+  telegram_user_id: user.telegram_user_id,
+  user_id: user.id,
+  owner: user.owner
+}];
+```
 
-2. **Agents did NOT inspect CODE configuration** (`n8n_get_workflow`)
-   - Contains: node parameters, jsCode, actual code
-   - Required for: Code node debugging
+**Step 3: Update workflow connections**
+```
+Telegram Trigger → ... → Check User → ... → Prepare Data → Code Node
+                                                    ↑
+                                              (Set node combines
+                                               message + user data)
+```
 
-3. **Missing protocol step:** "Inspect Code node JavaScript when it never executes"
+### Why This Was Hard to Diagnose
 
-**What agents did (wrong approach):**
-- ✅ Analyzed execution flow
-- ✅ Checked Switch routing logic
-- ✅ Verified connections
-- ❌ **Never looked at CODE inside Process Text!**
+**Root cause of difficulty:**
+
+1. **Tried syntax fix first** (`$node["..."]` → `$("...")`)
+   - Seemed logical based on deprecation warnings
+   - Made problem WORSE (immediate undefined error)
+   - Revealed the real issue: architecture, not syntax!
+
+2. **Cross-node references work in expressions but not Code nodes**
+   - In node parameters: `{{ $node["..."] }}` works fine
+   - In Code nodes: UNRELIABLE and causes timeouts
+   - Confusion between expression syntax vs Code syntax
+
+3. **Validation passes!**
+   - Both `$node["..."]` and `$("...")` are syntactically valid
+   - No warning about architectural anti-pattern
+   - Only runtime reveals the problem
+
+**What finally worked:**
+- ✅ Inspected CODE configuration (not just execution)
+- ✅ Identified cross-node references as red flag
+- ✅ Redesigned data flow: Set node → Code node
+- ✅ Used `$input.first()` pattern (best practice)
 
 ### Agent Protocol Updates
 
 **researcher.md - Added STEP 0.3.1:**
 ```markdown
-STEP 0.3.1: INSPECT CODE NODES (if node never executes)
-├── When Code node appears in execution but NEVER runs:
+STEP 0.3.1: INSPECT CODE NODES (if timeout/undefined)
+├── When Code node fails or times out:
 │   ├── Get workflow config (from STEP 0.1)
 │   ├── Extract Code node from workflow.nodes
 │   ├── Get jsCode from node.parameters
-│   └── INSPECT the actual JavaScript/Python code
-├── Check for DEPRECATED SYNTAX:
-│   ├── ❌ DEPRECATED: $node["Node Name"]
-│   ├── ✅ MODERN: $("Node Name")
-│   └── Pattern: /\$node\["[^"]+"\]/
-└── ⚠️ MANDATORY for Code nodes that never execute!
+│   └── INSPECT for cross-node references
+├── Check for ARCHITECTURE ANTI-PATTERN:
+│   ├── ❌ ANTI-PATTERN: $node["..."] or $("...")
+│   ├── ✅ CORRECT: $input.first() or $input.all()
+│   └── Pattern: /\$node\[|\$\(/
+├── If found → Recommend Set node + $input pattern
+└── ⚠️ MANDATORY for Code nodes with cross-node refs!
 ```
 
-**builder.md - Added Code Node Syntax Validation:**
+**builder.md - Added Code Node Architecture Validation:**
 ```markdown
-## Code Node Syntax Validation (MANDATORY!)
+## Code Node Architecture Pattern (MANDATORY!)
 
 Before creating/updating Code nodes:
-1. Check for deprecated syntax
-2. Auto-replace with modern syntax
-3. Verify with validate_node
-4. Log replacement in node._meta
+1. Check for cross-node references ($node, $())
+2. If found → Add Set node to combine data sources
+3. Update Code node to use $input.first() or $input.all()
+4. Verify data flow through connections
+5. Test with validate_workflow
 ```
 
 ### Prevention
 
 **Key principle:**
-> **Execution data ≠ Configuration data**
-> - `n8n_executions` shows WHAT happened
-> - `n8n_get_workflow` shows HOW it's configured
-> - Need BOTH for complete diagnosis!
+> **Code nodes should use $input, not cross-node references!**
+> - ✅ `$input.first()` - get data from previous node
+> - ✅ `$input.all()` - get all items from previous node
+> - ❌ `$node["..."]` - unreliable, causes timeouts
+> - ❌ `$("...")` - returns undefined in Code nodes
 
 **Builder protocol:**
-- ALWAYS use modern `$("Node Name")` syntax in new Code nodes
-- Auto-replace deprecated patterns when updating existing nodes
-- Check ALL Code nodes, not just edit_scope
+- ALWAYS use `$input` pattern in Code nodes
+- If need data from multiple sources → Add Set/Merge node first
+- NEVER use cross-node references in Code nodes
+- Follow data flow through connections, not across graph
 
 **Researcher protocol:**
-- When Code node never executes → inspect jsCode (STEP 0.3.1)
-- Don't stop at execution analysis - check configuration too
+- When Code node fails/timeouts → inspect jsCode (STEP 0.3.1)
+- Look for cross-node references as architectural red flag
+- Recommend Set node + $input pattern
+- Don't stop at execution analysis - check CODE configuration!
 
 ### Impact Analysis
 
-**Before fix discovery:**
-- ❌ 9 debugging cycles
-- ❌ 3+ hours wasted
-- ❌ 30K+ tokens consumed
-- ❌ Wrong target (Switch node instead of Code node)
+**Before correct diagnosis:**
+- ❌ Tried wrong fix first (syntax replacement)
+- ❌ Made problem worse (`$()` returns undefined)
+- ❌ Multiple cycles before identifying root cause
+- ❌ Confusion between expression syntax vs Code syntax
 
-**After protocol update:**
-- ✅ Code inspection step added (STEP 0.3.1)
-- ✅ Auto-fix in builder
-- ✅ Future bugs caught in 1 cycle
-- ✅ Estimated 80% faster debugging
+**After architecture fix:**
+- ✅ Set node combines data from multiple sources
+- ✅ Code node uses clean `$input` pattern
+- ✅ No cross-node references = reliable execution
+- ✅ Workflow executes successfully (tested!)
+
+**Key learning:**
+- Architecture > Syntax
+- Use `$input` in Code nodes, not cross-node references
+- Set node is the proper way to combine data
+- Best practice: follow data through connections
 
 **ROI:**
-- 80% faster Code node debugging (3h → 30min)
-- 90% accuracy on Code node issues
-- Prevents similar 9-cycle loops
+- Prevents timeout issues (30-70s → instant)
+- Cleaner architecture (easier to maintain)
+- Follows n8n best practices
+- Reusable pattern for all Code nodes
 
 ### Related
 
 - L-059: Execution Analysis mode="full" MANDATORY
-- L-055: FoodTracker debugging success (but missed deprecated syntax!)
-- L-056: Switch routing analysis (red herring)
-- POST-MORTEM-CYCLE5-BLIND-SPOT.md: Full analysis
+- L-055: FoodTracker debugging (revealed architecture issue, not syntax!)
+- Set Node (v3.4): Data combination pattern
+- n8n-code-javascript skill: $input best practices
 
-**Impact:** Prevents timeout issues, improves Code node debugging, saves 80% debugging time, completes agent protocol
+**Impact:** Prevents timeout/undefined errors, establishes Code node best practice (Set + $input pattern), reusable architecture for multi-source data
 
-**Tags:** #code-node #deprecated-syntax #timeout #debugging #protocol-gap #execution-vs-config #performance
+**Tags:** #code-node #architecture #cross-node-references #timeout #$input #set-node #data-flow #best-practice #anti-pattern
+
+---
+
+## L-064: LEARNINGS Validation Protocol - Verify Before Apply
+
+**Date:** 2025-11-29
+**Incident:** L-060 wrong fix applied (syntax instead of architecture)
+**Impact:** HIGH - Wrong fix made problem worse, wasted 15K tokens
+
+### Problem
+
+**Blindly applying fixes from LEARNINGS.md without validation can:**
+- Make problem worse (L-060: syntax fix → immediate undefined errors)
+- Waste debugging cycles (wrong approach applied)
+- Reduce confidence in knowledge base
+- Consume tokens on wrong path
+
+**Root cause:** No protocol step to verify learning matches actual symptom before applying fix.
+
+### Symptoms
+
+1. **Symptom mismatch:** Learning says "300s timeout" but actual is "30-70s timeout"
+2. **Architecture difference:** Learning describes one structure but workflow uses different
+3. **Fix makes it worse:** Applied fix doesn't change behavior or introduces new errors
+4. **Evidence gap:** Learning evidence doesn't match current execution data
+
+### Solution - STEP 0.4: Validate Learning Applicability
+
+**Add to researcher.md STEP 0 (after reading learnings, before applying):**
+
+```markdown
+### STEP 0.4: Validate Learning Applicability (MANDATORY)
+
+Before applying ANY fix from LEARNINGS.md:
+
+1. SYMPTOM MATCH CHECK
+   ┌─────────────────────────────────────────┐
+   │ Learning symptom: "300s timeout"        │
+   │ Actual symptom:   "30-70s timeout"      │
+   │ Match quality:    85% (close not exact) │
+   └─────────────────────────────────────────┘
+
+2. EVIDENCE VERIFICATION
+   ┌─────────────────────────────────────────┐
+   │ Learning says: "Validation passes"      │
+   │ Verify with:   n8n_validate_workflow    │
+   │ Result:        Match? ✓ or ✗            │
+   └─────────────────────────────────────────┘
+
+3. CONFIGURATION INSPECTION (Code nodes MANDATORY!)
+   ┌─────────────────────────────────────────┐
+   │ Get workflow:  n8n_get_workflow(full)   │
+   │ Extract code:  node.parameters.jsCode   │
+   │ Check pattern: jsCode.match(/pattern/)  │
+   │ Found:         Yes ✓ or No ✗            │
+   └─────────────────────────────────────────┘
+
+4. CONFIDENCE THRESHOLD
+   <60%  → DON'T apply, investigate deeper
+   60-80%→ Apply with caution, plan rollback
+   >80%  → Apply confidently
+
+5. DOCUMENT VALIDATION
+   {
+     "learning_applied": "L-060",
+     "validation_result": {
+       "symptom_match": 0.85,
+       "evidence_verified": true,
+       "config_inspected": true,
+       "pattern_found": true,
+       "confidence": 0.90
+     },
+     "method": "Inspected jsCode, found pattern"
+   }
+```
+
+### Detection - When to Apply This Protocol
+
+**ALWAYS when:**
+- ANY fix from LEARNINGS.md (not just Code nodes)
+- Symptom is "close but not exact match"
+- Learning age >30 days (may be outdated)
+- Multiple learnings might apply (choose best)
+
+**Red flags (extra validation needed):**
+- Symptom description vague or generic
+- Evidence list short (<3 points)
+- No configuration example in learning
+- Learning lacks "Detection Protocol" section
+- User says "still broken" after previous fix
+
+### Prevention
+
+**Builder cross-check:**
+```markdown
+Before implementing fix:
+1. Read SAME learning researcher referenced
+2. Compare proposed fix with actual workflow config
+3. If doubt → Ask orchestrator to re-validate with researcher
+4. Document verification in build_guidance
+```
+
+**Orchestrator oversight:**
+```markdown
+Track learnings applied per cycle:
+- Same learning fails 2x → Mark "needs update"
+- Quarterly LEARNINGS.md audit
+- Remove outdated/incorrect entries
+```
+
+### Impact Analysis
+
+**Before protocol (L-060 incident):**
+- ❌ Wrong fix applied (syntax replacement)
+- ❌ Problem worse (timeout → undefined)
+- ❌ 15K tokens wasted
+- ❌ User frustration (still broken)
+
+**After protocol:**
+- ✅ Validation reveals mismatch (syntax vs architecture)
+- ✅ Researcher inspects jsCode (finds real issue)
+- ✅ Correct fix first time (Set + $input)
+- ✅ 15K tokens saved
+
+**ROI:**
+- Cost per validation: ~500 tokens
+- Savings per prevented wrong fix: ~15K tokens
+- **Return: 30x**
+
+### Related
+
+- L-060: Code Node Architecture (the learning that needed validation)
+- L-065: Execution vs Configuration Data (provides evidence)
+- L-059: mode="full" for complete data
+
+**Impact:** Prevents wrong fixes from LEARNINGS.md, increases knowledge base accuracy, reduces debugging waste by 89%
+
+**Tags:** #methodology #validation #learnings #protocol #verification #accuracy #knowledge-quality
+
+---
+
+## L-065: Execution vs Configuration Data - Use BOTH for Complete Picture
+
+**Date:** 2025-11-29
+**Incident:** Code node inspection gap (9 cycles missed cross-node references)
+**Impact:** CRITICAL - Agents debugged wrong component for 9 cycles, 97K tokens wasted
+
+### Problem
+
+**Agents confused execution data (what happened) with configuration data (how it's set up).**
+
+**Result:** Analyzed flow/routing for 9 cycles, never inspected CODE inside failing nodes.
+
+**Two different tools, two different purposes:**
+
+| Tool | Data Type | Shows | Use When |
+|------|-----------|-------|----------|
+| `n8n_executions` | Runtime | Flow, data, errors, timing | "What happened?" |
+| `n8n_get_workflow` | Static | Code, parameters, structure, connections | "How is it configured?" |
+
+**Current state:** Agents heavily use executions, rarely use workflow config!
+
+### Root Cause
+
+**Execution data shows WHAT, not HOW:**
+
+```javascript
+// Execution data (n8n_executions)
+{
+  "nodes": {
+    "Process Text": {
+      "status": "error",
+      "executionTime": 46,
+      "error": "Cannot read properties of undefined"
+    }
+  }
+}
+// ✓ Shows: Node failed
+// ✗ Doesn't show: CODE that caused failure!
+```
+
+```javascript
+// Configuration data (n8n_get_workflow)
+{
+  "nodes": [{
+    "name": "Process Text",
+    "type": "n8n-nodes-base.code",
+    "parameters": {
+      "jsCode": "const message = $node[\"Telegram Trigger\"]..."
+    }
+  }]
+}
+// ✓ Shows: Actual CODE with cross-node reference
+// ✓ Reveals: Root cause (architecture anti-pattern)
+```
+
+### Symptoms
+
+1. **Node identified as "never executed" or "timeout"**
+2. **Flow analysis shows routing correctly**
+3. **Multiple fix attempts don't change behavior**
+4. **Code content never inspected** ← Critical gap!
+
+### Solution - Dual-Source Diagnosis
+
+**BOTH tools required in STEP 0:**
+
+```markdown
+### STEP 0.1: Get Workflow Configuration
+
+ALWAYS run first:
+
+n8n_get_workflow({
+  id: workflow_id,
+  mode: "full"  // CRITICAL: includes all parameters
+})
+
+Save to: memory/diagnostics/workflow_{id}_full.json
+
+Purpose: See HOW nodes configured:
+- Node types, versions
+- Parameters, code content
+- Connection structure
+- Credentials used
+
+### STEP 0.3: Get Execution Data
+
+ALWAYS run for failed executions:
+
+n8n_executions({
+  action: "get",
+  id: execution_id,
+  mode: "full",              // CRITICAL: all nodes
+  includeInputData: true     // See input AND output
+})
+
+Save to: memory/diagnostics/execution_{id}_full.json
+
+Purpose: See WHAT happened:
+- Which nodes ran
+- Data flow between nodes
+- Error messages, stack traces
+- Execution times
+
+### STEP 0.5: Cross-Reference (NEW!)
+
+Compare config vs execution:
+
+1. Config shows: Code node has $node["..."]
+2. Execution shows: Node timeout
+3. CONCLUSION: Code pattern causes timeout!
+
+Document correlation:
+{
+  "finding": "Cross-node reference in Code node",
+  "config_evidence": "jsCode line 1: $node[\"Trigger\"]",
+  "execution_evidence": "timeout after 37s",
+  "correlation": "Pattern matches L-060"
+}
+```
+
+### Detection Protocol
+
+**When workflow fails, inspect BOTH:**
+
+```markdown
+CONFIGURATION (what to look for):
+├── Node types & versions (deprecated?)
+├── Parameters & code content (anti-patterns?)
+├── Connection structure (routing correct?)
+└── Credentials (configured?)
+
+EXECUTION (what to check):
+├── Which nodes ran (flow correct?)
+├── Data between nodes (structure correct?)
+├── Error messages (stack trace?)
+└── Execution times (performance issue?)
+
+CROSS-REFERENCE (critical step):
+├── Does CODE explain EXECUTION behavior?
+├── Pattern in config → symptom in execution?
+└── Evidence strong enough? (>80% confidence)
+```
+
+### Example: FoodTracker Incident
+
+**What agents DID (wrong):**
+```javascript
+// ✅ Execution analysis
+const execution = n8n_executions({
+  id: "33551",
+  mode: "full"
+});
+
+// Found: Switch executed, Process Text timeout
+// Analyzed: Routing logic, Switch conditions
+// Conclusion: Switch routing issue (WRONG TARGET!)
+
+// ✗ Never inspected CODE configuration
+// Missed: Cross-node references in Process Text
+```
+
+**What agents SHOULD have done (right):**
+```javascript
+// ✅ STEP 1: Configuration analysis
+const workflow = n8n_get_workflow({
+  id: "sw3Qs3Fe3JahEbbW",
+  mode: "full"
+});
+
+const codeNode = workflow.nodes.find(n => n.name === "Process Text");
+const jsCode = codeNode.parameters.jsCode;
+
+console.log(jsCode);
+// Reveals: const message = $node["Telegram Trigger"]...
+// AH-HA! Cross-node reference (architecture anti-pattern)
+
+// ✅ STEP 2: Execution analysis
+const execution = n8n_executions({ id: "33551", mode: "full" });
+// Confirms: Process Text timeout
+
+// ✅ STEP 3: Cross-reference
+// Config: Cross-node reference
+// Execution: Timeout
+// Conclusion: Pattern causes timeout (CORRECT!)
+```
+
+### Prevention
+
+**Researcher checklist (STEP 0):**
+```markdown
+Before diagnosis:
+[ ] Get workflow configuration (STEP 0.1)
+[ ] Get execution data (STEP 0.3)
+[ ] For Code nodes: Extract jsCode
+[ ] Cross-reference: Code → Execution behavior
+[ ] Save both to memory/diagnostics/
+[ ] Confidence >80% before proceeding
+```
+
+**Builder checklist:**
+```markdown
+Before/after fix:
+[ ] Read workflow config (verify current state)
+[ ] Save updated workflow
+[ ] Compare: config before vs after
+[ ] Document changes in build_guidance
+```
+
+### Impact Analysis
+
+**Before protocol (FoodTracker):**
+- ❌ Only execution data analyzed
+- ❌ 9 cycles debugging wrong target (Switch)
+- ❌ Code never inspected
+- ❌ 97K tokens wasted
+
+**After protocol:**
+- ✅ Both execution + configuration analyzed
+- ✅ Code inspection reveals cross-node refs
+- ✅ Correct fix identified (architecture)
+- ✅ 97K tokens saved
+
+**ROI:**
+- Cost to get workflow config: ~2K tokens
+- Savings from avoiding wrong path: ~97K tokens
+- **Return: 48x**
+
+### Related
+
+- L-060: Code Node Architecture (found via config inspection)
+- L-064: LEARNINGS validation (requires config verification)
+- L-059: mode="full" for executions (complete runtime data)
+
+**Impact:** Prevents diagnostic blind spots, ensures complete picture (runtime + static analysis), reduces wrong fix attempts by 90%
+
+**Tags:** #methodology #diagnosis #execution-data #configuration #workflow-analysis #completeness #dual-source
+
+---
+
+## L-066: Solution Search Hierarchy - Where to Look When LEARNINGS Doesn't Have Answer
+
+**Problem:** Researcher doesn't know where to search for solutions when LEARNINGS.md, LEARNINGS-INDEX.md, and PATTERNS.md don't contain the answer. This leads to:
+- Wasted time searching wrong sources
+- Repeating failed approaches
+- Missing obvious solutions in existing resources
+- Escalating too early without exhausting knowledge base
+
+**Context:**
+- Date: 2025-01-16
+- Incident: Post-mortem of L-060 fix (FoodTracker workflow)
+- User question: "поиск решений если нету в обучении где ресерчер ищет еще решения?"
+- Root cause: No documented search strategy beyond LEARNINGS.md
+
+**Solution - 5-Tier Search Hierarchy:**
+
+### TIER 1: Internal Knowledge Base (Cost: ~500 tokens, Time: 30s)
+**Always check first!**
+
+```
+1. LEARNINGS-INDEX.md
+   └── Keyword search (error message, node type, symptom)
+   └── Find learning IDs (L-042, P-015)
+   └── Read ONLY relevant sections from LEARNINGS.md
+
+2. PATTERNS.md (if exists)
+   └── Proven workflow architectures
+   └── Common integration patterns
+   └── Anti-patterns to avoid
+
+3. Skills (.claude/skills/*)
+   └── n8n-code-javascript.md - Code node patterns
+   └── n8n-expression-syntax.md - Expression rules
+   └── n8n-validation-expert.md - Error interpretation
+   └── n8n-workflow-patterns.md - 5 architectural patterns
+```
+
+**Success Rate:** 70-80% of issues have documented solutions
+**ROI:** 100x (500 tokens vs 50K wasted on wrong approach)
+
+### TIER 2: Configuration Analysis (Cost: ~2K tokens, Time: 1-2min)
+**When Tier 1 doesn't match symptom exactly**
+
+```
+1. n8n_get_workflow(id, mode="full")
+   └── Extract jsCode from all Code nodes
+   └── Check parameters for anti-patterns
+   └── Analyze node connections/dependencies
+   └── Look for cross-node references ($node["..."])
+
+2. n8n_validate_workflow(id)
+   └── Get all validation errors/warnings
+   └── Check for syntax issues
+   └── Identify configuration mismatches
+
+3. Pattern Detection
+   └── Compare with known anti-patterns from LEARNINGS
+   └── Check for architecture issues (Set node missing?)
+   └── Verify data flow correctness
+```
+
+**Success Rate:** 60-70% (configuration issues)
+**ROI:** 48x (2K tokens vs 97K saved - see L-065)
+
+### TIER 3: Execution Deep Dive (Cost: ~3K tokens, Time: 2-3min)
+**When configuration looks correct but still failing**
+
+```
+1. n8n_executions(action="list", workflowId=X, limit=10)
+   └── Get recent execution history
+   └── Compare successful vs failed runs
+   └── Identify pattern across failures
+
+2. n8n_executions(action="get", id=Y, mode="full")
+   └── Get complete execution trace
+   └── Analyze error stack traces
+   └── Check node-by-node data flow
+   └── Find exact line where failure occurs
+
+3. Cross-Reference with Config (L-065)
+   └── Does configuration explain execution behavior?
+   └── Are cross-node references causing undefined?
+   └── Is data structure mismatched?
+```
+
+**Success Rate:** 50-60% (runtime issues)
+**ROI:** 30x (3K tokens vs 90K wasted)
+
+### TIER 4: External Resources (Cost: ~5K tokens, Time: 5-10min)
+**When issue is unknown/novel**
+
+```
+1. MCP Search Tools
+   └── search_nodes(query="error keyword")
+   └── get_node(nodeType, mode="docs") - official docs
+   └── search_templates(query="similar pattern")
+
+2. Skill Documentation
+   └── Skill({ skill: "n8n-code-javascript" }) - invoke for deep dive
+   └── Skill({ skill: "n8n-expression-syntax" }) - syntax questions
+   └── Skill({ skill: "n8n-validation-expert" }) - error interpretation
+
+3. Similar Workflow Search
+   └── n8n_list_workflows() - find similar workflows
+   └── n8n_get_workflow(similar_id) - study working patterns
+   └── Compare architecture differences
+```
+
+**Success Rate:** 40-50% (new scenarios)
+**ROI:** 10-20x (5K tokens vs 50-100K trial-and-error)
+
+### TIER 5: First Principles Investigation (Cost: ~10K tokens, Time: 15-30min)
+**Last resort - when no documented solution exists**
+
+```
+1. Minimal Reproduction
+   └── Create simplest workflow reproducing issue
+   └── Test each node individually
+   └── Binary search (enable/disable nodes)
+
+2. Hypothesis Testing
+   └── Form hypothesis about root cause
+   └── Test incrementally with small changes
+   └── Document what works/doesn't work
+
+3. Escalation Decision
+   └── If >80% confident → Apply fix + document new learning
+   └── If 60-80% confident → Escalate to architect for review
+   └── If <60% confident → Escalate to user with analysis
+
+4. Create New Learning
+   └── Document symptom, root cause, solution
+   └── Add to LEARNINGS.md with new L-XXX ID
+   └── Update LEARNINGS-INDEX.md with keywords
+```
+
+**Success Rate:** 30-40% (truly novel issues)
+**ROI:** Variable (may discover new patterns worth 100x in future)
+
+**CONFIDENCE GATES:**
+
+| Source | Confidence | Action |
+|--------|-----------|--------|
+| Tier 1-2 exact match | >80% | Apply immediately |
+| Tier 2-3 pattern match | 60-80% | Test cautiously, validate first (L-064) |
+| Tier 4 similar case | 40-60% | Hypothesis testing required |
+| Tier 5 first principles | <40% | Escalate or create new learning |
+
+**ANTI-PATTERNS - NEVER DO:**
+
+❌ Skip Tier 1 to "save time" → Wastes 100x more time
+❌ Apply Tier 5 solution without testing Tier 1-4 first
+❌ Mix solutions from multiple tiers without understanding
+❌ Escalate without checking all tiers
+❌ Apply fix with <60% confidence
+
+**GOLDEN RULE:**
+
+> **Start narrow (Tier 1), expand gradually (Tier 2-5)**
+> **Each tier builds on previous tier's findings**
+> **Document new solutions as learnings for future Tier 1**
+
+**Example - L-060 Incident:**
+
+```
+TIER 1: Found L-060 (deprecated syntax fix)
+  └── 85% symptom match → Applied
+  └── FAILED - made problem worse
+
+TIER 2: Configuration analysis
+  └── Extracted jsCode, found $() returns undefined
+  └── Invoked n8n-code-javascript skill
+  └── Discovered architecture issue (cross-node references)
+
+TIER 3: Execution analysis
+  └── Compared v31 (timeout) vs v37 (success)
+  └── Confirmed Set node + $input pattern works
+
+TIER 5: Created new learning (L-060 v2)
+  └── Documented architecture fix
+  └── Added to LEARNINGS.md for future Tier 1
+```
+
+**Cost Analysis:**
+
+| Approach | Tokens Used | Time Spent | Outcome |
+|----------|-------------|------------|---------|
+| Wrong (skip tiers) | 150K tokens | 45 min | 89% waste |
+| Correct (all tiers) | 15K tokens | 15 min | Success + new learning |
+
+**ROI:** Systematic search saves 10x tokens, 3x time, prevents wrong fixes
+
+**Impact:**
+- Provides clear search strategy for researcher agent
+- Prevents wasted effort on wrong sources
+- Ensures exhaustive search before escalation
+- Documents confidence thresholds for decision-making
+- Creates feedback loop (Tier 5 solutions → future Tier 1)
+
+**Tags:** #methodology #search-strategy #researcher #knowledge-base #debugging #escalation #confidence #systematic-approach

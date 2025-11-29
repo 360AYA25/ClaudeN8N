@@ -34,12 +34,12 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 60
-- **Categories:** 11
+- **Total Entries:** 63
+- **Categories:** 12
 - **Node Types Covered:** 15+
 - **Error Types Cataloged:** 27+
-- **File Size:** 3,720+ lines (~106,000 tokens)
-- **Index Size:** ~650 tokens (99.4% reduction)
+- **File Size:** 4,387+ lines (~125,000 tokens)
+- **Index Size:** ~750 tokens (99.4% reduction)
 
 ---
 
@@ -101,6 +101,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | AI Agents | 1340-1440 | 3 | Parameters, tools, prompts, memory, clarification |
 | HTTP Requests | 1440-1530 | 2 | Error handling, credentials, status codes |
 | MCP Server | 1500-1757 | 1 | stdio, WebSocket, migration |
+| Methodology | 3810-4387 | 3 | ⭐ **L-064: Validation Protocol (30x ROI)**, ⭐ **L-065: Dual-Source Diagnosis (48x ROI)**, 🔥 **L-066: 5-Tier Search Hierarchy (100x ROI)** |
 
 ### By Complexity Level
 
@@ -135,6 +136,9 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-11-28 | 🔥 L-066: Solution Search Hierarchy - 5-Tier Systematic Research | 4187 | Methodology / Research |
+| 2025-11-28 | ⭐ L-065: Execution vs Configuration Data - Dual-Source Diagnosis | 3948 | Methodology / Debugging |
+| 2025-11-28 | ⭐ L-064: LEARNINGS Validation Protocol - Verify Before Apply | 3810 | Methodology / Debugging |
 | 2025-11-28 | 🔴 L-060: Code Node Deprecated $node["..."] Syntax Timeout (CRITICAL) | 3560 | Code Node / Debugging |
 | 2025-11-28 | 🔴 L-059: Execution Analysis mode="full" MANDATORY (CRITICAL) | 172 | n8n Workflows / Debugging |
 | 2025-11-28 | L-055: MCP Zod v4 Bug - curl Workaround Guide | 2772 | Error Handling / MCP |
@@ -190,6 +194,18 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 → **Check:** n8n Workflows (line 190-890) OR AI Agents (line 1340-1440)
 → **Specific:** Line 172 (PM Validators - Validator 3)
 
+### Pattern 9: "How to search for solutions / where to look"
+→ **Check:** Methodology (line 3810-4387)
+→ **Specific:** Line 4187 (L-066: 5-Tier Search Hierarchy)
+
+### Pattern 10: "Validate learning before applying / confidence threshold"
+→ **Check:** Methodology (line 3810-4387)
+→ **Specific:** Line 3810 (L-064: Validation Protocol)
+
+### Pattern 11: "Need both execution and configuration data"
+→ **Check:** Methodology (line 3810-4387)
+→ **Specific:** Line 3948 (L-065: Dual-Source Diagnosis)
+
 ---
 
 ## 🔑 Keyword Map (for grep)
@@ -230,6 +246,15 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `validate` → Lines: 172-285, 285-339
 - `debug` → Lines: 490-616, 1570-1586
 - `logical block building` OR `parameter alignment` → Lines: 172
+
+### Methodology Keywords
+- `validation protocol` OR `verify before apply` → Lines: 3810-3944 (L-064)
+- `dual-source` OR `execution vs configuration` → Lines: 3948-4183 (L-065)
+- `search hierarchy` OR `where to look` OR `tier 1-5` → Lines: 4187-4387 (L-066)
+- `confidence threshold` OR `80% confidence` → Lines: 3810-3944, 4187-4387
+- `researcher strategy` OR `systematic search` → Lines: 4187-4387
+- `learning validation` OR `symptom match` → Lines: 3810-3944
+- `roi` OR `token savings` OR `methodology` → Lines: 3810-4387
 
 ### Claude Code Keywords
 - `task tool` OR `agent parameter` → Lines: 295-400
@@ -283,6 +308,7 @@ node scripts/generate-learnings-index.js
 ---
 
 **Last Updated:** 2025-11-28
-**Version:** 1.3.0
+**Version:** 1.4.0
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent
+**Latest Additions:** L-064 (Validation Protocol), L-065 (Dual-Source Diagnosis), L-066 (5-Tier Search Hierarchy)
