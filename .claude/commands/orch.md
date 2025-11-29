@@ -94,6 +94,14 @@ if (user_reports_broken && !execution_data_analyzed) {
   REQUIRE: researcher.analyze_execution_data();
   // Researcher MUST get execution logs, identify stopping point
 }
+
+// 🔴 CRITICAL (L-060): Code Node Inspection!
+if (code_node_never_executes && !code_inspected) {
+  BLOCK("❌ FORBIDDEN: Fix Code node without inspecting JavaScript!");
+  REQUIRE: researcher.STEP_0_3_1_inspect_code_nodes();
+  // Execution data ≠ Configuration data!
+  // MUST check for deprecated $node["..."] syntax → causes 300s timeout
+}
 ```
 
 **GATE 2: Hypothesis Validation Required**

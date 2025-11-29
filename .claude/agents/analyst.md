@@ -356,8 +356,12 @@ Write: `memory/diagnostics/execution_{id}_full.json`
 1. Analyze `_meta.fix_attempts` on EACH node
 2. Identify error patterns (same error repeats?)
 3. Check if execution data was analyzed by Researcher/QA
-4. Determine root cause with EVIDENCE
-5. Classify failure pattern (config/logic/systemic)
+4. 🔴 **Code Node Check (L-060):** If Code node involved:
+   - Did agents inspect jsCode parameter?
+   - Or only checked execution flow?
+   - **Critical:** Execution data ≠ Configuration data!
+5. Determine root cause with EVIDENCE
+6. Classify failure pattern (config/logic/systemic/protocol-gap)
 
 ### Step 4: Learning Extraction
 1. Propose learning for `memory/learnings.md`

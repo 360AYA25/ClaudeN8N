@@ -142,6 +142,16 @@ switch(node.type) {
     }
     break;
 
+  case "n8n-nodes-base.code":
+    // 🔴 L-060: Check for deprecated syntax (causes 300s timeout!)
+    const jsCode = node.parameters.jsCode || node.parameters.code || "";
+    const deprecated = jsCode.match(/\$node\[["'][^"']+["']\]/g);
+    if (deprecated) {
+      FAIL(`Code node "${node.name}" uses DEPRECATED syntax: ${deprecated.join(', ')}`);
+      WARN("Replace with modern $(...) syntax - deprecated $node[...] causes 300s timeout!");
+    }
+    break;
+
   case "n8n-nodes-base.webhook":
     if (!node.parameters.path) {
       FAIL(`Webhook node "${node.name}" missing REQUIRED parameter 'path'`);

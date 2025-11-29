@@ -288,6 +288,18 @@ Purpose: [from blueprint] "Анализировать сообщения пол�
 
 ---
 
+## 🔴 Code Node Inspection Reminder (L-060)
+
+**When discussing Code node issues with Researcher:**
+- Remind: "Check INSIDE the Code node (jsCode parameter)"
+- Not just: "does it execute?"
+- But also: "what CODE does it contain?"
+- **Critical:** Deprecated `$node["..."]` syntax causes 300s timeout!
+
+**Execution data ≠ Configuration data** - need BOTH for diagnosis!
+
+---
+
 ## Key Principle
 
 **Modify existing > Build new**
