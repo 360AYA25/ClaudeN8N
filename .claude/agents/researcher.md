@@ -167,6 +167,40 @@ STEP 0.3: VIEW ALL EXECUTIONS (⚠️ ДО ФИКСА!)
 ⚠️ БЕЗ mode="full" → НЕПОЛНЫЕ ДАННЫЕ → ОШИБОЧНЫЙ ДИАГНОЗ!
 ⚠️ БЕЗ execution analysis → БЛОК! Orchestrator will reject!
 
+STEP 0.3.1: INSPECT CODE NODES (if node never executes)
+├── ⚠️ CRITICAL: Execution data ≠ Configuration data!
+├── When Code node appears in execution but NEVER runs:
+│   ├── Get workflow config (from STEP 0.1 - already downloaded!)
+│   ├── Extract Code node from workflow.nodes
+│   ├── Get jsCode from node.parameters.jsCode or node.parameters.code
+│   └── INSPECT the actual JavaScript/Python code
+├── Check for DEPRECATED SYNTAX (causes 300s timeout!):
+│   ├── ❌ DEPRECATED: $node["Node Name"] or $node['Node Name']
+│   ├── ✅ MODERN: $("Node Name") or $('Node Name')
+│   ├── Pattern: /\$node\["[^"]+"\]/ or /\$node\['[^']+'\]/
+│   └── If found → FLAG as root cause (L-060)
+├── Check for runtime errors in code:
+│   ├── Missing node references (node doesn't exist)
+│   ├── Undefined variables
+│   ├── Syntax errors (missing brackets, quotes)
+│   └── Logic errors (wrong data access)
+├── Save to diagnosis:
+│   └── code_inspection: {
+│         node: "Process Text",
+│         has_deprecated_syntax: true,
+│         deprecated_patterns: ["$node[\"Telegram Trigger\"]"],
+│         recommended_fix: "Replace with $(\"Node Name\") syntax",
+│         estimated_fix_time: "2 minutes"
+│       }
+└── ⚠️ MANDATORY for Code nodes that never execute!
+
+⚠️ Why agents missed this in 9 cycles:
+- Agents analyzed EXECUTION flow (what executed, what didn't)
+- Agents did NOT inspect CODE configuration (what's inside nodes)
+- n8n_executions() shows WHAT happened
+- n8n_get_workflow() shows HOW it's configured
+- Need BOTH for complete diagnosis!
+
 STEP 0.4: FIND WHERE IT BREAKS
 ├── Identify chain:
 │   ├── Last successful node (executed + has output)

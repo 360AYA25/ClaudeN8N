@@ -1,0 +1,59 @@
+{
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "name": "FoodTracker",
+  "version_id": "0adff2d1-0e04-4068-a2bd-1f06facee893",
+  "version_counter": 29,
+  "node_count": 29,
+  "updated_at": "2025-11-28T22:54:45.063Z",
+  "fix_applied": "Switch conditions changed to native exists operators",
+  "changes_applied": [
+    {
+      "node": "Switch",
+      "rule": 1,
+      "change": "text condition: !== undefined → string.exists",
+      "before": {
+        "leftValue": "={{ $json.message.text !== undefined }}",
+        "operator": {"type": "boolean", "operation": "equals"},
+        "rightValue": true
+      },
+      "after": {
+        "leftValue": "={{ $json.message.text }}",
+        "operator": {"type": "string", "operation": "exists"}
+      }
+    },
+    {
+      "node": "Switch",
+      "rule": 2,
+      "change": "voice condition: !== undefined → object.exists",
+      "before": {
+        "leftValue": "={{ $json.message.voice !== undefined }}",
+        "operator": {"type": "boolean", "operation": "equals"},
+        "rightValue": true
+      },
+      "after": {
+        "leftValue": "={{ $json.message.voice }}",
+        "operator": {"type": "object", "operation": "exists"}
+      }
+    },
+    {
+      "node": "Switch",
+      "rule": 3,
+      "change": "photo condition: !== undefined → array.exists",
+      "before": {
+        "leftValue": "={{ $json.message.photo !== undefined }}",
+        "operator": {"type": "boolean", "operation": "equals"},
+        "rightValue": true
+      },
+      "after": {
+        "leftValue": "={{ $json.message.photo }}",
+        "operator": {"type": "array", "operation": "exists"}
+      }
+    }
+  ],
+  "verification": {
+    "all_conditions_updated": true,
+    "rule_1_verified": "string.exists ✓",
+    "rule_2_verified": "object.exists ✓",
+    "rule_3_verified": "array.exists ✓"
+  }
+}

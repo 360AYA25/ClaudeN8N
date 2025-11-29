@@ -1,0 +1,23 @@
+{
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "name": "FoodTracker",
+  "version_before": "0adff2d1-0e04-4068-a2bd-1f06facee893",
+  "version_after": "7a90ee6b-b546-4d1f-b0ae-03998b5120c1",
+  "cycle": 6,
+  "fix_applied": "Switch mode:rules → mode:expression with ternary",
+  "switch_node": {
+    "name": "Switch",
+    "type": "n8n-nodes-base.switch",
+    "parameters": {
+      "mode": "expression",
+      "output": "={{ $json.message.text ? 0 : ($json.message.voice ? 1 : ($json.message.photo ? 2 : 0)) }}",
+      "options": {}
+    }
+  },
+  "verification": {
+    "mode_changed": true,
+    "expression_set": true,
+    "ternary_logic": "$json.message.text ? 0 : ($json.message.voice ? 1 : ($json.message.photo ? 2 : 0))"
+  },
+  "timestamp": "2025-11-28T23:36:47Z"
+}

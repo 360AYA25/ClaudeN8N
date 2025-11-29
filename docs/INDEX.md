@@ -25,10 +25,11 @@
 
 | Document | Description |
 |----------|-------------|
-| [LEARNINGS.md](learning/LEARNINGS.md) | Knowledge base - problems & solutions (1700+ lines) |
-| [LEARNINGS-INDEX.md](learning/LEARNINGS-INDEX.md) | Index for fast pattern lookup (98% token savings) |
+| [LEARNINGS.md](learning/LEARNINGS.md) | Knowledge base - problems & solutions (3720+ lines, 60 learnings) |
+| [LEARNINGS-INDEX.md](learning/LEARNINGS-INDEX.md) | Index for fast pattern lookup (99% token savings) |
 | [PATTERNS.md](learning/PATTERNS.md) | Proven solution patterns (15+ patterns) |
 | [N8N-RESOURCES.md](learning/N8N-RESOURCES.md) | n8n resources & external links |
+| [POST-MORTEM-CYCLE5-BLIND-SPOT.md](learning/POST-MORTEM-CYCLE5-BLIND-SPOT.md) | 🔴 Why agents missed deprecated syntax (9 cycles analysis) |
 
 ## Quick Start
 

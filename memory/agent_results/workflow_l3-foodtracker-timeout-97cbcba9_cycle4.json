@@ -1,0 +1,105 @@
+{
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "name": "FoodTracker",
+  "node_count": 29,
+  "updated_at": "2025-11-28T22:13:49.840Z",
+  "version_id": "ebf745a9-80b8-4c11-962e-50b8ec132bb5",
+  "version_counter": 27,
+  "fix_applied": "Added mode: rules to Switch node parameters",
+  "verification": {
+    "version_changed": true,
+    "version_id_before": "177b9671-8dd0-477a-a6ba-7d65bf6538e3",
+    "version_id_after": "ebf745a9-80b8-4c11-962e-50b8ec132bb5",
+    "version_counter_before": 25,
+    "version_counter_after": 27,
+    "counter_increased": true,
+    "changes_verified": [
+      {
+        "change": "Update Switch.mode",
+        "expected": "rules",
+        "actual": "rules",
+        "verified": true
+      }
+    ]
+  },
+  "switch_node": {
+    "id": "52133fd5-62ec-4aaa-a265-c225274c6c16",
+    "name": "Switch",
+    "type": "n8n-nodes-base.switch",
+    "typeVersion": 3.3,
+    "parameters": {
+      "rules": {
+        "values": [
+          {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict",
+                "version": 2
+              },
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.message.text !== undefined }}",
+                  "rightValue": true,
+                  "operator": {
+                    "type": "boolean",
+                    "operation": "equals"
+                  },
+                  "id": "74cb4b04-8df1-4c6f-a696-f709584ba27f"
+                }
+              ],
+              "combinator": "and"
+            }
+          },
+          {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict",
+                "version": 2
+              },
+              "conditions": [
+                {
+                  "id": "1edfb71b-a343-4284-a523-89c63609fa2b",
+                  "leftValue": "={{ $json.message.voice !== undefined }}",
+                  "rightValue": true,
+                  "operator": {
+                    "type": "boolean",
+                    "operation": "equals"
+                  }
+                }
+              ],
+              "combinator": "and"
+            }
+          },
+          {
+            "conditions": {
+              "options": {
+                "caseSensitive": true,
+                "leftValue": "",
+                "typeValidation": "strict",
+                "version": 2
+              },
+              "conditions": [
+                {
+                  "id": "dd99d955-b636-4ae1-a060-dbe543fcf36f",
+                  "leftValue": "={{ $json.message.photo !== undefined }}",
+                  "rightValue": true,
+                  "operator": {
+                    "type": "boolean",
+                    "operation": "equals"
+                  }
+                }
+              ],
+              "combinator": "and"
+            }
+          }
+        ]
+      },
+      "options": {},
+      "mode": "rules"
+    }
+  }
+}

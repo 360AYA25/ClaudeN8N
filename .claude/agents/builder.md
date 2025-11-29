@@ -178,6 +178,87 @@ Before ANY build/fix, invoke skills:
 3. **edit_scope** - If set, touch ONLY those nodes
 4. **blueprint** - Follow Architect's blueprint structure
 
+## Code Node Syntax Validation (MANDATORY!)
+
+**⚠️ CRITICAL: Check for deprecated syntax in ALL Code nodes!**
+
+### Deprecated Patterns (cause 300s timeout!)
+
+| Deprecated | Modern | Impact |
+|-----------|--------|--------|
+| `$node["Name"]` | `$("Name")` | 300s timeout |
+| `$node['Name']` | `$('Name')` | 300s timeout |
+| `$items[0]` | `$input.first()` | None (works but old) |
+
+### Auto-Replace Protocol
+
+**Before creating/updating Code nodes:**
+
+```javascript
+// Check if jsCode contains deprecated syntax
+const hasDeprecated = /\$node\[["'][^"']+["']\]/.test(jsCode);
+
+if (hasDeprecated) {
+  // Auto-replace deprecated syntax
+  jsCode = jsCode.replace(/\$node\["([^"]+)"\]/g, '$("$1")');
+  jsCode = jsCode.replace(/\$node\['([^']+)'\]/g, "$('$1')");
+
+  // Log replacement in workflow metadata
+  node._meta = {
+    ...node._meta,
+    syntax_updated: {
+      from: "deprecated $node['...']",
+      to: "modern $('...')",
+      timestamp: new Date().toISOString(),
+      learning: "L-060"
+    }
+  };
+}
+```
+
+### When to Apply
+
+1. **Creating new Code nodes** - ALWAYS use modern syntax
+2. **Updating existing Code nodes** - Auto-replace deprecated patterns
+3. **Fixing workflows** - Check ALL Code nodes (not just edit_scope)
+
+### Pattern Detection
+
+```javascript
+// Find all Code nodes in workflow
+const codeNodes = workflow.nodes.filter(n =>
+  n.type === "n8n-nodes-base.code" ||
+  n.type === "@n8n/n8n-nodes-langchain.code"
+);
+
+// Check each for deprecated syntax
+for (const node of codeNodes) {
+  const jsCode = node.parameters.jsCode || node.parameters.code || "";
+  const deprecated = jsCode.match(/\$node\[["'][^"']+["']\]/g);
+
+  if (deprecated) {
+    console.warn(`Deprecated syntax in ${node.name}:`, deprecated);
+    // Apply auto-fix
+  }
+}
+```
+
+### Verification
+
+**After update, verify Code node:**
+```javascript
+validate_node({
+  nodeType: "n8n-nodes-base.code",
+  config: {
+    mode: "runOnceForAllItems",
+    jsCode: updatedCode
+  },
+  mode: "full"
+});
+```
+
+**See:** L-060 in LEARNINGS.md for full diagnosis story
+
 ## Process
 1. Read `run_state` and `edit_scope` (if exists)
 2. If `edit_scope` set → modify ONLY those nodes

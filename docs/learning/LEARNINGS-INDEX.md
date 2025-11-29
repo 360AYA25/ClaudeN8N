@@ -34,12 +34,12 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 48
+- **Total Entries:** 60
 - **Categories:** 11
 - **Node Types Covered:** 15+
-- **Error Types Cataloged:** 26+
-- **File Size:** 3,050+ lines (~87,000 tokens)
-- **Index Size:** ~600 tokens (99% reduction)
+- **Error Types Cataloged:** 27+
+- **File Size:** 3,720+ lines (~106,000 tokens)
+- **Index Size:** ~650 tokens (99.4% reduction)
 
 ---
 
@@ -56,7 +56,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Telegram** | 2 | 1130-1190, 400-490 | Parameter format, AI Agent integration |
 | **Notion** | 6 | 890-1050 | Filters, dates, properties, page objects, timezone |
 | **Memory (AI Agent)** | 2 | 1639-1683 | Session ID, context passing, customKey |
-| **Code Node** | 2 | 1570-1602 | IF routing, regex escaping |
+| **Code Node** | 3 | 1570-1602, 3560-3718 | IF routing, regex escaping, **🔴 L-060: Deprecated $node["..."] syntax causes 300s timeout (CRITICAL)** |
 | **Switch Node** | 2 | 1415-1441, 2145-2279 | Data flow after routing, fan-out patterns |
 | **IF Node** | 2 | 1570-1586, 2616-2675 | Debugging, Code Node fallback, v2.2 validator false positive (L-053) |
 | **AI Agent** | 3 | 1639-1683 | Parameters, clarification, tools, memory |
@@ -81,6 +81,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Status Code Handling** | 2 | HTTP Request, continueOnFail | 1528-1710 |
 | **Partial Update Deletion** | 1 | n8n API Critical | 1602-1639 |
 | **Execution Analysis Incomplete** | 1 | 🔴 **mode="full" MANDATORY (L-059 CRITICAL)** | 172-351 |
+| **Deprecated Syntax Timeout** | 1 | 🔴 **$node["..."] causes 300s timeout (L-060 CRITICAL)** | 3560-3718 |
 | **MCP Server Issues** | 3 | stdio vs WebSocket, Migration, Zod v4 bug (L-055) | 1117-1163, 1729+, 2772-2886 |
 | **False Positives** | 4 | Validation, continueOnFail+onError, IF combinator (L-053), QA override (L-054) | 2051-2143, 2616-2771 |
 | **Fan-Out Routing** | 1 | Switch Node, Multi-Way | 2145-2279 |
@@ -134,6 +135,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-11-28 | 🔴 L-060: Code Node Deprecated $node["..."] Syntax Timeout (CRITICAL) | 3560 | Code Node / Debugging |
+| 2025-11-28 | 🔴 L-059: Execution Analysis mode="full" MANDATORY (CRITICAL) | 172 | n8n Workflows / Debugging |
 | 2025-11-28 | L-055: MCP Zod v4 Bug - curl Workaround Guide | 2772 | Error Handling / MCP |
 | 2025-11-28 | L-054: QA L3 Escalation - False Positive Override | 2677 | Error Handling / QA |
 | 2025-11-28 | L-053: IF Node v2.2 Validator False Positive | 2616 | Error Handling / Validator |
@@ -199,7 +202,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `telegram` → Lines: 1130-1190, 400-490
 - `notion` → Lines: 890-1020, 1229-1336
 - `memory` OR `ai agent` → Lines: 1639-1683, 1661-1683
-- `code node` → Lines: 1570-1602, 1586-1602
+- `code node` → Lines: 1570-1602, 1586-1602, 3560-3718
 - `switch` → Lines: 1415-1441, 2145-2279
 - `if node` → Lines: 1570-1586
 
@@ -217,7 +220,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `continueonerror` OR `continueonarefail` → Lines: 1528-1710, 2051-2143
 - `false positive` OR `defense-in-depth` → Lines: 2051-2143
 - `fan-out` OR `fan-in` OR `multi-way` → Lines: 2145-2279
-- `timeout` OR `builder timeout` OR `freeze` → Lines: 172
+- `timeout` OR `builder timeout` OR `freeze` → Lines: 172, 3560-3718
+- `deprecated` OR `$node["` OR `old syntax` → Lines: 3560-3718
 - `large workflow` OR `>10 nodes` OR `chunked building` → Lines: 172
 
 ### Operation Keywords
