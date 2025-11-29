@@ -139,7 +139,7 @@ None. Backward compatible with v3.1.0.
 
 ### Commits
 
-- `...` feat: implement Canonical Workflow Snapshot System (v3.2.0)
+- `570cf7a` feat: implement Canonical Workflow Snapshot System (v3.2.0)
 
 ---
 
