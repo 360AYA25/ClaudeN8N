@@ -65,8 +65,7 @@ Before ANY search, invoke skills:
 STEP 1: LOCAL FIRST (экономия API calls + токенов!)
 ├── docs/learning/LEARNINGS-INDEX.md  → СНАЧАЛА INDEX! (~500 tokens)
 ├── docs/learning/LEARNINGS.md        → ТОЛЬКО нужные секции (по ID из INDEX)
-├── docs/learning/PATTERNS.md         → ТОЛЬКО релевантные паттерны
-└── memory/learnings.md               → runtime learnings
+└── docs/learning/PATTERNS.md         → ТОЛЬКО релевантные паттерны
 
 ⚠️ INDEX-FIRST PROTOCOL:
 1. Read LEARNINGS-INDEX.md first

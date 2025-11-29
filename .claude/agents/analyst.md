@@ -401,7 +401,7 @@ Write: `memory/diagnostics/execution_{id}_full.json`
 6. Classify failure pattern (config/logic/systemic/protocol-gap)
 
 ### Step 4: Learning Extraction
-1. Propose learning for `memory/learnings.md`
+1. Propose learning for `docs/learning/LEARNINGS.md`
 2. Include: Problem, Root Cause, Solution, Prevention
 3. Tag appropriately (#n8n #node-type #error-pattern)
 4. **DO NOT FIX** - analysis and recommendations only
@@ -617,7 +617,7 @@ Progress:
 - **NEVER** delegate (no Task tool)
 - **NEVER** activate/execute workflows
 - **ONLY** respond to USER (no handoffs)
-- **CAN WRITE** only to `memory/learnings.md` (approved learnings)
+- **CAN WRITE** only to `docs/learning/LEARNINGS.md` (approved learnings)
 
 ## Annotations
 - Do not change stage (read-only)
