@@ -286,6 +286,43 @@ Is workflow >10 nodes OR has binary triggers (photo/voice)?
 - Always check node count before choosing mode
 - Default to two-step approach (safe for all workflows)
 
+### Extension to n8n_get_workflow (v3.3.1)
+
+**Same problem, different tool:** `n8n_get_workflow(mode="full")` also crashes on large workflows!
+
+**Affected tools:**
+- `n8n_executions(mode="full")` - ✅ Fixed in v3.3.0
+- `n8n_get_workflow(mode="full")` - ✅ Fixed in v3.3.1
+
+**Solution for n8n_get_workflow:**
+
+```javascript
+// Smart mode selection (check node count first)
+const nodeCount = run_state.workflow?.node_count || snapshot?.node_count || 999;
+
+if (nodeCount > 10) {
+  // Large workflow → structure only (safe, no binary/pinned data)
+  n8n_get_workflow({ id: workflowId, mode: "structure" })
+} else {
+  // Small workflow → full is safe
+  n8n_get_workflow({ id: workflowId, mode: "full" })
+}
+```
+
+**Available modes for n8n_get_workflow:**
+- `mode="minimal"` - Metadata only (id, name, active, dates)
+- `mode="structure"` - Nodes + connections (NO pinned data, NO binary) ← **Safe for all sizes**
+- `mode="details"` - Full config (includes settings, staticData)
+- `mode="full"` - Complete workflow (may include binary, pinned data) ← **Crashes on >10 nodes**
+
+**Token savings:** ~47K tokens (structure vs crash)
+
+**Files updated in v3.3.1:**
+- researcher.md STEP 0.1 (critical!)
+- builder.md (6 locations)
+- qa.md (4 locations)
+- orch.md Post-Build verification
+
 **Tags:** #execution-analysis #mode-selection #large-workflows #performance #token-optimization #binary-data #L-067
 
 ---

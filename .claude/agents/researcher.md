@@ -128,14 +128,18 @@ STEP 0.0: READ CANONICAL SNAPSHOT FIRST
 ═══════════════════════════════════════════════════════════════
 
 STEP 0.1: DOWNLOAD EVERYTHING (skip if snapshot is fresh!)
-├── n8n_get_workflow(id: workflowId, mode: "full")
-├── Save to memory/diagnostics/workflow_{id}_full.json
+├── Smart mode selection (L-067):
+│   ├── Check node_count from run_state or snapshot
+│   ├── If node_count > 10 → mode="structure" (safe, no binary)
+│   └── If node_count ≤ 10 → mode="full" (safe for small workflows)
+├── n8n_get_workflow(id: workflowId, mode: <selected>)
+├── Save to memory/diagnostics/workflow_{id}_structure.json (or _full.json)
 ├── Extract metadata:
 │   ├── node_count (total nodes in workflow)
 │   ├── version_id (current version UUID)
 │   ├── version_counter (incremental number)
 │   └── updated_at (last modified timestamp)
-└── ⚠️ Get COMPLETE workflow, not partial!
+└── ⚠️ mode="structure" excludes pinned data, staticData (prevents crashes)
 
 STEP 0.2: DECOMPOSE ALL NODES
 ├── For EACH node in workflow.nodes:

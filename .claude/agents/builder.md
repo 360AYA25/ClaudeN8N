@@ -120,8 +120,8 @@ curl -s -X PUT "${N8N_API_URL}/api/v1/workflows/{id}" \
   -H "Content-Type: application/json" \
   -d '{"name":"...","nodes":[...],"connections":{...},"settings":{}}'
 
-# Step 3: Verify (MCP works!)
-n8n_get_workflow({ id: "...", mode: "full" })
+# Step 3: Verify (MCP works! L-067: use structure for large workflows)
+n8n_get_workflow({ id: "...", mode: "structure" })  # Safe for all sizes
 ```
 
 **See:** `docs/MCP-BUG-RESTORE.md` for restore instructions when bug is fixed.
@@ -714,13 +714,19 @@ workflow_id=$(echo "$response" | jq -r '.id')
 ```
 
 ```javascript
-// Step 3: Verify via MCP (works!)
-verify = n8n_get_workflow({ id: workflow_id, mode: "full" })
+// Step 3: Verify via MCP (L-067: smart mode selection)
+verify = n8n_get_workflow({
+  id: workflow_id,
+  mode: workflow.nodes.length > 10 ? "structure" : "full"
+})
 
 // Step 4: Add remaining blocks via curl PUT (settings required!)
 for (block of blocks.slice(1)):
-  // Build complete workflow with all nodes so far + new block
-  current_workflow = n8n_get_workflow({ id: workflow_id, mode: "full" })
+  // Build complete workflow with all nodes so far + new block (L-067)
+  current_workflow = n8n_get_workflow({
+    id: workflow_id,
+    mode: current_workflow.nodes.length > 10 ? "structure" : "full"
+  })
   updated_nodes = [...current_workflow.nodes, ...block.nodes]
   updated_connections = merge_connections(current_workflow.connections, block.connections)
 ```
@@ -734,12 +740,18 @@ for (block of blocks.slice(1)):
 ```
 
 ```javascript
-  // Verify after each block (MCP works!)
-  verify = n8n_get_workflow({ id: workflow_id, mode: "full" })
+  // Verify after each block (L-067: smart mode)
+  verify = n8n_get_workflow({
+    id: workflow_id,
+    mode: verify.nodes.length > 10 ? "structure" : "full"
+  })
   assert(verify.nodes.length === updated_nodes.length)
 
-// Step 5: Final verification (MCP works!)
-final_workflow = n8n_get_workflow({ id: workflow_id, mode: "full" })
+// Step 5: Final verification (L-067: smart mode)
+final_workflow = n8n_get_workflow({
+  id: workflow_id,
+  mode: blueprint.nodes_needed.length > 10 ? "structure" : "full"
+})
 assert(final_workflow.nodes.length === blueprint.nodes_needed.length)
 n8n_validate_workflow({ id: workflow_id })  // MCP validation works!
 ```
@@ -926,8 +938,11 @@ const sequence = run_state.impact_analysis.modification_sequence;
 const contracts = run_state.impact_analysis.parameter_contracts;
 
 for (const step of sequence) {
-  // 1. Snapshot
-  const current = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+  // 1. Snapshot (L-067: smart mode)
+  const current = await n8n_get_workflow({
+    id: workflow_id,
+    mode: run_state.workflow?.node_count > 10 ? "structure" : "full"
+  });
   run_state.modification_progress.snapshots[`step_${step.order}`] =
     current.nodes.find(n => n.name === step.node);
 
@@ -1034,8 +1049,11 @@ On problem:
 
 ```javascript
 async function blueGreenModify(workflow_id, changes) {
-  // 1. Clone
-  const original = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+  // 1. Clone (L-067: smart mode)
+  const original = await n8n_get_workflow({
+    id: workflow_id,
+    mode: run_state.workflow?.node_count > 10 ? "structure" : "full"
+  });
   const clone = {
     ...original,
     name: `${original.name}_WORKING_COPY`,

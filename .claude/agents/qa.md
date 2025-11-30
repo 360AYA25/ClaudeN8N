@@ -43,8 +43,12 @@ curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
 **BEFORE activating, verify connections use node.name:**
 
 ```javascript
-// 1. Get workflow via MCP
-const workflow = await n8n_get_workflow({ id, mode: "full" });
+// 1. Get workflow via MCP (L-067: smart mode)
+const nodeCount = run_state.workflow?.node_count || 999;
+const workflow = await n8n_get_workflow({
+  id,
+  mode: nodeCount > 10 ? "structure" : "full"
+});
 
 // 2. Check each connection key matches a node.name
 for (const connKey of Object.keys(workflow.connections)) {
@@ -88,7 +92,12 @@ fi
 ```javascript
 if (run_state.canonical_snapshot) {
   const before = run_state.canonical_snapshot;
-  const after = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+  // L-067: smart mode selection
+  const nodeCount = before.node_count || 999;
+  const after = await n8n_get_workflow({
+    id: workflow_id,
+    mode: nodeCount > 10 ? "structure" : "full"
+  });
 
   const comparison = {
     // 1. Anti-patterns fixed?
@@ -172,8 +181,12 @@ n8n_validate_workflow(workflow_id, options: {
 **For EVERY node in edit_scope (or all modified nodes):**
 
 ```javascript
-// 1. Get node configuration from workflow
-const workflow = await n8n_get_workflow({ id: workflow_id, mode: "full" });
+// 1. Get node configuration from workflow (L-067: smart mode)
+const nodeCount = run_state.workflow?.node_count || 999;
+const workflow = await n8n_get_workflow({
+  id: workflow_id,
+  mode: nodeCount > 10 ? "structure" : "full"
+});
 const node = workflow.nodes.find(n => n.id === node_id);
 
 // 2. Validate with MCP
@@ -670,8 +683,12 @@ When `checkpoint_request` exists in run_state (from Builder during incremental m
 async function checkpointValidation(checkpoint_request) {
   const { step, scope, type } = checkpoint_request;
 
-  // 1. Get workflow
-  const workflow = await n8n_get_workflow({ id, mode: "full" });
+  // 1. Get workflow (L-067: smart mode)
+  const nodeCount = run_state.workflow?.node_count || 999;
+  const workflow = await n8n_get_workflow({
+    id,
+    mode: nodeCount > 10 ? "structure" : "full"
+  });
 
   // 2. Filter to scoped nodes only
   const scopedNodes = workflow.nodes.filter(n => scope.includes(n.name));

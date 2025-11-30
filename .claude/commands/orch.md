@@ -523,8 +523,10 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 **Orchestrator MUST verify AFTER every Builder execution:**
 
 ```bash
-# 1. Read updated workflow
-workflow=$(mcp__n8n-mcp__n8n_get_workflow id=$workflow_id mode="full")
+# 1. Read updated workflow (L-067: smart mode selection)
+node_count=$(jq -r '.workflow.node_count // 999' memory/run_state.json)
+mode=$( [ "$node_count" -gt 10 ] && echo "structure" || echo "full" )
+workflow=$(mcp__n8n-mcp__n8n_get_workflow id=$workflow_id mode="$mode")
 
 # 2. Verify version changed
 current_version=$(echo $workflow | jq -r '.versionId')
