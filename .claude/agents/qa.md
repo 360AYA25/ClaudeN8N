@@ -262,39 +262,55 @@ if (node.typeVersion < nodeInfo.latestVersion) {
 }
 ```
 
-### Phase 3: Execution Data Comparison (🆕 IF DEBUGGING!)
+### Phase 3: Execution Data Comparison (🆕 L-067 TWO-STEP!)
 
 **If previous execution exists (from run_state.execution_summary):**
 
 ```bash
-# 1. Get execution BEFORE fix
-before_exec_id=$(jq -r '.execution_summary.latest_execution_id' memory/run_state.json)
-# ⚠️ CRITICAL: Use mode="full" to see ALL nodes and compare properly!
-before_exec=$(n8n_executions action="get" id=$before_exec_id mode="full" includeInputData=true)
+# ⚠️ L-067: TWO-STEP APPROACH for large workflows!
+# NEVER use mode="full" for workflows >10 nodes or with binary data!
 
-# 2. Trigger test execution AFTER fix (if workflow has webhook/trigger)
+# STEP 1: Get summaries (find WHERE)
+before_exec_id=$(jq -r '.execution_summary.latest_execution_id' memory/run_state.json)
+before_summary=$(n8n_executions action="get" id=$before_exec_id mode="summary")
+
+# 2. Trigger test execution AFTER fix
 if [ workflow_has_webhook ]; then
-  after_exec=$(trigger_test_and_wait)
+  after_exec_result=$(trigger_test_and_wait)
+  after_summary=$(n8n_executions action="get" id=$after_exec_result.id mode="summary")
 fi
 
-# 3. Compare
-compare_executions "$before_exec" "$after_exec"
-# - More nodes executed? ✅ Good sign
-# - Different stopping point? ✅ Progress
-# - Errors resolved? ✅ Success
-# - Same stopping point? ⚠️ Fix didn't work
+# 3. Compare summaries first (cheap!)
+compare_summaries "$before_summary" "$after_summary"
+# - executed_count changed?
+# - error_nodes changed?
+# - stoppedAt changed?
+
+# STEP 2: If differences found, get details (only for changed nodes!)
+if [ summaries_differ ]; then
+  changed_nodes=$(diff_node_status "$before_summary" "$after_summary")
+
+  before_details=$(n8n_executions action="get" id=$before_exec_id \
+    mode="filtered" nodeNames="$changed_nodes" itemsLimit=5)
+  after_details=$(n8n_executions action="get" id=$after_exec_result.id \
+    mode="filtered" nodeNames="$changed_nodes" itemsLimit=5)
+
+  # Deep comparison of changed nodes only
+  compare_node_details "$before_details" "$after_details"
+fi
 
 # 4. Regression check
-if [ $after_exec.executed_nodes -lt $before_exec.executed_nodes ]; then
+if [ $after_summary.executed_count -lt $before_summary.executed_count ]; then
   FAIL("❌ REGRESSION: Fewer nodes executed after fix!");
-  FAIL("Before: $before_exec.executed_nodes nodes, After: $after_exec.executed_nodes nodes");
 fi
 
 # 5. Check if fix addressed stopping point
-if [ "$after_exec.stopping_node" == "$before_exec.stopping_node" ]; then
+if [ "$after_summary.stoppedAt" == "$before_summary.stoppedAt" ]; then
   WARN("⚠️ Same stopping point as before fix - may not be resolved");
 fi
 ```
+
+**Token savings:** ~5-7K (two-step) vs crash (mode="full" on 29+ nodes)
 
 ### Phase 4: Connection Format Validation
 
@@ -777,14 +793,25 @@ async function canaryTest(workflow_id, testConfig) {
       httpMethod: "POST"
     });
 
-    // Check execution
-    // ⚠️ CRITICAL: Use mode="full" to see ALL nodes and data!
-    const execution = await n8n_executions({
+    // Check execution (L-067: Two-step for large workflows!)
+    // STEP 1: Overview
+    const summary = await n8n_executions({
       action: "get",
       id: result.executionId,
-      mode: "full",              // NOT "summary" - need complete picture!
-      includeInputData: true     // See input AND output of each node
+      mode: "summary"  // Safe for large workflows
     });
+
+    // STEP 2: Details only if needed (errors or specific nodes)
+    let execution = summary;
+    if (summary.status !== "success" || phase === "full") {
+      execution = await n8n_executions({
+        action: "get",
+        id: result.executionId,
+        mode: "filtered",
+        nodeNames: getProblematicNodes(summary),
+        itemsLimit: 5
+      });
+    }
 
     if (execution.status !== "success") {
       return {
@@ -878,6 +905,32 @@ curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/${workflow_id}" \
 ```
 
 **If workflow NOT ready → provide edit_scope for Builder to fix!**
+
+---
+
+## Post-Fix Checklist (MANDATORY!)
+
+**After successful fix + test, MUST complete:**
+
+```markdown
+## Post-Fix Checklist
+- [ ] Fix applied
+- [ ] Tests passed (Phase 5 real test)
+- [ ] User verified in n8n UI
+- [ ] **ASK USER:** "Update canonical snapshot with working state? [Y/N]"
+- [ ] If Y → Update snapshot (via Orchestrator)
+- [ ] If N → Note reason, keep old snapshot
+```
+
+**⚠️ CRITICAL RULES:**
+- ❌ NEVER update snapshot without user approval!
+- ❌ NEVER update snapshot if tests failed!
+- ✅ ALWAYS ask user after successful test
+
+**Why snapshot update matters:**
+- Snapshot = Single Source of Truth for workflow state
+- Updated snapshot saves tokens in next debug session
+- Stale snapshot = wrong baseline for future comparison
 
 ---
 

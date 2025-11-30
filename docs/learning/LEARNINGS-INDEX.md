@@ -34,12 +34,12 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 63
+- **Total Entries:** 64
 - **Categories:** 12
 - **Node Types Covered:** 15+
-- **Error Types Cataloged:** 27+
-- **File Size:** 4,387+ lines (~125,000 tokens)
-- **Index Size:** ~750 tokens (99.4% reduction)
+- **Error Types Cataloged:** 28+
+- **File Size:** 4,500+ lines (~130,000 tokens)
+- **Index Size:** ~800 tokens (99.4% reduction)
 
 ---
 
@@ -60,7 +60,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Switch Node** | 2 | 1415-1441, 2145-2279 | Data flow after routing, fan-out patterns |
 | **IF Node** | 2 | 1570-1586, 2616-2675 | Debugging, Code Node fallback, v2.2 validator false positive (L-053) |
 | **AI Agent** | 3 | 1639-1683 | Parameters, clarification, tools, memory |
-| **Generic (MCP)** | 9 | 190-890 | **🔴 L-059: Execution analysis mode="full" (CRITICAL)**, Workflow creation, modification, validation, debugging |
+| **Generic (MCP)** | 10 | 172-890 | **🔴 L-067: Two-step execution mode for large workflows (CRITICAL)**, **🔴 L-059: Execution analysis (superseded by L-067 for >10 nodes)**, Workflow creation, modification, validation, debugging |
 
 ### By Error Type
 
@@ -80,7 +80,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Regex Escaping** | 1 | Code Node | 1586-1602 |
 | **Status Code Handling** | 2 | HTTP Request, continueOnFail | 1528-1710 |
 | **Partial Update Deletion** | 1 | n8n API Critical | 1602-1639 |
-| **Execution Analysis Incomplete** | 1 | 🔴 **mode="full" MANDATORY (L-059 CRITICAL)** | 172-351 |
+| **Execution Analysis Incomplete** | 2 | 🔴 **L-067: Two-step for large workflows (CRITICAL)**, L-059 (small workflows) | 172-351 |
 | **Deprecated Syntax Timeout** | 1 | 🔴 **$node["..."] causes 300s timeout (L-060 CRITICAL)** | 3560-3718 |
 | **MCP Server Issues** | 3 | stdio vs WebSocket, Migration, Zod v4 bug (L-055) | 1117-1163, 1729+, 2772-2886 |
 | **False Positives** | 4 | Validation, continueOnFail+onError, IF combinator (L-053), QA override (L-054) | 2051-2143, 2616-2771 |
@@ -92,7 +92,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 |----------|-------|---------|-------------|
 | Claude Code | 295-400 | 1 | Task tool syntax, agent vs subagent_type, context isolation |
 | Agent Standardization | 70-190 | 1 | Template v2.0, English-only, changelog |
-| n8n Workflows | 170-890, 2145-2279 | 19 | **🔴 L-059: mode="full" MANDATORY for debugging (CRITICAL)**, Creation, modification, validation, debugging, partial updates, fan-out, large workflows, triggers |
+| n8n Workflows | 170-890, 2145-2279 | 20 | **🔴 L-067: Two-step execution mode for large workflows (CRITICAL)**, L-059 (for small workflows), Creation, modification, validation, debugging, partial updates, fan-out, large workflows, triggers |
 | Notion Integration | 890-1020 | 6 | Filters, dates, properties, timezone, page objects |
 | Supabase Database | 1020-1130 | 5 | Schema, RLS, RPC, insert/update, get vs getAll |
 | Telegram Bot | 1130-1190 | 2 | Webhooks, message handling, parameters |
@@ -136,11 +136,12 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-11-30 | 🔴 L-067: Execution Mode Selection for Large Workflows (CRITICAL) | 172 | n8n Workflows / Performance |
 | 2025-11-28 | 🔥 L-066: Solution Search Hierarchy - 5-Tier Systematic Research | 4187 | Methodology / Research |
 | 2025-11-28 | ⭐ L-065: Execution vs Configuration Data - Dual-Source Diagnosis | 3948 | Methodology / Debugging |
 | 2025-11-28 | ⭐ L-064: LEARNINGS Validation Protocol - Verify Before Apply | 3810 | Methodology / Debugging |
 | 2025-11-28 | 🔴 L-060: Code Node Deprecated $node["..."] Syntax Timeout (CRITICAL) | 3560 | Code Node / Debugging |
-| 2025-11-28 | 🔴 L-059: Execution Analysis mode="full" MANDATORY (CRITICAL) | 172 | n8n Workflows / Debugging |
+| 2025-11-28 | 🔴 L-059: Execution Analysis mode="full" (superseded by L-067 for >10 nodes) | 293 | n8n Workflows / Debugging |
 | 2025-11-28 | L-055: MCP Zod v4 Bug - curl Workaround Guide | 2772 | Error Handling / MCP |
 | 2025-11-28 | L-054: QA L3 Escalation - False Positive Override | 2677 | Error Handling / QA |
 | 2025-11-28 | L-053: IF Node v2.2 Validator False Positive | 2616 | Error Handling / Validator |
@@ -239,6 +240,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `timeout` OR `builder timeout` OR `freeze` → Lines: 172, 3560-3718
 - `deprecated` OR `$node["` OR `old syntax` → Lines: 3560-3718
 - `large workflow` OR `>10 nodes` OR `chunked building` → Lines: 172
+- `mode=full` OR `mode=summary` OR `mode=filtered` OR `two-step` → Lines: 172-290 (L-067)
 
 ### Operation Keywords
 - `create workflow` → Lines: 730-871, 661-686, 172
@@ -307,8 +309,8 @@ node scripts/generate-learnings-index.js
 
 ---
 
-**Last Updated:** 2025-11-28
-**Version:** 1.4.0
+**Last Updated:** 2025-11-30
+**Version:** 1.5.0
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent
-**Latest Additions:** L-064 (Validation Protocol), L-065 (Dual-Source Diagnosis), L-066 (5-Tier Search Hierarchy)
+**Latest Additions:** L-067 (Execution Mode Selection for Large Workflows)

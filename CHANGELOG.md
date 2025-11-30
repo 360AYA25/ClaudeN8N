@@ -2,6 +2,101 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.3.0] - 2025-11-30
+
+### 🧠 Smart Execution Mode Selection (L-067)
+
+**Prevents bot hang/crash when analyzing large workflows with binary data.**
+
+### Problem
+
+`mode="full"` in `n8n_executions()` causes crash on workflows with:
+- >10 nodes (FoodTracker has 29)
+- Binary data (photos, voice, files)
+
+**Symptoms:**
+- Bot hangs with "Prompt too long"
+- Context window exceeded before any analysis
+- Megabytes of base64 data from Telegram photos
+
+### Solution: Smart Two-Step Approach
+
+**No agent needs ALL data of ALL nodes simultaneously.** They work iteratively:
+
+```javascript
+// STEP 1: Overview (find WHERE - safe for any workflow)
+const summary = n8n_executions({
+  action: "get",
+  id: execution_id,
+  mode: "summary"  // ~3-5K tokens for 29 nodes
+});
+
+// STEP 2: Details (find WHY - only for problem nodes)
+const details = n8n_executions({
+  action: "get",
+  id: execution_id,
+  mode: "filtered",
+  nodeNames: [before_node, problem_node, after_node],
+  itemsLimit: 5  // ~2-4K tokens for 3 nodes
+});
+```
+
+**Token savings:** ~5-7K (two-step) vs crash (mode="full" on 29+ nodes)
+
+### Decision Tree
+
+```
+Is workflow >10 nodes OR has binary triggers (photo/voice)?
+├── YES → L-067 two-step (summary + filtered)
+└── NO → L-059 mode="full" is safe
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `.claude/agents/researcher.md` | STEP 0.3 → two-step protocol |
+| `.claude/agents/qa.md` | Execution comparison + Post-Fix Checklist |
+| `.claude/agents/analyst.md` | Post-mortem two-step approach |
+| `.claude/agents/validation-gates.md` | Gates check analysis done, not mode |
+| `.claude/commands/orch.md` | Post-Fix Checklist (MANDATORY) |
+| `docs/learning/LEARNINGS.md` | L-067 added, L-059 marked superseded |
+| `docs/learning/LEARNINGS-INDEX.md` | L-067 entry + keyword map |
+
+**Total:** ~140 lines across 7 files
+
+### Post-Fix Checklist (NEW!)
+
+After successful fix + test, system MUST:
+
+```markdown
+- [ ] Fix applied
+- [ ] Tests passed
+- [ ] User verified in n8n UI
+- [ ] **ASK USER:** "Update canonical snapshot? [Y/N]"
+- [ ] If Y → Update snapshot
+- [ ] If N → Keep old snapshot
+```
+
+### Impact
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Large workflow analysis | CRASH | ~5-7K tokens |
+| Binary data handling | CRASH | Works |
+| FoodTracker (29 nodes) | Hangs | ~6K tokens |
+
+### Relationship to L-059
+
+L-059 stated `mode="full"` is MANDATORY. This was correct for small workflows.
+**L-067 supersedes L-059** for large workflows (>10 nodes or binary data).
+
+### Breaking Changes
+
+None. Backward compatible with v3.2.0.
+
+---
+
 ## [3.2.0] - 2025-11-28
 
 ### 📸 Canonical Workflow Snapshot System

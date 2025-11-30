@@ -23,11 +23,16 @@ description: Centralized validation rules for all agents
 - [ ] Blueprint created
 
 ### Gate: implementation → build
-- [ ] ✅ **EXECUTION DATA ANALYZED** (if debugging!)
+- [ ] ✅ **EXECUTION DATA ANALYZED** (if debugging! - L-067 two-step OK)
 - [ ] ✅ **Hypothesis validated with MCP tools**
 - [ ] ✅ **build_guidance created with node configs**
 - [ ] ✅ **LEARNINGS checked for similar issues**
 - [ ] Confidence level: HIGH (80%+)
+
+**L-067 Mode Selection (execution analysis):**
+- ⚠️ Gates check that analysis WAS DONE, not HOW (mode)
+- ✅ `mode="summary"` + `mode="filtered"` = complete analysis
+- ❌ DO NOT require `mode="full"` (crashes on large workflows)
 
 ### Gate: build → validate
 - [ ] ✅ **Workflow created/updated via curl**
@@ -187,9 +192,13 @@ if (user_reports_broken && !execution_data_analyzed) {
   REQUIRE_EXECUTION_ANALYSIS();
   REASON: "Cannot diagnose without execution data";
 }
+
+// L-067: Check analysis was done, NOT which mode was used
+// Valid analysis = (summary called OR filtered called)
+// NOT: mode === "full" (which crashes on large workflows!)
 ```
 
-**Action:** Force Researcher to get execution data first.
+**Action:** Force Researcher to get execution data first (L-067 two-step OK).
 
 ---
 

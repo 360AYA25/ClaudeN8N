@@ -480,6 +480,44 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 
 ---
 
+## Post-Fix Checklist (MANDATORY! - L-067)
+
+**After successful fix + test, Orchestrator MUST:**
+
+```markdown
+## Post-Fix Checklist
+- [ ] Fix applied (Builder confirmed)
+- [ ] Tests passed (QA Phase 5 real test)
+- [ ] User verified in n8n UI
+- [ ] **ASK USER:** "Workflow fixed and tested. Update canonical snapshot? [Y/N]"
+- [ ] If Y → Update snapshot
+- [ ] If N → Note reason, keep old snapshot
+```
+
+**⚠️ CRITICAL RULES:**
+- ❌ NEVER update snapshot without user approval!
+- ❌ NEVER update snapshot if tests failed!
+- ✅ ALWAYS ask user after successful test
+
+**Integration with Snapshot System:**
+```
+┌────────────────────────────────────────────────────────────────┐
+│  ⚠️ AFTER SUCCESSFUL FIX + TEST:                               │
+│                                                                │
+│  1. QA confirms workflow works                                 │
+│  2. ASK USER: "Workflow fixed and tested. Update snapshot?"    │
+│  3. IF user approves:                                          │
+│     └── Update canonical.json with new working state           │
+│  4. IF user declines:                                          │
+│     └── Keep old snapshot (user may want more testing)         │
+│                                                                │
+│  ❌ NEVER update snapshot without user approval!               │
+│  ❌ NEVER update snapshot if tests failed!                     │
+└────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Post-Build Verification Protocol
 
 **Orchestrator MUST verify AFTER every Builder execution:**

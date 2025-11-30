@@ -360,7 +360,7 @@ When auto-triggered, Analyst MUST:
    - `memory/diagnostics/workflow_{id}_full.json` (if exists)
    - `memory/diagnostics/execution_{id}_full.json` (if exists)
 
-### Step 2: Analyze Execution Data (CRITICAL!)
+### Step 2: Analyze Execution Data (CRITICAL! - L-067 TWO-STEP!)
 
 **⚠️ If debugging workflow, MUST analyze execution data:**
 
@@ -372,22 +372,41 @@ const execList = n8n_executions({
   limit: 10
 });
 
-// For 1-2 representative executions, get FULL data:
-const execution = n8n_executions({
+// L-067: TWO-STEP APPROACH for large workflows!
+// NEVER use mode="full" for workflows >10 nodes or with binary data!
+
+// STEP 1: Overview (find WHERE)
+const summary = n8n_executions({
   action: "get",
   id: execution_id,
-  mode: "full",              // ⚠️ CRITICAL: ALWAYS use "full"!
-  includeInputData: true     // See input AND output of each node
+  mode: "summary"  // Safe for large workflows, shows all nodes
+});
+
+// Map execution flow from summary:
+// - Which nodes executed?
+// - Which were skipped?
+// - Where is stoppedAt?
+// - Any error nodes?
+const failure_area = identifyFailureArea(summary);
+
+// STEP 2: Details (find WHY - only for relevant nodes)
+const details = n8n_executions({
+  action: "get",
+  id: execution_id,
+  mode: "filtered",
+  nodeNames: [failure_area.before, failure_area.problem, failure_area.after],
+  itemsLimit: -1  // Full data for these specific nodes
 });
 
 // Save for analysis
-Write: `memory/diagnostics/execution_{id}_full.json`
+Write: `memory/diagnostics/execution_{id}_analysis.json`
 ```
 
-**Why mode="full"?**
-- `summary` only shows 2 items per node → INCOMPLETE picture!
-- `filtered` only shows SOME nodes → MAY MISS critical data!
-- `full` shows ALL nodes + ALL data → COMPLETE diagnosis!
+**Why two-step?**
+- `mode="full"` crashes on workflows >10 nodes or with binary (photo/voice)
+- `summary` gives complete overview (ALL nodes with status)
+- `filtered` gives full details (selected nodes with all data)
+- Two calls (~7K tokens) < One crash!
 
 ### Step 3: Forensic Analysis
 1. Analyze `_meta.fix_attempts` on EACH node

@@ -169,7 +169,131 @@ ls .claude/agents/*.md | wc -l
 
 ## n8n Workflows
 
+## L-067: Execution Mode Selection for Large Workflows (Supersedes L-059 for >10 nodes)
+
+**Category:** Agent System / Debugging Protocol / Performance
+**Severity:** 🔴 **CRITICAL** - Prevents bot hang/crash
+**Date:** 2025-11-30
+**Impact:** Bot hangs with "Prompt too long" when using mode="full" on large workflows
+
+### Problem
+
+`mode="full"` in `n8n_executions()` crashes on workflows with:
+- >10 nodes
+- Binary data (photos, voice, files)
+
+Example: FoodTracker (29 nodes) + Telegram photos = megabytes of execution data → "Prompt too long" → bot hangs.
+
+### Root Cause
+
+Full execution data for 29 nodes + binary attachments = megabytes of base64 data.
+Context window exceeded → crash before any analysis.
+
+### Solution: Smart Two-Step Approach
+
+**No agent needs ALL data of ALL nodes simultaneously.** They work iteratively:
+1. Find problem (overview) → summary
+2. Dig into details (specific nodes) → filtered
+
+```javascript
+// STEP 1: Overview (find WHERE)
+const summary = n8n_executions({
+  action: "get",
+  id: execution_id,
+  mode: "summary"  // Safe for large workflows, ~3-5K tokens
+});
+
+// Find: stoppedAt, error_nodes, last_successful_node
+const problem_area = identifyFailureArea(summary);
+
+// STEP 2: Details (find WHY - only for problem nodes)
+const details = n8n_executions({
+  action: "get",
+  id: execution_id,
+  mode: "filtered",
+  nodeNames: [problem_area.before, problem_area.problem, problem_area.after],
+  itemsLimit: -1  // Full data for these specific nodes, ~2-4K tokens
+});
+```
+
+**Token savings:** ~5-7K (two-step) vs crash (mode="full" on 29+ nodes)
+
+### Agent Protocol
+
+| Agent | Step 1 | Step 2 |
+|-------|--------|--------|
+| **Researcher** | summary → find WHERE | filtered → find WHY |
+| **QA** | summary both → compare status | filtered → compare differences |
+| **Analyst** | summary → map flow | filtered → forensics on failure area |
+
+### Rules
+
+- ⚠️ **NEVER** use `mode="full"` for workflows >10 nodes or with binary triggers
+- ✅ `mode="summary"` gives complete overview (all nodes, all statuses)
+- ✅ `mode="filtered"` + `nodeNames` gives complete details (selected nodes, all data)
+- ✅ Two calls < One crash
+
+### Integration with Canonical Snapshot
+
+```
+STEP 0: Read Canonical Snapshot (ALWAYS FIRST)
+├── Know: workflow structure, code, known issues
+├── Know: common_failure_point from history
+└── Know: anti_patterns already detected
+
+STEP 1: Get execution summary
+├── Find WHERE this execution failed
+├── Compare with common_failure_point from snapshot
+└── Same node? → likely known issue. Different? → new problem
+
+STEP 2: Get details (mode="filtered")
+├── Get full data for problem nodes
+└── Understand WHY it failed
+
+STEP 3: Fix and test
+
+STEP 4: Update snapshot (AFTER USER APPROVAL!)
+└── ⚠️ MANDATORY: Ask user to approve, then update canonical.json
+```
+
+### Post-Fix Checklist (MANDATORY!)
+
+```markdown
+- [ ] Fix applied
+- [ ] Tests passed
+- [ ] User verified in n8n UI
+- [ ] **ASK USER:** "Update canonical snapshot with working state? [Y/N]"
+- [ ] If Y → Update snapshot
+- [ ] If N → Note reason, keep old snapshot
+
+❌ NEVER update snapshot without user approval!
+❌ NEVER update snapshot if tests failed!
+```
+
+### Relationship to L-059
+
+L-059 stated `mode="full"` is MANDATORY. This was correct for small workflows.
+L-067 **supersedes L-059** for large workflows (>10 nodes or binary data).
+
+**Decision Tree:**
+```
+Is workflow >10 nodes OR has binary triggers (photo/voice)?
+├── YES → Use L-067 two-step (summary + filtered)
+└── NO → L-059 mode="full" is safe
+```
+
+**Prevention:**
+- Always check node count before choosing mode
+- Default to two-step approach (safe for all workflows)
+
+**Tags:** #execution-analysis #mode-selection #large-workflows #performance #token-optimization #binary-data #L-067
+
+---
+
 ## L-059: CRITICAL - Execution Analysis with mode="full" MANDATORY for Debugging
+
+**⚠️ NOTE: Superseded by L-067 for large workflows (>10 nodes or binary data)!**
+**Use L-067 two-step approach for large workflows. L-059 still applies to small workflows.**
 
 **Category:** Agent System / Debugging Protocol
 **Severity:** 🔴 **CRITICAL** - System-breaking issue

@@ -151,25 +151,34 @@ STEP 0.2: DECOMPOSE ALL NODES
 │   └── Connection type: main, error
 └── Create visual flow map (text diagram)
 
-STEP 0.3: VIEW ALL EXECUTIONS (⚠️ ДО ФИКСА!)
+STEP 0.3: VIEW ALL EXECUTIONS (⚠️ TWO-STEP APPROACH - L-067!)
 ├── n8n_executions(action: "list", workflowId, limit: 10)
 ├── ⚠️ ОБЯЗАТЕЛЬНО ДО любых изменений!
-├── For 1-2 representative executions:
-│   ├── ⚠️ CRITICAL: Get FULL execution data!
+│
+├── STEP 0.3.1: OVERVIEW (find WHERE - all nodes, minimal data)
 │   ├── n8n_executions({
 │   │     action: "get",
 │   │     id: execution_id,
-│   │     mode: "full",              ← ОБЯЗАТЕЛЬНО "full"!
-│   │     includeInputData: true     ← Включить входные данные!
+│   │     mode: "summary"              ← SAFE for large workflows!
 │   │   })
-│   ├── Save to memory/diagnostics/execution_{id}_full.json
-│   └── Analyze EACH node in execution:
-│       ├── Status: executed / skipped / error
-│       ├── Input data (what came IN to node)
-│       ├── Output data (what came OUT from node)
-│       ├── Execution time (performance)
-│       ├── Error messages (FULL text if error)
-│       └── itemsInput vs itemsOutput count
+│   ├── Find node with error/timeout status
+│   ├── Note last successful node (stoppedAt)
+│   ├── Identify problem_node, before_node, after_node
+│   └── Tokens: ~3-5K for 29 nodes
+│
+├── STEP 0.3.2: DETAILS (find WHY - specific nodes only)
+│   ├── n8n_executions({
+│   │     action: "get",
+│   │     id: execution_id,
+│   │     mode: "filtered",
+│   │     nodeNames: [before_node, problem_node, after_node],
+│   │     itemsLimit: 5               ← Full data for these nodes
+│   │   })
+│   ├── Analyze input data to problem_node
+│   ├── Check output from before_node
+│   ├── Understand root cause
+│   └── Tokens: ~2-4K for 3 nodes
+│
 ├── Find patterns across executions:
 │   ├── Same node always fails? → config issue
 │   ├── Random failures? → external API/timeout
@@ -181,7 +190,8 @@ STEP 0.3: VIEW ALL EXECUTIONS (⚠️ ДО ФИКСА!)
     ├── First failed/skipped node (expected but didn't run)
     └── WHY it didn't execute (no data? error? disabled?)
 
-⚠️ БЕЗ mode="full" → НЕПОЛНЫЕ ДАННЫЕ → ОШИБОЧНЫЙ ДИАГНОЗ!
+⚠️ L-067: NEVER use mode="full" for workflows >10 nodes or with binary!
+⚠️ Two calls (summary + filtered) < One crash!
 ⚠️ БЕЗ execution analysis → БЛОК! Orchestrator will reject!
 
 STEP 0.3.1: INSPECT CODE NODES (if node never executes)
