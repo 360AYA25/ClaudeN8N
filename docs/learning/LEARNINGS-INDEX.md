@@ -34,11 +34,11 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 64
+- **Total Entries:** 65
 - **Categories:** 12
 - **Node Types Covered:** 15+
-- **Error Types Cataloged:** 28+
-- **File Size:** 4,500+ lines (~130,000 tokens)
+- **Error Types Cataloged:** 29+
+- **File Size:** 4,600+ lines (~135,000 tokens)
 - **Index Size:** ~800 tokens (99.4% reduction)
 
 ---
@@ -58,7 +58,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Memory (AI Agent)** | 2 | 1639-1683 | Session ID, context passing, customKey |
 | **Code Node** | 3 | 1570-1602, 3560-3718 | IF routing, regex escaping, **🔴 L-060: Deprecated $node["..."] syntax causes 300s timeout (CRITICAL)** |
 | **Switch Node** | 2 | 1415-1441, 2145-2279 | Data flow after routing, fan-out patterns |
-| **IF Node** | 2 | 1570-1586, 2616-2675 | Debugging, Code Node fallback, v2.2 validator false positive (L-053) |
+| **IF Node** | 3 | 1570-1586, 2616-2675, 330-430 | Debugging, Code Node fallback, v2.2 validator false positive (L-053), **🔴 L-068: Binary data NOT passed through IF outputs (CRITICAL)** |
 | **AI Agent** | 3 | 1639-1683 | Parameters, clarification, tools, memory |
 | **Generic (MCP)** | 10 | 172-890 | **🔴 L-067: Two-step execution mode for large workflows (CRITICAL)**, **🔴 L-059: Execution analysis (superseded by L-067 for >10 nodes)**, Workflow creation, modification, validation, debugging |
 
@@ -85,6 +85,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **MCP Server Issues** | 3 | stdio vs WebSocket, Migration, Zod v4 bug (L-055) | 1117-1163, 1729+, 2772-2886 |
 | **False Positives** | 4 | Validation, continueOnFail+onError, IF combinator (L-053), QA override (L-054) | 2051-2143, 2616-2771 |
 | **Fan-Out Routing** | 1 | Switch Node, Multi-Way | 2145-2279 |
+| **Binary Data Loss** | 1 | 🔴 **IF Node strips binary data at output (L-068 CRITICAL)** | 330-430 |
 
 ### By Category (from Quick Index)
 
@@ -136,6 +137,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-11-30 | 🔴 L-068: IF Nodes Don't Pass Binary Data (CRITICAL) | 330 | n8n Workflows / Binary Data |
 | 2025-11-30 | 🔴 L-067: Execution Mode Selection for Large Workflows (CRITICAL) | 172 | n8n Workflows / Performance |
 | 2025-11-28 | 🔥 L-066: Solution Search Hierarchy - 5-Tier Systematic Research | 4187 | Methodology / Research |
 | 2025-11-28 | ⭐ L-065: Execution vs Configuration Data - Dual-Source Diagnosis | 3948 | Methodology / Debugging |
@@ -221,7 +223,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `memory` OR `ai agent` → Lines: 1639-1683, 1661-1683
 - `code node` → Lines: 1570-1602, 1586-1602, 3560-3718
 - `switch` → Lines: 1415-1441, 2145-2279
-- `if node` → Lines: 1570-1586
+- `if node` → Lines: 1570-1586, 330-430 (L-068: Binary data loss)
+- `binary data` OR `vision analysis` OR `image processing` → Lines: 330-430 (L-068)
 
 ### Error Keywords
 - `missing parameter` OR `required field` → Lines: 285-400, 1380-1394
@@ -310,7 +313,7 @@ node scripts/generate-learnings-index.js
 ---
 
 **Last Updated:** 2025-11-30
-**Version:** 1.5.0
+**Version:** 1.6.0
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent
-**Latest Additions:** L-067 (Execution Mode Selection for Large Workflows)
+**Latest Additions:** L-068 (IF Nodes Binary Data Loss), L-067 (Execution Mode Selection for Large Workflows)

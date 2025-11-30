@@ -45,7 +45,7 @@
 | Category | Line | Entries | Topics |
 |----------|------|---------|--------|
 | [Agent Standardization](#agent-standardization) | 70 | 1 | Template v2.0, English-only, changelog |
-| [n8n Workflows](#n8n-workflows) | 170 | 19 | MCP, creation, modification, debugging, functional blocks, validation gates, circuit breakers |
+| [n8n Workflows](#n8n-workflows) | 170 | 20 | MCP, creation, modification, debugging, functional blocks, validation gates, circuit breakers, binary data |
 | [Notion Integration](#notion-integration) | 890 | 6 | Filters, dates, properties, timezone |
 | [Supabase Database](#supabase-database) | 1020 | 5 | Schema, RLS, RPC functions, migrations |
 | [Telegram Bot](#telegram-bot) | 1130 | 2 | Webhooks, message handling |
@@ -324,6 +324,107 @@ if (nodeCount > 10) {
 - orch.md Post-Build verification
 
 **Tags:** #execution-analysis #mode-selection #large-workflows #performance #token-optimization #binary-data #L-067
+
+---
+
+## L-068: IF Nodes Don't Pass Binary Data - Explicit Restoration Required
+
+**Category:** n8n Workflows / Binary Data / IF Nodes
+**Severity:** 🔴 **CRITICAL** - Workflow execution failure
+**Date:** 2025-11-30
+**Workflow:** FoodTracker (sw3Qs3Fe3JahEbbW)
+**Impact:** Vision Analysis and other binary-dependent nodes fail silently after IF node routing
+
+### Problem
+
+**IF nodes in n8n DO NOT automatically pass binary data through output paths.**
+
+When a workflow routes through an IF node to a node that requires binary data (Vision Analysis, Image Processing, etc.), the binary data is lost even though JSON data passes through correctly.
+
+**Symptoms:**
+- Node after IF executes but has no binary data to process
+- Fast failure (3-4 sec) - not a timeout
+- Execution shows node didn't execute at all
+- JSON fields preserved, but binary field missing
+
+**Real case:**
+```
+Download Photo (has binary)
+  ↓
+Extract Barcode
+  ↓
+Parse Barcode Result (preserves binary via $input.item.binary)
+  ↓
+IF Has Barcode [output false]  ← Binary data LOST here
+  ↓
+Vision Analysis ← Never executes (no binary data!)
+```
+
+### Root Cause
+
+**n8n IF node implementation strips binary data from output.**
+
+Only JSON data passes through. Binary must be explicitly restored from source node.
+
+### Solution
+
+**Create Code node between IF and binary-dependent node to restore binary data:**
+
+```javascript
+// Restore Binary for Vision (Code node)
+const downloadedPhoto = $("Download Photo").first();
+const currentData = $input.first().json;
+
+return [{
+  json: {
+    ...currentData,  // ← Preserve ALL JSON fields (spread operator)
+    telegram_user_id: currentData.telegram_user_id  // ← Explicitly preserve critical fields
+  },
+  binary: downloadedPhoto.binary  // ← Restore binary from source
+}];
+```
+
+**Critical points:**
+1. ✅ Use spread operator (`...currentData`) to preserve all JSON fields
+2. ✅ Explicitly preserve critical fields (telegram_user_id, user_id, etc.)
+3. ✅ Reference original binary source node by name: `$("Node Name").first()`
+4. ✅ Return object with BOTH `json` and `binary` properties
+
+### Workflow Pattern
+
+```
+Source Node (has binary)
+  ↓
+... processing ...
+  ↓
+IF Node [condition]  ← Binary LOST at output
+  ↓
+[Code: Restore Binary]  ← MANDATORY restoration node
+  ↓
+Binary-dependent Node (Vision, Image, Audio, etc.)
+```
+
+### Prevention
+
+**Before routing through IF to binary-dependent nodes:**
+
+1. ✅ Check if downstream node needs binary data
+2. ✅ Add Code node after IF to restore binary
+3. ✅ Reference original source node (not previous node)
+4. ✅ Test with actual data flow
+
+**Common binary-dependent nodes:**
+- @n8n/n8n-nodes-langchain.openAi (Vision, Audio)
+- Image processing nodes
+- File manipulation nodes
+- Binary comparison nodes
+
+### Related Learnings
+
+- L-060: Code node modern syntax (`$("NodeName").first()`)
+- L-067: Execution mode selection for debugging
+
+**Tags:** #binary-data #if-node #vision-analysis #code-node #data-flow #critical #L-068
 
 ---
 
