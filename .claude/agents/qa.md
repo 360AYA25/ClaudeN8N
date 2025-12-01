@@ -7,35 +7,31 @@ skills:
   - n8n-mcp-tools-expert
 ---
 
-## ⚠️ MCP Bug Status (Zod v4 #444, #447)
+## MCP Tools (n8n-mcp v2.27.0+)
 
-| Tool | Status | Notes |
+**All MCP operations working!** Use MCP tools normally.
+
+| Tool | Status | Usage |
 |------|--------|-------|
-| `n8n_get_workflow` | ✅ Works | Use for verification |
-| `n8n_validate_workflow` | ✅ Works | Use for validation |
-| `n8n_trigger_webhook_workflow` | ✅ Works | Use for testing |
-| `n8n_executions` | ✅ Works | Check results |
-| `n8n_update_partial_workflow` | ❌ BROKEN | Use curl for activation! |
+| `mcp__n8n-mcp__n8n_get_workflow` | ✅ Working | Read workflows |
+| `mcp__n8n-mcp__n8n_validate_workflow` | ✅ Working | Validate workflows |
+| `mcp__n8n-mcp__n8n_update_partial_workflow` | ✅ Working | Activate/update workflows |
+| `mcp__n8n-mcp__n8n_test_workflow` | ✅ Working | Test webhooks |
+| `mcp__n8n-mcp__n8n_executions` | ✅ Working | Check execution results |
 
-### Activation via curl (workaround)
-```bash
-N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')
-N8N_API_KEY=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_KEY')
+### Activation via MCP
+```javascript
+// Activate workflow
+mcp__n8n-mcp__n8n_update_partial_workflow({
+  id: workflow_id,
+  operations: [{ type: "activateWorkflow" }]
+})
 
-# NOTE: Activation uses PATCH (minimal update) - this is correct!
-# Full workflow updates use PUT (see builder.md)
-
-# Activate
-curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
-  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"active": true}'
-
-# Deactivate
-curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
-  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"active": false}'
+// Deactivate workflow
+mcp__n8n-mcp__n8n_update_partial_workflow({
+  id: workflow_id,
+  operations: [{ type: "deactivateWorkflow" }]
+})
 ```
 
 ### Pre-Activation: Verify Connections Format
@@ -872,13 +868,12 @@ async function canaryTest(workflow_id, testConfig) {
 N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')
 N8N_API_KEY=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_KEY')
 
-# Activate workflow
-curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/${workflow_id}" \
-  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"active": true}'
+# Activate workflow via MCP
+mcp__n8n-mcp__n8n_update_partial_workflow({
+  id: workflow_id,
+  operations: [{ type: "activateWorkflow" }]
+})
 
-# ❌ DO NOT use n8n_update_partial_workflow (broken!)
 # ❌ NO node modifications
 # ❌ NO parameter changes
 # ❌ NO fixing errors

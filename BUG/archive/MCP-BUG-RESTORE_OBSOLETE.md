@@ -1,3 +1,14 @@
+# ⚠️ OBSOLETE - Bug Fixed in v2.27.0
+
+**This workaround is NO LONGER NEEDED.**
+
+n8n-mcp Zod bug was fixed on 2025-11-28 in version 2.27.0.
+All MCP write operations are now working normally.
+
+**See:** [BUG/ZodBUG.md](../ZodBUG.md) for current status.
+
+---
+
 # MCP Bug Restore Guide
 
 > When n8n-mcp Zod v4 bug (#444, #447) is fixed, follow this guide to restore normal MCP operations.

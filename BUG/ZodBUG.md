@@ -2,10 +2,11 @@
 
 ## CRITICAL: n8n-mcp Workflow Write Operations BROKEN
 
-**Status:** BLOCKING
+**Status:** ✅ RESOLVED
 **Severity:** Critical
 **Discovered:** 2025-11-27
-**Affects:** n8n-mcp v2.26.4, v2.26.5
+**Fixed:** 2025-11-28 (v2.27.0)
+**Verified:** 2025-12-01 (v2.28.1)
 
 ---
 
@@ -140,9 +141,27 @@ MCP_VERSION: 2.26.5 (in .mcp.json)
 
 ---
 
+## Verification (2025-12-01)
+
+**Tested MCP tools:**
+- ✅ `mcp__n8n-mcp__n8n_create_workflow` - Working (created workflow `WQL4TNzEWrDpViQ5`)
+- ✅ `mcp__n8n-mcp__n8n_update_partial_workflow` - Working (updated workflow successfully)
+- ✅ `mcp__n8n-mcp__n8n_delete_workflow` - Working (deleted 3 test workflows)
+
+**Test Results:**
+1. Created workflow "MCP Verification Test" via MCP - SUCCESS
+2. Updated Set node field via partial update - SUCCESS
+3. Deleted all test workflows - SUCCESS
+
+**Conclusion:** All MCP write operations restored. curl workaround NO LONGER NEEDED.
+
+---
+
 ## History
 
 | Date | Version | Status |
 |------|---------|--------|
 | 2025-11-27 | 2.26.4 | Discovered bug |
 | 2025-11-27 | 2.26.5 | Updated, still broken |
+| 2025-11-28 | 2.27.0 | **BUG FIXED** (pinned Zod v3.24.1) |
+| 2025-12-01 | 2.28.1 | Verified working in ClaudeN8N |

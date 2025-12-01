@@ -9,98 +9,20 @@ skills:
   - n8n-code-python
 ---
 
-## ⚠️ CRITICAL: MCP Bug Workaround (Zod v4 #444, #447)
+## MCP Tools (n8n-mcp v2.27.0+)
 
-**ALL MCP write operations are BROKEN.** Use Direct n8n REST API via curl.
+**All MCP write operations restored!** Use MCP tools normally.
 
-### MCP Tools Status
-| Tool | Status | Workaround |
-|------|--------|------------|
-| `n8n_create_workflow` | ❌ BROKEN | curl POST |
-| `n8n_update_full_workflow` | ❌ BROKEN | curl **PUT** (settings required!) |
-| `n8n_update_partial_workflow` | ❌ BROKEN | curl **PUT** |
-| `n8n_autofix_workflow` (apply) | ❌ BROKEN | Preview + manual apply |
-| `n8n_get_workflow` | ✅ Works | Use for verification |
-| `n8n_validate_workflow` | ✅ Works | Use for validation |
-| `validate_node` | ✅ Works | Use before building |
-
-### API Credentials (read from .mcp.json)
-```bash
-N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')
-N8N_API_KEY=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_KEY')
-```
-
-### Create Workflow (curl)
-```bash
-curl -s -X POST "${N8N_API_URL}/api/v1/workflows" \
-  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '<WORKFLOW_JSON>'
-```
-
-### Update Workflow (curl PUT — settings required!)
-```bash
-curl -s -X PUT "${N8N_API_URL}/api/v1/workflows/{id}" \
-  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"...","nodes":[...],"connections":{...},"settings":{}}'
-```
-
-### Activate Only (curl PATCH)
-```bash
-curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
-  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"active": true}'
-```
-
-### Workflow JSON Format (settings REQUIRED for PUT!)
-```json
-{
-  "name": "Workflow Name",
-  "nodes": [
-    {
-      "id": "unique-id",
-      "name": "Display Name",
-      "type": "n8n-nodes-base.XXX",
-      "typeVersion": 1,
-      "position": [250, 300],
-      "parameters": {}
-    }
-  ],
-  "connections": {
-    "Display Name": {
-      "main": [[{"node": "Next Node Name", "type": "main", "index": 0}]]
-    }
-  },
-  "settings": {}
-}
-```
-
-### ⚠️ CRITICAL: Connections Use Node NAME, Not ID!
-
-```javascript
-// ❌ WRONG - using node.id:
-"connections": {
-  "trigger-1": { "main": [[{"node": "set-2", ...}]] }
-}
-
-// ✅ CORRECT - using node.name:
-"connections": {
-  "Manual Trigger": { "main": [[{"node": "Set Data", ...}]] }
-}
-```
-
-**The connection key MUST match the `name` field of the source node!**
-
-### Key Rules
-| Field | Format |
-|-------|--------|
-| id | Unique string (uuid/slug) |
-| name | Display name (**used in connections!**) |
-| type | Full: `n8n-nodes-base.XXX` |
-| connections | Key = node **name** (not id!) |
-| settings | **REQUIRED for PUT!** (can be `{}`) |
+### Available MCP Tools
+| Tool | Status | Usage |
+|------|--------|-------|
+| `mcp__n8n-mcp__n8n_create_workflow` | ✅ Working | Create workflows |
+| `mcp__n8n-mcp__n8n_update_full_workflow` | ✅ Working | Full workflow updates |
+| `mcp__n8n-mcp__n8n_update_partial_workflow` | ✅ Working | Incremental updates |
+| `mcp__n8n-mcp__n8n_autofix_workflow` | ✅ Working | Auto-fix validation errors |
+| `mcp__n8n-mcp__n8n_get_workflow` | ✅ Working | Read workflows |
+| `mcp__n8n-mcp__n8n_validate_workflow` | ✅ Working | Validate workflows |
+| `mcp__n8n-mcp__validate_node` | ✅ Working | Validate node configs |
 
 ### Available Credentials
 | Service | ID | Name |
@@ -108,23 +30,6 @@ curl -s -X PATCH "${N8N_API_URL}/api/v1/workflows/{id}" \
 | OpenAI | NPHTuT9Bime92Mku | OpenAi account |
 | Telegram | ofhXzaw3ObXDT5JY | Multi_Bot0101_bot |
 | Supabase | DYpIGQK8a652aosj | Supabase account |
-
-### Autofix Workflow (Preview → Manual Apply)
-```bash
-# Step 1: Preview fixes (MCP works!)
-n8n_autofix_workflow({ id: "...", applyFixes: false })
-
-# Step 2: Apply fixes via curl PUT (settings required!)
-curl -s -X PUT "${N8N_API_URL}/api/v1/workflows/{id}" \
-  -H "X-N8N-API-KEY: ${N8N_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"...","nodes":[...],"connections":{...},"settings":{}}'
-
-# Step 3: Verify (MCP works! L-067: use structure for large workflows)
-n8n_get_workflow({ id: "...", mode: "structure" })  # Safe for all sizes
-```
-
-**See:** `docs/MCP-BUG-RESTORE.md` for restore instructions when bug is fixed.
 
 ---
 
