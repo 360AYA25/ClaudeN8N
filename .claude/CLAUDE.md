@@ -109,20 +109,25 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 
 ## Hard Rules (Permission Matrix)
 
-| Action | Arch | Res | Build | QA | Analyst | Method |
-|--------|:----:|:---:|:-----:|:--:|:-------:|--------|
-| Create/Update workflow | - | - | **YES** | - | - | **MCP** ✅ (Zod bug fixed v2.27.0+) |
-| Autofix | - | - | **YES** | - | - | **MCP** ✅ |
-| Delete workflow | - | - | **YES** | - | - | MCP ✅ |
-| Validate (final) | - | - | pre | **YES** | - | MCP ✅ |
-| Activate/Test | - | - | - | **YES** | - | **MCP** ✅ |
-| Search nodes/templates | - | **YES** | - | - | - | MCP ✅ |
-| Discover credentials | - | **YES** | - | - | - | MCP ✅ |
-| Present credentials to user | **YES** | - | - | - | - | - |
-| List/Get workflows | - | **YES** | YES | YES | YES | MCP ✅ |
-| Write LEARNINGS.md | - | - | - | - | **YES** | File |
+| Action | Orch | Arch | Res | Build | QA | Analyst | Method |
+|--------|:----:|:----:|:---:|:-----:|:--:|:-------:|--------|
+| Create/Update workflow | **NO** | - | - | **YES** | - | - | **MCP** ✅ (Zod bug fixed v2.27.0+) |
+| Autofix | **NO** | - | - | **YES** | - | - | **MCP** ✅ |
+| Delete workflow | **NO** | - | - | **YES** | - | - | MCP ✅ |
+| Validate (final) | **NO** | - | - | pre | **YES** | - | MCP ✅ |
+| Activate/Test | **NO** | - | - | - | **YES** | - | **MCP** ✅ |
+| Search nodes/templates | **NO** | - | **YES** | - | - | - | MCP ✅ |
+| Discover credentials | **NO** | - | **YES** | - | - | - | MCP ✅ |
+| Present credentials to user | **NO** | **YES** | - | - | - | - | - |
+| List/Get workflows | **NO** | - | **YES** | YES | YES | YES | MCP ✅ |
+| Write LEARNINGS.md | **NO** | - | - | - | - | **YES** | File |
+| Delegate via Task | **YES** | - | - | - | - | - | Task tool |
 
-**Key:** Only Builder mutates via MCP. Orchestrator (main context) delegates via Task. Architect has NO MCP tools.
+**Key:**
+- **Orchestrator = PURE ROUTER**: NO MCP tools, ONLY Task delegation!
+- Only Builder mutates workflows via MCP
+- Architect has NO MCP tools (uses Researcher for data)
+- IF Orchestrator thinks "I need to check X" → DELEGATE!
 
 ## run_state Protocol
 

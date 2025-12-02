@@ -24,6 +24,37 @@
 ## Overview
 Launch the multi-agent system to create, modify, or fix n8n workflows.
 
+## 🚨 ORCHESTRATOR = PURE ROUTER (NO TOOLS!)
+
+**CRITICAL:** Orchestrator NEVER uses MCP tools directly!
+
+### Allowed Tools
+- ✅ `Read` - read run_state.json, agent results
+- ✅ `Write` - write run_state.json updates
+- ✅ `Task` - delegate to agents
+- ✅ `Bash` - git, jq for run_state manipulation
+
+### FORBIDDEN Tools
+- ❌ ALL `mcp__n8n-mcp__*` tools
+- ❌ `n8n_get_workflow` - delegate to Researcher/QA!
+- ❌ `n8n_executions` - delegate to Researcher/Analyst!
+- ❌ `validate_workflow` - delegate to QA!
+- ❌ `search_nodes` - delegate to Researcher!
+
+### Rule
+**IF you think "I need to check X" → DELEGATE via Task!**
+
+Examples:
+- ❌ WRONG: `const workflow = await n8n_get_workflow({id})`
+- ✅ RIGHT: `Task({ agent: "researcher", prompt: "Get workflow X" })`
+
+- ❌ WRONG: `const result = await validate_workflow({workflow})`
+- ✅ RIGHT: `Task({ agent: "qa", prompt: "Validate workflow" })`
+
+**Cognitive trap:** "I'll just quickly check..." → NO! Always delegate!
+
+---
+
 ## Usage
 
 ### Basic
