@@ -2,6 +2,34 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.4.3] - 2025-12-02
+
+### 🔧 run_state Update Protocol (Orchestrator)
+
+**Problem:** No explicit instructions on WHO updates run_state.json (stage, results merge).
+
+**Solution:** Added "run_state Update Protocol" section to orch.md with jq examples.
+
+### Changes
+
+- **orch.md**: Added complete protocol for:
+  - Merging agent results (jq --argjson)
+  - Stage transitions (jq '.stage = "..."')
+  - cycle_count increment on QA fail
+  - Merge Rules table
+
+### Orchestrator responsibilities (now explicit):
+
+| Step | Action | Tool |
+|------|--------|------|
+| 1 | Read run_state | jq read |
+| 2 | Delegate to agent | Task |
+| 3 | Merge result | jq merge |
+| 4 | Advance stage | jq update |
+| 5 | Increment cycle on fail | jq update |
+
+---
+
 ## [3.4.2] - 2025-12-02
 
 ### 🔧 Recent Context Injection Protocol
