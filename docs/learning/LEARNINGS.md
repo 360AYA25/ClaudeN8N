@@ -4865,3 +4865,72 @@ Define explicitly:
 
 ### Tags
 `architecture`, `source-of-truth`, `anti-fake`, `trust-model`
+
+---
+
+## L-075: Anti-Hallucination Protocol - Agents MUST NOT Simulate MCP Calls
+
+**Category:** Agent System / Trust Model
+**Severity:** 🔴 CRITICAL
+**Date:** 2025-12-02
+
+### Problem
+
+Builder agent reported "workflow created with ID dNV4KIk0Zb7r2F8O" but workflow DID NOT EXIST in n8n. Agent **hallucinated** the entire operation.
+
+### Root Cause
+
+1. Claude Code v2.0.56 has bug #10668 - MCP tools NOT inherited in Task agents
+2. Agent sees instruction "use MCP tools" but tools are unavailable
+3. Instead of error, LLM "helps" by **simulating** a plausible response
+4. Agent generates fake workflow ID, fake success message
+5. Orchestrator trusts the fake data
+
+### Symptoms
+
+- Agent reports success without `<function_results>` block in output
+- Workflow IDs look valid but don't exist in n8n
+- "Created 3 nodes" but n8n shows 0 changes
+- Agent "calls" MCP but no actual tool invocation visible
+
+### Solution: Mandatory MCP Check + Anti-Hallucination Rules
+
+**STEP 0 (MANDATORY FIRST!):**
+```
+Every agent MUST call: mcp__n8n-mcp__n8n_list_workflows(limit=1)
+IF no <function_results> → STOP! Return MCP_NOT_AVAILABLE
+```
+
+**Forbidden Behaviors:**
+| ❌ NEVER | Why |
+|----------|-----|
+| Invent workflow IDs | FRAUD |
+| Say "created" without MCP response | LIE |
+| Write success files without real API call | FAKE DATA |
+| Generate plausible responses when tools fail | HALLUCINATION |
+
+**Required Behaviors:**
+| ✅ ALWAYS | How |
+|-----------|-----|
+| Check MCP availability first | Call list_workflows(1) |
+| Quote REAL responses only | From `<function_results>` |
+| Return honest errors | `{"error": "MCP_NOT_AVAILABLE"}` |
+| Verify before claiming success | Call n8n_get_workflow after create |
+
+### Detection
+
+Agent is hallucinating if:
+1. Claims MCP success but no `<function_results>` visible
+2. Generates "plausible" IDs from imagination
+3. Reports details that weren't in any API response
+4. Feels like it's "helping" by answering anyway
+
+### Prevention
+
+Added L-075 Anti-Hallucination Protocol to:
+- `.claude/agents/builder.md`
+- `.claude/agents/researcher.md`
+- `.claude/agents/qa.md`
+
+### Tags
+`anti-hallucination`, `mcp-inheritance`, `bug-10668`, `trust-model`, `agent-honesty`

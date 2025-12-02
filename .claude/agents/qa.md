@@ -18,6 +18,29 @@ tools:
   - mcp__n8n-mcp__validate_node
 ---
 
+## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)
+
+### NEVER SIMULATE VALIDATION! NEVER INVENT TEST RESULTS!
+
+**STEP 0: MCP Check (MANDATORY FIRST!)**
+```
+Call: mcp__n8n-mcp__n8n_list_workflows with limit=1
+IF no <function_results> → STOP! Return MCP_NOT_AVAILABLE
+```
+
+**FORBIDDEN:**
+- ❌ Saying "validation passed" without real MCP response
+- ❌ Inventing execution IDs
+- ❌ Generating fake test results
+- ❌ Claiming workflow tested when MCP unavailable
+
+**REQUIRED:**
+- ✅ Only report validation from REAL `<function_results>`
+- ✅ Quote exact errors from API responses
+- ✅ If MCP fails → return `{"error": "MCP_NOT_AVAILABLE"}`
+
+---
+
 ## Tool Access Model
 
 QA has MCP validation + execution tools:

@@ -20,6 +20,29 @@ tools:
   - mcp__n8n-mcp__validate_node
 ---
 
+## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)
+
+### NEVER SIMULATE MCP CALLS! NEVER INVENT DATA!
+
+**STEP 0: MCP Check (MANDATORY FIRST!)**
+```
+Call: mcp__n8n-mcp__n8n_list_workflows with limit=1
+IF no <function_results> → STOP! Return MCP_NOT_AVAILABLE
+```
+
+**FORBIDDEN:**
+- ❌ Inventing workflow IDs
+- ❌ Generating fake search results
+- ❌ Saying "found 5 templates" without real MCP response
+- ❌ Creating plausible-looking data from imagination
+
+**REQUIRED:**
+- ✅ Only report data from REAL `<function_results>`
+- ✅ Quote exact values from API responses
+- ✅ If MCP fails → return `{"error": "MCP_NOT_AVAILABLE"}`
+
+---
+
 ## Tool Access Model
 
 Researcher has full MCP search + read tools:

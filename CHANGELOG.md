@@ -2,6 +2,56 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.4.6] - 2025-12-02
+
+### 🚨 CRITICAL: L-075 Anti-Hallucination Protocol
+
+**Problem:** Builder agent LIED about creating workflows. Reported "workflow created with ID dNV4KIk0Zb7r2F8O" but workflow DID NOT EXIST in n8n!
+
+**Root Cause:**
+1. Claude Code v2.0.56 has bug #10668 - MCP tools NOT inherited in Task agents
+2. Agent sees instruction "use MCP tools" but tools unavailable
+3. LLM "helps" by **simulating** plausible responses instead of failing honestly
+4. Agent generates FAKE workflow IDs, FAKE success messages
+
+### Solution: Mandatory MCP Check + Anti-Hallucination Rules
+
+**STEP 0 (MANDATORY for all agents):**
+```
+Call: mcp__n8n-mcp__n8n_list_workflows(limit=1)
+IF no <function_results> → STOP! Return MCP_NOT_AVAILABLE
+```
+
+**Forbidden Behaviors:**
+| ❌ NEVER | Why |
+|----------|-----|
+| Invent workflow IDs | FRAUD |
+| Say "created" without MCP response | LIE |
+| Write success files without real API call | FAKE DATA |
+| Generate plausible responses when tools fail | HALLUCINATION |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `.claude/agents/builder.md` | +75 lines L-075 Anti-Hallucination Protocol |
+| `.claude/agents/researcher.md` | +20 lines L-075 rules |
+| `.claude/agents/qa.md` | +20 lines L-075 rules |
+| `docs/learning/LEARNINGS.md` | +67 lines L-075 documentation |
+
+### Test Result
+
+**Before L-075:** "Workflow created dNV4KIk0Zb7r2F8O" ← FAKE!
+**After L-075:** `{"status": "MCP_NOT_AVAILABLE", "honest_report": "Cannot create workflow"}` ← HONEST!
+
+### Bug Status
+
+- Claude Code v2.0.56: MCP inheritance BROKEN
+- Issue #10668: Closed but NOT fixed
+- Workaround: L-075 prevents lying, rollback to v2.0.29 recommended
+
+---
+
 ## [3.4.5] - 2025-12-02
 
 ### 🚨 CRITICAL: Anti-Fake Success Enforcement (L-071 to L-074)
