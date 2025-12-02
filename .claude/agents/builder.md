@@ -209,11 +209,15 @@ fi
 ```
 
 ```javascript
-// Step 4: VERIFY workflow exists via MCP (L-067 smart mode)
-const node_count = run_state.workflow?.node_count || blueprint?.nodes_needed?.length || 999;
+// Step 4: VERIFY workflow exists via MCP (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md)
+const node_count = run_state.workflow?.node_count
+                || run_state.canonical_snapshot?.node_inventory?.total
+                || blueprint?.nodes_needed?.length
+                || 999;
+const mode = node_count > 10 ? "structure" : "full";
 const verification = await mcp__n8n-mcp__n8n_get_workflow({
   id: workflow_id,
-  mode: node_count > 10 ? "structure" : "full"
+  mode: mode
 });
 
 if (!verification || !verification.id) {
@@ -298,11 +302,14 @@ const before_counter = run_state.workflow.version_counter || 0;
 const response = await curl_workflow_operation(...);
 const workflow_id = response.id;
 
-// STEP 3: Read workflow AFTER changes via MCP (L-067 smart mode)
-const node_count = run_state.workflow?.node_count || 999;
+// STEP 3: Read workflow AFTER changes via MCP (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md)
+const node_count = run_state.workflow?.node_count
+                || run_state.canonical_snapshot?.node_inventory?.total
+                || 999;
+const mode = node_count > 10 ? "structure" : "full";
 const after = await mcp__n8n-mcp__n8n_get_workflow({
   id: workflow_id,
-  mode: node_count > 10 ? "structure" : "full"
+  mode: mode
 });
 
 // STEP 4: Verify version_id CHANGED (critical!)
@@ -483,11 +490,14 @@ User opens n8n UI during debugging → sees broken workflow → clicks "Revert t
 ### Solution: Version Counter Check
 
 ```javascript
-// BEFORE any fix attempt (L-067 smart mode):
-const node_count = run_state.workflow?.node_count || 999;
+// BEFORE any fix attempt (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md)
+const node_count = run_state.workflow?.node_count
+                || run_state.canonical_snapshot?.node_inventory?.total
+                || 999;
+const mode = node_count > 10 ? "structure" : "full";
 const current_workflow = await mcp__n8n-mcp__n8n_get_workflow({
   id: workflow_id,
-  mode: node_count > 10 ? "structure" : "full"
+  mode: mode
 });
 
 const expected_counter = run_state.workflow.version_counter || 0;
@@ -541,11 +551,14 @@ DO NOT continue fixing - you're working on wrong version!
 
 ```javascript
 async function verifyAndDetectRollback(workflow_id, before_counter, expected_changes) {
-  // L-067 smart mode selection
-  const node_count = run_state.workflow?.node_count || 999;
+  // L-067: see .claude/agents/shared/L-067-smart-mode-selection.md
+  const node_count = run_state.workflow?.node_count
+                  || run_state.canonical_snapshot?.node_inventory?.total
+                  || 999;
+  const mode = node_count > 10 ? "structure" : "full";
   const after = await mcp__n8n-mcp__n8n_get_workflow({
     id: workflow_id,
-    mode: node_count > 10 ? "structure" : "full"
+    mode: mode
   });
 
   // Check 1: Rollback detection
@@ -847,11 +860,17 @@ FOR EACH step in impact_analysis.modification_sequence:
 const sequence = run_state.impact_analysis.modification_sequence;
 const contracts = run_state.impact_analysis.parameter_contracts;
 
+// L-067: see .claude/agents/shared/L-067-smart-mode-selection.md
+const node_count = run_state.workflow?.node_count
+                || run_state.canonical_snapshot?.node_inventory?.total
+                || 999;
+const mode = node_count > 10 ? "structure" : "full";
+
 for (const step of sequence) {
-  // 1. Snapshot (L-067: smart mode)
+  // 1. Snapshot
   const current = await n8n_get_workflow({
     id: workflow_id,
-    mode: run_state.workflow?.node_count > 10 ? "structure" : "full"
+    mode: mode
   });
   run_state.modification_progress.snapshots[`step_${step.order}`] =
     current.nodes.find(n => n.name === step.node);
@@ -959,10 +978,16 @@ On problem:
 
 ```javascript
 async function blueGreenModify(workflow_id, changes) {
-  // 1. Clone (L-067: smart mode)
+  // L-067: see .claude/agents/shared/L-067-smart-mode-selection.md
+  const node_count = run_state.workflow?.node_count
+                  || run_state.canonical_snapshot?.node_inventory?.total
+                  || 999;
+  const mode = node_count > 10 ? "structure" : "full";
+
+  // 1. Clone
   const original = await n8n_get_workflow({
     id: workflow_id,
-    mode: run_state.workflow?.node_count > 10 ? "structure" : "full"
+    mode: mode
   });
   const clone = {
     ...original,

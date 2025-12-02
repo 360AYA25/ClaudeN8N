@@ -39,11 +39,14 @@ mcp__n8n-mcp__n8n_update_partial_workflow({
 **BEFORE activating, verify connections use node.name:**
 
 ```javascript
-// 1. Get workflow via MCP (L-067: smart mode)
-const nodeCount = run_state.workflow?.node_count || 999;
+// 1. Get workflow via MCP (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md)
+const nodeCount = run_state.workflow?.node_count
+               || run_state.canonical_snapshot?.node_inventory?.total
+               || 999;
+const mode = nodeCount > 10 ? "structure" : "full";
 const workflow = await n8n_get_workflow({
   id,
-  mode: nodeCount > 10 ? "structure" : "full"
+  mode: mode
 });
 
 // 2. Check each connection key matches a node.name
@@ -88,11 +91,14 @@ fi
 ```javascript
 if (run_state.canonical_snapshot) {
   const before = run_state.canonical_snapshot;
-  // L-067: smart mode selection
-  const nodeCount = before.node_count || 999;
+  // L-067: see .claude/agents/shared/L-067-smart-mode-selection.md
+  const nodeCount = run_state.workflow?.node_count
+                 || run_state.canonical_snapshot?.node_inventory?.total
+                 || 999;
+  const mode = nodeCount > 10 ? "structure" : "full";
   const after = await n8n_get_workflow({
     id: workflow_id,
-    mode: nodeCount > 10 ? "structure" : "full"
+    mode: mode
   });
 
   const comparison = {
@@ -177,11 +183,14 @@ n8n_validate_workflow(workflow_id, options: {
 **For EVERY node in edit_scope (or all modified nodes):**
 
 ```javascript
-// 1. Get node configuration from workflow (L-067: smart mode)
-const nodeCount = run_state.workflow?.node_count || 999;
+// 1. Get node configuration from workflow (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md)
+const nodeCount = run_state.workflow?.node_count
+               || run_state.canonical_snapshot?.node_inventory?.total
+               || 999;
+const mode = nodeCount > 10 ? "structure" : "full";
 const workflow = await n8n_get_workflow({
   id: workflow_id,
-  mode: nodeCount > 10 ? "structure" : "full"
+  mode: mode
 });
 const node = workflow.nodes.find(n => n.id === node_id);
 
@@ -482,11 +491,14 @@ if (!workflow_id) {
   FAIL("CRITICAL: No workflow ID in run_state - Builder failed!");
 }
 
-// Step 3: VERIFY workflow exists in n8n (L-067 smart mode)
-const nodeCount = run_state.workflow?.node_count || 999;
+// Step 3: VERIFY workflow exists in n8n (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md)
+const nodeCount = run_state.workflow?.node_count
+               || run_state.canonical_snapshot?.node_inventory?.total
+               || 999;
+const mode = nodeCount > 10 ? "structure" : "full";
 const workflow = await mcp__n8n-mcp__n8n_get_workflow({
   id: workflow_id,
-  mode: nodeCount > 10 ? "structure" : "full"
+  mode: mode
 });
 
 if (!workflow || !workflow.id) {
@@ -680,11 +692,14 @@ When `checkpoint_request` exists in run_state (from Builder during incremental m
 async function checkpointValidation(checkpoint_request) {
   const { step, scope, type } = checkpoint_request;
 
-  // 1. Get workflow (L-067: smart mode)
-  const nodeCount = run_state.workflow?.node_count || 999;
+  // 1. Get workflow (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md)
+  const nodeCount = run_state.workflow?.node_count
+                 || run_state.canonical_snapshot?.node_inventory?.total
+                 || 999;
+  const mode = nodeCount > 10 ? "structure" : "full";
   const workflow = await n8n_get_workflow({
     id,
-    mode: nodeCount > 10 ? "structure" : "full"
+    mode: mode
   });
 
   // 2. Filter to scoped nodes only

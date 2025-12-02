@@ -360,7 +360,7 @@ When auto-triggered, Analyst MUST:
    - `memory/diagnostics/workflow_{id}_full.json` (if exists)
    - `memory/diagnostics/execution_{id}_full.json` (if exists)
 
-### Step 2: Analyze Execution Data (CRITICAL! - L-067 TWO-STEP!)
+### Step 2: Analyze Execution Data (CRITICAL! - L-067: see .claude/agents/shared/L-067-smart-mode-selection.md)
 
 **⚠️ If debugging workflow, MUST analyze execution data:**
 

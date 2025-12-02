@@ -85,7 +85,7 @@ PHASE 5: BUILD
 ```
 clarification → research → decision → credentials → implementation → build → validate → test → complete
                                                                                   ↓
-                                                                               blocked (after 3 QA fails)
+                                                                               blocked (after 7 QA cycles with progressive escalation)
 ```
 
 ## Escalation Levels

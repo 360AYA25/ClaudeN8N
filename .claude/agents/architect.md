@@ -153,14 +153,16 @@ Returns to Orchestrator → Architect proceeds to finalize blueprint.
 
 ---
 
-## Impact Analysis Mode (Modification Scenarios)
+## Impact Analysis (Clarification Sub-Phase)
 
-### Trigger
-When `workflow_id` is provided → run impact analysis BEFORE research phase.
+**Stage:** `clarification`
+**Trigger:** workflow_id provided in user request
+
+When `workflow_id` is provided → run impact analysis as sub-phase within clarification, BEFORE transitioning to research.
 
 ### Protocol
 
-1. **Fetch workflow** (via Researcher with L-067 smart mode):
+1. **Fetch workflow** (via Researcher with L-067: see .claude/agents/shared/L-067-smart-mode-selection.md):
    - If node_count > 10 → mode="structure"
    - If node_count ≤ 10 → mode="full"
    - **Note:** Architect does NOT call MCP tools! Researcher provides workflow data.

@@ -146,10 +146,11 @@ if (cycle_count >= 2 && current_hypothesis === previous_hypothesis) {
   REASON: "Not learning from failures";
 }
 
-// If 3 QA failures in a row:
-if (qa_fail_count >= 3) {
+// If 7 QA cycles with progressive escalation:
+if (qa_fail_count >= 7) {
   ESCALATE_TO_L4();
   ANALYST_AUDIT_METHODOLOGY();
+  // Progressive: cycles 1-3 Builder, 4-5 +Researcher, 6-7 +Analyst
 }
 ```
 
@@ -226,6 +227,11 @@ PHASE 5: BUILD
 ├── QA Loop: max 7 cycles (progressive), then blocked
 └── Output: completed workflow
 ```
+
+**Note:** MODIFY flows include IMPACT_ANALYSIS as sub-phase within clarification:
+- Stage: `"clarification"` (unchanged in run_state)
+- Sub-phase: impact analysis (if workflow_id provided)
+- Then: stage transitions to `"research"`
 
 ---
 
@@ -451,9 +457,9 @@ clarification → research → decision → credentials → implementation → b
                                                                                         blocked (after 7 QA fails)
 ```
 
-### MODIFY Flow (existing workflow)
+### MODIFY Flow (existing workflow_id)
 ```
-clarification → IMPACT_ANALYSIS → research → decision → credentials → implementation →
+clarification (includes IMPACT_ANALYSIS sub-phase) → research → decision → credentials → implementation →
     ↓
 INCREMENTAL_BUILD (with checkpoints)
     ↓
@@ -673,7 +679,7 @@ Level 2: TARGETED_DEBUG (2 agents, ~2K tokens)
 Level 3: FULL_INVESTIGATION (NEW 9-STEP ALGORITHM!)
 ├── Trigger: Complex issue, user reports "bot not working"
 ├── **PHASE 1: FULL DIAGNOSIS** (Researcher only!)
-│   ├── Download workflow with smart mode selection (L-067):
+│   ├── Download workflow with smart mode selection (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md):
 │   │   ├── If node_count > 10 → mode="structure" (safe, ~2-5K tokens)
 │   │   └── If node_count ≤ 10 → mode="full" (safe for small workflows)
 │   ├── Decompose ALL nodes (types, params, code, credentials)

@@ -128,7 +128,7 @@ STEP 0.0: READ CANONICAL SNAPSHOT FIRST
 ═══════════════════════════════════════════════════════════════
 
 STEP 0.1: DOWNLOAD EVERYTHING (skip if snapshot is fresh!)
-├── Smart mode selection (L-067):
+├── Smart mode selection (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md):
 │   ├── Check node_count from run_state or snapshot
 │   ├── If node_count > 10 → mode="structure" (safe, no binary)
 │   └── If node_count ≤ 10 → mode="full" (safe for small workflows)
