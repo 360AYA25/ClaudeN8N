@@ -382,36 +382,143 @@ fi
 
 ---
 
-## Session Start
+## Session Start (with Validation!)
 
 When `/orch` is invoked:
 
-1. **Initialize or load run_state**
-   ```
-   Read memory/run_state.json
-   If empty or finalized → create new with UUID
-   Add project_id and project_path from Project Selection above
-   ```
+### Step 1: Load and Validate run_state
 
-2. **Parse user request**
-   ```
-   Extract: goal, services, constraints
-   Set: stage="clarification", cycle_count=0
-   Set: project_id, project_path (from Project Selection)
-   ```
+```bash
+# 1.1 Read existing run_state
+if [ -f memory/run_state.json ]; then
+  old_stage=$(jq -r '.stage' memory/run_state.json)
+  old_request=$(jq -r '.user_request' memory/run_state.json)
+  old_workflow=$(jq -r '.workflow_id' memory/run_state.json)
 
-3. **Load/Create Canonical Snapshot**
-   ```
-   If workflow_id exists:
-     snapshot_dir = memory/workflow_snapshots/{workflow_id}
-     If canonical.json exists → load it
-     Else → create initial snapshot
-   ```
+  # 1.2 Check if stale session (not completed, different request)
+  if [ "$old_stage" != "complete" ] && [ "$old_stage" != "blocked" ]; then
+    echo "⚠️ STALE SESSION DETECTED!"
+    echo "   Previous: $old_request"
+    echo "   Stage: $old_stage"
+    echo ""
+    echo "Options:"
+    echo "  [C]ontinue - Resume previous task"
+    echo "  [N]ew - Start fresh (archive old run_state)"
+    echo "  [A]bort - Cancel and review manually"
+    # WAIT FOR USER INPUT!
+  fi
+fi
+```
 
-4. **Start Architect for clarification**
-   ```
-   Task(agent=architect, prompt="Clarify requirements with user")
-   ```
+### Step 2: Validate Canonical Snapshot (CRITICAL!)
+
+```bash
+# 2.1 If workflow_id exists, compare with n8n
+if [ -n "$workflow_id" ]; then
+  canonical_file="memory/workflow_snapshots/${workflow_id}/canonical.json"
+
+  if [ -f "$canonical_file" ]; then
+    # Get version from canonical
+    canonical_version=$(jq -r '.snapshot_metadata.n8n_version_counter' "$canonical_file")
+
+    # Get REAL version from n8n API (L-067: use structure mode for large workflows)
+    real_workflow=$(mcp__n8n-mcp__n8n_get_workflow id="$workflow_id" mode="minimal")
+    real_version=$(echo "$real_workflow" | jq -r '.versionId // .versionCounter')
+
+    # 2.2 Compare versions
+    if [ "$canonical_version" != "$real_version" ]; then
+      echo "⚠️ CANONICAL SNAPSHOT OUTDATED!"
+      echo "   Snapshot version: $canonical_version"
+      echo "   n8n version: $real_version"
+      echo ""
+      echo "Options:"
+      echo "  [R]efresh - Download fresh snapshot from n8n"
+      echo "  [K]eep - Use old snapshot (RISKY!)"
+      echo "  [A]bort - Cancel and review manually"
+      # WAIT FOR USER INPUT!
+    else
+      echo "✅ Canonical snapshot is fresh (v$canonical_version)"
+    fi
+  fi
+fi
+```
+
+### Step 3: Handle Stale Data
+
+```bash
+# 3.1 If user chose [N]ew - archive and create fresh
+archive_stale_session() {
+  timestamp=$(date +%Y%m%d_%H%M%S)
+  mkdir -p memory/archive
+
+  # Archive run_state
+  mv memory/run_state.json "memory/archive/run_state_${timestamp}.json"
+
+  # Create fresh run_state
+  jq -n '{
+    id: "run_'$(date +%Y%m%d_%H%M%S)'",
+    stage: "clarification",
+    cycle_count: 0,
+    agent_log: [],
+    worklog: [],
+    usage: { tokens_used: 0, agent_calls: 0, qa_cycles: 0, cost_usd: 0 }
+  }' > memory/run_state.json
+
+  echo "📦 Archived stale session to memory/archive/"
+}
+
+# 3.2 If user chose [R]efresh - update canonical
+refresh_canonical_snapshot() {
+  workflow_id="$1"
+  snapshot_dir="memory/workflow_snapshots/${workflow_id}"
+
+  # Archive old canonical to history
+  if [ -f "${snapshot_dir}/canonical.json" ]; then
+    old_version=$(jq -r '.snapshot_metadata.snapshot_version' "${snapshot_dir}/canonical.json")
+    mkdir -p "${snapshot_dir}/history"
+    mv "${snapshot_dir}/canonical.json" "${snapshot_dir}/history/v${old_version}_$(date +%Y%m%d).json"
+  fi
+
+  # Researcher creates new snapshot
+  Task({ agent: "researcher", prompt: "Create fresh canonical snapshot for workflow $workflow_id" })
+
+  echo "🔄 Canonical snapshot refreshed"
+}
+```
+
+### Step 4: Initialize New Session
+
+```bash
+# Only after validation passes!
+jq --arg req "$USER_REQUEST" \
+   --arg wf "$workflow_id" \
+   --arg proj "$project_id" \
+   --arg path "$project_path" \
+   '.user_request = $req |
+    .workflow_id = $wf |
+    .project_id = $proj |
+    .project_path = $path |
+    .stage = "clarification" |
+    .cycle_count = 0' \
+   memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+```
+
+### Step 5: Start Architect
+
+```bash
+Task({ agent: "architect", prompt: "Clarify requirements with user" })
+```
+
+### Validation Decision Matrix
+
+| run_state | canonical | User Request | Action |
+|-----------|-----------|--------------|--------|
+| Empty | - | Any | Create new |
+| stage=complete | Fresh | Any | Create new |
+| stage=incomplete | - | Same request | Continue |
+| stage=incomplete | - | Different request | ASK USER! |
+| - | Outdated | Any | ASK USER! |
+| - | Missing | workflow_id exists | Create snapshot |
 
 ---
 

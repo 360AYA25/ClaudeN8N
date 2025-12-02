@@ -2,6 +2,46 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.4.4] - 2025-12-02
+
+### 🔧 Session Start Validation Protocol
+
+**Problem:** Bots hang or don't finish → stale run_state/canonical with outdated bugs, old fixes.
+
+**Solution:** Orchestrator validates data freshness at session start before doing any work.
+
+### Changes
+
+- **orch.md**: Replaced "Session Start" with "Session Start (with Validation!)"
+  - Step 1: Detect stale run_state (incomplete sessions)
+  - Step 2: Compare canonical.json version with real n8n workflow
+  - Step 3: Archive stale data, refresh canonical if needed
+  - Step 4-5: Initialize only after validation passes
+
+### Validation Decision Matrix
+
+| run_state | canonical | Action |
+|-----------|-----------|--------|
+| stage=incomplete, different request | - | ASK USER: Continue/New/Abort |
+| - | versionCounter mismatch | ASK USER: Refresh/Keep/Abort |
+| Empty or complete | Fresh | Create new session |
+
+### User Prompts
+
+```
+⚠️ STALE SESSION DETECTED!
+   [C]ontinue - Resume previous task
+   [N]ew - Start fresh (archive old)
+   [A]bort - Cancel and review
+
+⚠️ CANONICAL SNAPSHOT OUTDATED!
+   [R]efresh - Download fresh from n8n
+   [K]eep - Use old (RISKY!)
+   [A]bort - Cancel and review
+```
+
+---
+
 ## [3.4.3] - 2025-12-02
 
 ### 🔧 run_state Update Protocol (Orchestrator)
