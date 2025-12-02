@@ -2,6 +2,68 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.4.2] - 2025-12-02
+
+### 🔧 Recent Context Injection Protocol
+
+**Problem:** Builder in QA cycles 1-3 didn't know what was already tried (workflow rollback, new session).
+
+**Solution:** Orchestrator extracts last 3 builder actions from agent_log and adds to prompt.
+
+### Changes
+
+- **orch.md**: Added "Recent Context Injection (Cycles 1-3)" section with jq extraction
+- **builder.md**: Added step 2 "Check prompt for ALREADY TRIED"
+
+### Architecture (preserves existing logic!)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `_meta.fix_attempts` | UNCHANGED | Still works for cycles 4-5 (Researcher) |
+| Researcher Fix Search | UNCHANGED | Still reads `_meta.fix_attempts` |
+| Analyst Audit | UNCHANGED | Still reads full history |
+| NEW: Recent Context | ADDED | Orchestrator → Builder prompt (cycles 1-3 only) |
+
+### Token Economy
+
+- Overhead: ~150 tokens (3 entries × 50 tokens)
+- Benefit: Prevents repeated failed attempts
+
+---
+
+## [3.4.1] - 2025-12-02
+
+### 🔧 Agent Logging Protocol Fix
+
+**Problem:** Agents had instructions to "Add agent_log entry" but no HOW (jq syntax).
+
+**Solution:** Token-efficient append-only protocol via jq.
+
+### Changes
+
+- **Created:** `.claude/agents/shared/run-state-append.md` - Central jq templates
+- **Updated:** builder.md, qa.md, researcher.md, analyst.md with jq examples
+
+### Token Economy
+
+| Approach | Tokens |
+|----------|--------|
+| Read+Write entire run_state.json | ~6K per operation |
+| jq append-only | ~200 per operation |
+| **Savings per complex task** | **~20K tokens** |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `.claude/agents/shared/run-state-append.md` | NEW: jq templates, examples |
+| `.claude/agents/builder.md` | +jq example at line 1048 |
+| `.claude/agents/qa.md` | +jq example at line 980 |
+| `.claude/agents/researcher.md` | +jq example at line 611 |
+| `.claude/agents/analyst.md` | +jq example at line 656 |
+
+---
+
 ## [3.4.0] - 2025-12-02
 
 ### 🔧 System Consistency Audit - Complete Documentation Fix

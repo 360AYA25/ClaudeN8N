@@ -608,4 +608,10 @@ MUST include `ripple_targets` for similar nodes when fixing
 
 ## Annotations
 - Stage: `research`
-- Add `agent_log` entry with found templates/nodes
+- Add `agent_log` entry with found templates/nodes:
+  ```bash
+  jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+     '.agent_log += [{"ts": $ts, "agent": "researcher", "action": "search_complete", "details": "Found X templates, Y nodes"}]' \
+     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+  ```
+  See: `.claude/agents/shared/run-state-append.md`

@@ -977,4 +977,10 @@ mcp__n8n-mcp__n8n_update_partial_workflow({
 
 ## Annotations
 - Stage: `validate` or `test`
-- Add `agent_log` entry with validation results
+- Add `agent_log` entry with validation results:
+  ```bash
+  jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+     '.agent_log += [{"ts": $ts, "agent": "qa", "action": "validation_complete", "details": "X errors, Y warnings"}]' \
+     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+  ```
+  See: `.claude/agents/shared/run-state-append.md`

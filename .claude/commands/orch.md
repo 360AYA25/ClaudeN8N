@@ -517,6 +517,53 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 
 ---
 
+## Recent Context Injection (Cycles 1-3)
+
+**Problem:** Builder in cycles 1-3 doesn't know what was already tried (workflow rollback, new session).
+
+**Solution:** Orchestrator extracts recent builder actions and adds to prompt.
+
+### BEFORE calling Builder (cycles 1-3):
+
+```bash
+# Extract last 3 builder actions from agent_log
+recent_builder=$(jq -c '[.agent_log[] | select(.agent=="builder")] | .[-3:]' memory/run_state.json)
+
+# Format for prompt
+if [ "$recent_builder" != "[]" ]; then
+  already_tried=$(echo "$recent_builder" | jq -r '.[] | "- \(.action): \(.details)"')
+fi
+```
+
+### Include in Task prompt:
+
+```javascript
+Task({
+  agent: "builder",
+  prompt: `Fix workflow per edit_scope.
+
+${already_tried ? `⚠️ ALREADY TRIED (don't repeat!):
+${already_tried}
+
+Try a DIFFERENT approach.` : ''}
+
+edit_scope: ${edit_scope}
+qa_report: ${qa_report_summary}`
+})
+```
+
+### When to use:
+
+| Cycle | Include recent context? | Why |
+|-------|------------------------|-----|
+| 1-3 | ✅ YES | Builder needs to know what failed |
+| 4-5 | ❌ NO | Researcher reads `_meta.fix_attempts` |
+| 6-7 | ❌ NO | Analyst reads full history |
+
+**Token cost:** ~150 tokens (3 entries × 50 tokens)
+
+---
+
 ## Post-Fix Checklist (MANDATORY! - L-067)
 
 **After successful fix + test, Orchestrator MUST:**

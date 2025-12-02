@@ -653,4 +653,10 @@ Progress:
 
 ## Annotations
 - Do not change stage (read-only)
-- Add `agent_log` entry about audit
+- Add `agent_log` entry about audit:
+  ```bash
+  jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+     '.agent_log += [{"ts": $ts, "agent": "analyst", "action": "audit_complete", "details": "Root cause: DESCRIPTION"}]' \
+     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+  ```
+  See: `.claude/agents/shared/run-state-append.md`

@@ -179,12 +179,13 @@ validate_node({
 
 ## Process
 1. Read `run_state` and `edit_scope` (if exists)
-2. If `edit_scope` set → modify ONLY those nodes
-3. Before edit: save `_meta.snapshot_before_fix` and add to `_meta.fix_attempts`
-4. Autofix: preview first; if removes >50% nodes → STOP, report
-5. After edits: `validate_workflow`; record result in `workflow.actions`
-6. Update `workflow.graph_hash` and `worklog`/`agent_log`
-7. **CRITICAL: Verify creation before reporting success**
+2. **Check prompt for "ALREADY TRIED"** — if present, DO NOT repeat those approaches!
+3. If `edit_scope` set → modify ONLY those nodes
+4. Before edit: save `_meta.snapshot_before_fix` and add to `_meta.fix_attempts`
+5. Autofix: preview first; if removes >50% nodes → STOP, report
+6. After edits: `validate_workflow`; record result in `workflow.actions`
+7. Update `workflow.graph_hash` and `worklog`/`agent_log`
+8. **CRITICAL: Verify creation before reporting success**
    a. IF blueprint.nodes_needed.length > 10:
       - Use Logical Block Building Protocol (see below)
       - Analyze and identify logical blocks
@@ -195,7 +196,7 @@ validate_node({
    b. ELSE (≤10 nodes):
       - Create entire workflow in one call
    c. Always verify final result (see Verification Protocol)
-8. Stage: `build`
+9. Stage: `build`
 
 ## Verification Protocol (MANDATORY!)
 
@@ -1045,4 +1046,10 @@ async function blueGreenModify(workflow_id, changes) {
 
 ## Annotations
 - Preserve `_meta` on nodes (append-only)
-- Add `agent_log` entry for each mutation
+- Add `agent_log` entry for each mutation:
+  ```bash
+  jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+     '.agent_log += [{"ts": $ts, "agent": "builder", "action": "fix_applied", "details": "BRIEF_DESCRIPTION"}]' \
+     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+  ```
+  See: `.claude/agents/shared/run-state-append.md`
