@@ -8,6 +8,14 @@ skills:
 tools:
   - Read
   - Write
+  - Bash
+  - mcp__n8n-mcp__n8n_get_workflow
+  - mcp__n8n-mcp__n8n_list_workflows
+  - mcp__n8n-mcp__n8n_validate_workflow
+  - mcp__n8n-mcp__n8n_test_workflow
+  - mcp__n8n-mcp__n8n_executions
+  - mcp__n8n-mcp__n8n_update_partial_workflow
+  - mcp__n8n-mcp__validate_node
 ---
 
 ## Tool Access Model

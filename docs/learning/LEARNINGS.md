@@ -4677,3 +4677,67 @@ TIER 5: Created new learning (L-060 v2)
 - Creates feedback loop (Tier 5 solutions → future Tier 1)
 
 **Tags:** #methodology #search-strategy #researcher #knowledge-base #debugging #escalation #confidence #systematic-approach
+---
+
+## L-069: Agent Frontmatter Must Explicitly List MCP Tools
+
+### Discovery Date
+2025-12-02
+
+### Context
+Agent system wasn't executing MCP tools. Builder, Researcher, QA, Analyst agents couldn't call MCP tools even though documentation said they should have access.
+
+### Problem
+Agent frontmatter only listed basic tools:
+```yaml
+tools:
+  - Read
+  - Write
+```
+
+MCP tools were documented in agent body but NOT in frontmatter `tools` array. Result: agents couldn't actually call MCP tools - they would output pseudocode instead.
+
+### Root Cause
+Claude Code agent system only provides tools listed in frontmatter `tools` array. Documentation alone doesn't grant access.
+
+### Solution
+Explicitly list ALL MCP tools each agent needs in frontmatter:
+
+```yaml
+# Builder (write operations)
+tools:
+  - Read
+  - Write
+  - Bash
+  - mcp__n8n-mcp__n8n_create_workflow
+  - mcp__n8n-mcp__n8n_update_partial_workflow
+  - mcp__n8n-mcp__n8n_delete_workflow
+  - mcp__n8n-mcp__n8n_validate_workflow
+  - mcp__n8n-mcp__n8n_autofix_workflow
+  # ... all needed MCP tools
+
+# Researcher (read operations)
+tools:
+  - Read
+  - Write
+  - Bash
+  - mcp__n8n-mcp__search_nodes
+  - mcp__n8n-mcp__n8n_get_workflow
+  - mcp__n8n-mcp__n8n_executions
+  # ... all needed MCP tools
+```
+
+### Verification
+After fix, run test:
+```
+/orch --test agent:builder
+```
+Should return "test_passed: true" with actual MCP tool execution.
+
+### Impact
+- High - agents couldn't perform core functions without this fix
+- Affected: Builder, Researcher, QA, Analyst
+- Not affected: Architect (no MCP by design)
+
+### Tags
+`agent-system`, `mcp-tools`, `frontmatter`, `configuration`

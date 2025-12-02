@@ -317,3 +317,10 @@ node scripts/generate-learnings-index.js
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent
 **Latest Additions:** L-068 (IF Nodes Binary Data Loss), L-067 (Execution Mode Selection for Large Workflows)
+
+### L-069: Agent Frontmatter Must Explicitly List MCP Tools
+- **Category:** Agent System
+- **Tags:** `agent-system`, `mcp-tools`, `frontmatter`, `configuration`
+- **Problem:** Agents couldn't call MCP tools - output pseudocode instead
+- **Solution:** Explicitly list ALL MCP tools in frontmatter `tools` array
+- **Impact:** High - core agent functionality

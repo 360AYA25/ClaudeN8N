@@ -223,6 +223,74 @@ Each `Task({ agent: "..." })` = **NEW PROCESS**:
 
 ---
 
+## run_state Update Protocol (Orchestrator ONLY!)
+
+**Orchestrator is the ONLY one who updates stage and merges agent results.**
+
+### After EACH agent completes:
+
+```bash
+# 1. Merge agent result into run_state
+jq --argjson result "$AGENT_RESULT" \
+   '.requirements = $result.requirements // .requirements |
+    .research_findings = $result.research_findings // .research_findings |
+    .decision = $result.decision // .decision |
+    .blueprint = $result.blueprint // .blueprint |
+    .build_guidance = $result.build_guidance // .build_guidance |
+    .workflow = $result.workflow // .workflow |
+    .qa_report = $result.qa_report // .qa_report |
+    .edit_scope = $result.edit_scope // .edit_scope' \
+   memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+```
+
+### Stage transitions (Orchestrator decides):
+
+```bash
+# After Architect (clarification → research)
+jq '.stage = "research"' memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+
+# After Researcher (research → decision)
+jq '.stage = "decision"' memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+
+# After Architect decision (decision → implementation)
+jq '.stage = "implementation"' memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+
+# After Researcher implementation (implementation → build)
+jq '.stage = "build"' memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+
+# After Builder (build → validate)
+jq '.stage = "validate"' memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+
+# After QA success (validate → test → complete)
+jq '.stage = "complete"' memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+
+# After QA fail (stay in validate, increment cycle)
+jq '.cycle_count += 1 | .stage = "build"' memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+
+# After 7 QA fails (→ blocked)
+jq '.stage = "blocked"' memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+```
+
+### Merge Rules (applied by Orchestrator):
+
+| Type | Rule | Fields |
+|------|------|--------|
+| Objects | Agent overwrites | requirements, research_findings, decision, blueprint, workflow, qa_report |
+| Arrays (append) | Never replace | errors, fixes_tried, agent_log, worklog |
+| Arrays (replace) | Full replace | edit_scope, workflow.nodes |
+| Stage | Only forward | clarification → research → ... → complete |
+
+### CRITICAL: Orchestrator responsibilities
+
+1. ✅ Read run_state at start
+2. ✅ Delegate to agent via Task
+3. ✅ Merge agent result (jq)
+4. ✅ Advance stage (jq)
+5. ✅ Increment cycle_count on QA fail
+6. ❌ NEVER mutate workflows directly!
+
+---
+
 ## 5-PHASE FLOW (Unified)
 
 **No complexity detection!** All requests follow the same flow:
