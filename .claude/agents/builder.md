@@ -209,10 +209,11 @@ fi
 ```
 
 ```javascript
-// Step 4: VERIFY workflow exists via MCP (works!)
+// Step 4: VERIFY workflow exists via MCP (L-067 smart mode)
+const node_count = run_state.workflow?.node_count || blueprint?.nodes_needed?.length || 999;
 const verification = await mcp__n8n-mcp__n8n_get_workflow({
   id: workflow_id,
-  mode: "full"
+  mode: node_count > 10 ? "structure" : "full"
 });
 
 if (!verification || !verification.id) {
@@ -297,10 +298,11 @@ const before_counter = run_state.workflow.version_counter || 0;
 const response = await curl_workflow_operation(...);
 const workflow_id = response.id;
 
-// STEP 3: Read workflow AFTER changes via MCP
+// STEP 3: Read workflow AFTER changes via MCP (L-067 smart mode)
+const node_count = run_state.workflow?.node_count || 999;
 const after = await mcp__n8n-mcp__n8n_get_workflow({
   id: workflow_id,
-  mode: "full"
+  mode: node_count > 10 ? "structure" : "full"
 });
 
 // STEP 4: Verify version_id CHANGED (critical!)
@@ -481,10 +483,11 @@ User opens n8n UI during debugging → sees broken workflow → clicks "Revert t
 ### Solution: Version Counter Check
 
 ```javascript
-// BEFORE any fix attempt:
+// BEFORE any fix attempt (L-067 smart mode):
+const node_count = run_state.workflow?.node_count || 999;
 const current_workflow = await mcp__n8n-mcp__n8n_get_workflow({
   id: workflow_id,
-  mode: "full"
+  mode: node_count > 10 ? "structure" : "full"
 });
 
 const expected_counter = run_state.workflow.version_counter || 0;
@@ -538,9 +541,11 @@ DO NOT continue fixing - you're working on wrong version!
 
 ```javascript
 async function verifyAndDetectRollback(workflow_id, before_counter, expected_changes) {
+  // L-067 smart mode selection
+  const node_count = run_state.workflow?.node_count || 999;
   const after = await mcp__n8n-mcp__n8n_get_workflow({
     id: workflow_id,
-    mode: "full"
+    mode: node_count > 10 ? "structure" : "full"
   });
 
   // Check 1: Rollback detection

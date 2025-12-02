@@ -1,0 +1,16 @@
+{
+  "snapshot_timestamp": 1764618234,
+  "purpose": "Pre-UPC Database integration backup",
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "workflow_name": "FoodTracker",
+  "n8n_version_id": "1dba9a9f-e258-4aec-8f4d-6258345d31e0",
+  "n8n_version_counter": 51,
+  "total_nodes": 30,
+  "workflow": {
+    "id": "sw3Qs3Fe3JahEbbW",
+    "name": "FoodTracker",
+    "versionId": "1dba9a9f-e258-4aec-8f4d-6258345d31e0",
+    "versionCounter": 51
+  },
+  "note": "Snapshot taken before adding 4 nodes for UPC Database tier-2 fallback. Can restore via n8n version history if needed."
+}

@@ -160,7 +160,10 @@ When `workflow_id` is provided → run impact analysis BEFORE research phase.
 
 ### Protocol
 
-1. **Fetch workflow**: `n8n_get_workflow(id, mode="full")`
+1. **Fetch workflow** (via Researcher with L-067 smart mode):
+   - If node_count > 10 → mode="structure"
+   - If node_count ≤ 10 → mode="full"
+   - **Note:** Architect does NOT call MCP tools! Researcher provides workflow data.
 2. **Build dependency graph**: Analyze connections + expressions
 3. **Identify modification zone**:
    - `target_nodes` — what we're changing

@@ -482,10 +482,11 @@ if (!workflow_id) {
   FAIL("CRITICAL: No workflow ID in run_state - Builder failed!");
 }
 
-// Step 3: VERIFY workflow exists in n8n
+// Step 3: VERIFY workflow exists in n8n (L-067 smart mode)
+const nodeCount = run_state.workflow?.node_count || 999;
 const workflow = await mcp__n8n-mcp__n8n_get_workflow({
   id: workflow_id,
-  mode: "full"
+  mode: nodeCount > 10 ? "structure" : "full"
 });
 
 if (!workflow || !workflow.id) {

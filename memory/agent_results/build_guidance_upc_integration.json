@@ -1,0 +1,438 @@
+{
+  "research_phase": "implementation",
+  "research_target": "UPC Database API integration for 3-tier barcode lookup fallback",
+  "decision_context": "Add UPC Database as tier 2 fallback between OpenFoodFacts (tier 1) and Vision AI (tier 3)",
+  "api_research": {
+    "api_name": "UPCitemdb API",
+    "why_chosen": "Free tier with 100 requests/day, no API key required for trial endpoint, JSON response format compatible with existing parsing logic",
+    "alternatives_considered": [
+      {
+        "name": "upcdatabase.org",
+        "pros": "Comprehensive database",
+        "cons": "Requires registration, OAuth token management, more complex authentication"
+      },
+      {
+        "name": "Go-UPC",
+        "pros": "Good documentation",
+        "cons": "Requires API key even for trial, registration barrier"
+      }
+    ],
+    "selected_api": {
+      "name": "UPCitemdb",
+      "base_url": "https://api.upcitemdb.com",
+      "endpoint": "/prod/trial/lookup",
+      "method": "GET",
+      "authentication": "none (trial endpoint)",
+      "rate_limits": {
+        "daily": "100 requests",
+        "burst": "15 lookup requests per 30 seconds"
+      },
+      "url_format": "https://api.upcitemdb.com/prod/trial/lookup?upc={barcode}",
+      "example_request": "curl -X GET 'https://api.upcitemdb.com/prod/trial/lookup?upc=4002293401102'",
+      "response_format": "JSON",
+      "response_structure": {
+        "success": {
+          "code": "OK",
+          "total": 1,
+          "items": [
+            {
+              "title": "Product Name",
+              "brand": "Brand Name",
+              "images": ["https://..."],
+              "description": "...",
+              "category": "Food > ...",
+              "upc": "4002293401102",
+              "ean": "4002293401102"
+            }
+          ]
+        },
+        "error_404": {
+          "code": "INVALID_UPC",
+          "message": "UPC not found in database"
+        },
+        "error_429": {
+          "code": "RATE_LIMIT_EXCEEDED",
+          "message": "Too many requests"
+        }
+      },
+      "sources": [
+        "https://devs.upcitemdb.com/",
+        "https://publicapis.io/upc-database-api",
+        "https://www.upcitemdb.com/wp/docs/main/development/getting-started/"
+      ]
+    }
+  },
+  "integration_architecture": {
+    "current_flow": [
+      "Process Photo → Download Photo → Extract Barcode",
+      "Extract Barcode → Parse Barcode Result",
+      "Parse Barcode Result → IF Has Barcode",
+      "IF Has Barcode[true] → Get OpenFoodFacts → Parse OpenFoodFacts",
+      "IF Has Barcode[false] → Restore Binary for Vision → Vision Analysis"
+    ],
+    "new_flow_3_tier": [
+      "Process Photo → Download Photo → Extract Barcode",
+      "Extract Barcode → Parse Barcode Result",
+      "Parse Barcode Result → IF Has Barcode",
+      "IF Has Barcode[true] → Get OpenFoodFacts",
+      "Get OpenFoodFacts → Parse OpenFoodFacts",
+      "Parse OpenFoodFacts → IF OpenFoodFacts Success",
+      "IF OpenFoodFacts Success[false] → Get UPC Database (NEW!)",
+      "Get UPC Database → Parse UPC Response (NEW!)",
+      "Parse UPC Response → IF UPC Success (NEW!)",
+      "IF UPC Success[false] → Restore Binary for Vision → Vision Analysis",
+      "IF UPC Success[true] → Merge Photo Paths",
+      "IF OpenFoodFacts Success[true] → Merge Photo Paths",
+      "IF Has Barcode[false] → Restore Binary for Vision → Vision Analysis"
+    ],
+    "nodes_to_add": [
+      "IF OpenFoodFacts Success",
+      "Get UPC Database",
+      "Parse UPC Response",
+      "IF UPC Success"
+    ],
+    "nodes_to_modify": [
+      "Parse OpenFoodFacts (add success detection logic)"
+    ],
+    "connections_to_add": [
+      "Parse OpenFoodFacts → IF OpenFoodFacts Success",
+      "IF OpenFoodFacts Success[false] → Get UPC Database",
+      "Get UPC Database → Parse UPC Response",
+      "Parse UPC Response → IF UPC Success",
+      "IF UPC Success[true] → Merge Photo Paths",
+      "IF UPC Success[false] → Restore Binary for Vision"
+    ],
+    "connections_to_remove": [
+      "Parse OpenFoodFacts → Merge Photo Paths (direct connection)"
+    ]
+  },
+  "node_configurations": {
+    "get_upc_database": {
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "name": "Get UPC Database",
+      "description": "Tier 2: UPC Database API fallback when OpenFoodFacts fails",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.upcitemdb.com/prod/trial/lookup?upc={{ $json.barcode }}",
+        "authentication": "none",
+        "options": {}
+      },
+      "continueOnFail": true,
+      "notes": "CRITICAL: continueOnFail at node level (NOT in options.ignoreHttpStatusErrors - doesn't work in v4.2). Handles 404 gracefully for products not in UPC database.",
+      "learnings_applied": [
+        "L-continueOnFail: Use continueOnFail at node level, not options.ignoreHttpStatusErrors (v4.2 ignores it)",
+        "L-error-handling: Next node checks $input.item.json.error to detect failures"
+      ]
+    },
+    "parse_upc_response": {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "name": "Parse UPC Response",
+      "description": "Parse UPCitemdb response and normalize to OpenFoodFacts format",
+      "mode": "runOnceForAllItems",
+      "code": "// Get UPC API response\nconst upcResponse = $input.first().json;\nconst photoData = $(\"Process Photo\").first().json;\n\n// Check if API call failed (404, timeout, etc.)\nif (upcResponse.error || upcResponse.code === 'INVALID_UPC') {\n  return [{\n    json: {\n      success: false,\n      source: 'upc_database',\n      error: upcResponse.error || 'Product not found in UPC database',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\n// Check if rate limit exceeded\nif (upcResponse.code === 'RATE_LIMIT_EXCEEDED') {\n  return [{\n    json: {\n      success: false,\n      source: 'upc_database',\n      error: 'UPC Database rate limit exceeded (100/day)',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\n// Success: normalize UPC response to match OpenFoodFacts format\nconst item = upcResponse.items?.[0];\nif (!item) {\n  return [{\n    json: {\n      success: false,\n      source: 'upc_database',\n      error: 'Empty response from UPC database',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\nreturn [{\n  json: {\n    type: 'photo',\n    source: 'upc_database',\n    success: true,\n    data: `${item.brand || 'Unknown'} - ${item.title}`,\n    product_name: item.title,\n    brand: item.brand,\n    category: item.category,\n    barcode: item.upc || item.ean,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner,\n    raw_upc_response: upcResponse\n  },\n  binary: $input.item.binary\n}];",
+      "notes": "Normalizes UPCitemdb response to match OpenFoodFacts format. Handles 404, rate limits, empty responses. Preserves binary data for potential Vision fallback.",
+      "learnings_applied": [
+        "L-modern-syntax: Uses $(\"...\").first().json for node references",
+        "L-binary-preservation: Includes binary in output for downstream nodes",
+        "L-error-handling: Checks multiple error conditions (404, rate limit, empty)",
+        "L-data-normalization: Converts UPC format to match existing Parse OpenFoodFacts output"
+      ],
+      "outputs": [
+        "type",
+        "source",
+        "success",
+        "data",
+        "product_name",
+        "brand",
+        "category",
+        "barcode",
+        "user_id",
+        "telegram_user_id",
+        "owner",
+        "raw_upc_response",
+        "error (if failed)"
+      ]
+    },
+    "if_openfoodfacts_success": {
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "name": "IF OpenFoodFacts Success",
+      "description": "Route to UPC Database if OpenFoodFacts failed (404)",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "openfoodfacts-success-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "notes": "TRUE = OpenFoodFacts found product → continue to Merge. FALSE = 404 from OpenFoodFacts → try UPC Database.",
+      "learnings_applied": [
+        "L-if-node-v2.2: Use conditions structure with operator object",
+        "L-boolean-check: Direct boolean comparison (not string 'true')"
+      ]
+    },
+    "if_upc_success": {
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "name": "IF UPC Success",
+      "description": "Route to Vision AI if UPC Database also failed",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "upc-success-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "notes": "TRUE = UPC Database found product → continue to Merge. FALSE = Both APIs failed → use Vision AI as final fallback.",
+      "learnings_applied": [
+        "L-if-node-v2.2: Use conditions structure with operator object",
+        "L-boolean-check: Direct boolean comparison"
+      ]
+    },
+    "parse_openfoodfacts_updated": {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "name": "Parse OpenFoodFacts",
+      "description": "UPDATED: Add success detection for 404 handling",
+      "modification_type": "update_existing",
+      "changes": [
+        "Add success: true/false field to output",
+        "Detect 404 errors from OpenFoodFacts API",
+        "Preserve all existing fields (backward compatible)"
+      ],
+      "updated_code": "// Get OpenFoodFacts response\nconst offResponse = $input.first().json;\nconst photoData = $(\"Process Photo\").first().json;\n\n// Check if API call failed (404, timeout, etc.)\nif (offResponse.error || offResponse.status === 0) {\n  return [{\n    json: {\n      success: false,\n      source: 'openfoodfacts',\n      error: offResponse.error || 'Product not found in OpenFoodFacts',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\n// Check if product exists (status=1 means found)\nif (!offResponse.product || offResponse.status !== 1) {\n  return [{\n    json: {\n      success: false,\n      source: 'openfoodfacts',\n      error: 'Product not found in OpenFoodFacts database',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: offResponse.code || $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\n// Success: product found\nconst product = offResponse.product;\nconst productName = product.product_name || product.product_name_ru || product.product_name_en || 'Unknown Product';\nconst brand = product.brands || 'Unknown Brand';\n\nreturn [{\n  json: {\n    type: 'photo',\n    source: 'openfoodfacts',\n    success: true,\n    data: `${brand} - ${productName}`,\n    product_name: productName,\n    brand: brand,\n    barcode: product.code || offResponse.code,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner,\n    raw_off_response: offResponse\n  },\n  binary: $input.item.binary\n}];",
+      "notes": "BACKWARD COMPATIBLE: Adds success field but preserves all existing output fields. Detects 404 (status=0 or status!=1) for fallback routing.",
+      "learnings_applied": [
+        "L-backward-compatibility: Existing Merge Photo Paths node expects these fields",
+        "L-error-detection: Check both offResponse.error and offResponse.status",
+        "L-binary-preservation: Pass binary data through for potential Vision fallback"
+      ]
+    }
+  },
+  "node_positioning": {
+    "strategy": "Insert between Parse OpenFoodFacts and Merge Photo Paths",
+    "recommended_positions": {
+      "IF OpenFoodFacts Success": [1200, 400],
+      "Get UPC Database": [1200, 600],
+      "Parse UPC Response": [1400, 600],
+      "IF UPC Success": [1600, 600]
+    },
+    "notes": "Position new nodes vertically below Parse OpenFoodFacts to keep main flow horizontal. Tier 2 (UPC) below tier 1 (OpenFoodFacts), tier 3 (Vision) already positioned below."
+  },
+  "connection_details": {
+    "smart_parameters": {
+      "if_openfoodfacts_success_true": {
+        "source": "Parse OpenFoodFacts",
+        "target": "Merge Photo Paths",
+        "branch": "true",
+        "description": "OpenFoodFacts found product → continue main flow"
+      },
+      "if_openfoodfacts_success_false": {
+        "source": "Parse OpenFoodFacts",
+        "target": "Get UPC Database",
+        "branch": "false",
+        "description": "OpenFoodFacts 404 → try UPC Database"
+      },
+      "if_upc_success_true": {
+        "source": "Parse UPC Response",
+        "target": "Merge Photo Paths",
+        "branch": "true",
+        "description": "UPC Database found product → continue main flow"
+      },
+      "if_upc_success_false": {
+        "source": "Parse UPC Response",
+        "target": "Restore Binary for Vision",
+        "branch": "false",
+        "description": "Both APIs failed → use Vision AI as final fallback"
+      }
+    },
+    "learnings_applied": [
+      "L-smart-parameters: Use branch='true'/'false' for IF nodes (clear and semantic)",
+      "L-connection-routing: IF nodes support multiple outputs via branch parameter"
+    ]
+  },
+  "testing_strategy": {
+    "test_cases": [
+      {
+        "case": "Tier 1 Success",
+        "barcode": "Known product in OpenFoodFacts",
+        "expected_flow": "Extract Barcode → OpenFoodFacts → IF Success[true] → Merge",
+        "expected_source": "openfoodfacts",
+        "skip_nodes": ["Get UPC Database", "Vision Analysis"]
+      },
+      {
+        "case": "Tier 2 Success",
+        "barcode": "Product NOT in OpenFoodFacts but IN UPC Database",
+        "expected_flow": "Extract Barcode → OpenFoodFacts 404 → UPC Database → IF Success[true] → Merge",
+        "expected_source": "upc_database",
+        "skip_nodes": ["Vision Analysis"]
+      },
+      {
+        "case": "Tier 3 Fallback",
+        "barcode": "Product NOT in any database",
+        "expected_flow": "Extract Barcode → OpenFoodFacts 404 → UPC Database 404 → Vision Analysis → Merge",
+        "expected_source": "vision",
+        "all_nodes_execute": true
+      },
+      {
+        "case": "No Barcode Detected",
+        "barcode": null,
+        "expected_flow": "Extract Barcode → IF Has Barcode[false] → Vision Analysis → Merge",
+        "expected_source": "vision",
+        "skip_nodes": ["Get OpenFoodFacts", "Get UPC Database"]
+      },
+      {
+        "case": "Rate Limit Handling",
+        "barcode": "Any barcode (after 100 requests)",
+        "expected_flow": "Extract Barcode → OpenFoodFacts 404 → UPC Database 429 → Vision Analysis → Merge",
+        "expected_source": "vision",
+        "expected_error": "UPC Database rate limit exceeded"
+      }
+    ]
+  },
+  "gotchas_and_warnings": {
+    "critical": [
+      {
+        "issue": "continueOnFail placement",
+        "description": "MUST use continueOnFail: true at node level for Get UPC Database, NOT in options.ignoreHttpStatusErrors",
+        "reason": "httpRequest v4.2 ignores options.ignoreHttpStatusErrors but respects node-level continueOnFail",
+        "consequence_if_ignored": "404 errors will crash entire workflow instead of falling back to Vision",
+        "learning_id": "L-continueOnFail",
+        "line_in_learnings": 2598
+      },
+      {
+        "issue": "Binary data preservation",
+        "description": "ALL Code nodes MUST include binary: $input.item.binary in output",
+        "reason": "Vision Analysis needs photo binary data as final fallback",
+        "consequence_if_ignored": "Vision Analysis will fail with 'no binary data' error if both APIs fail",
+        "learning_id": "L-068",
+        "line_in_learnings": 330
+      },
+      {
+        "issue": "Parse OpenFoodFacts modification",
+        "description": "UPDATE existing Parse OpenFoodFacts node (don't create new), preserve ALL existing output fields",
+        "reason": "Merge Photo Paths downstream expects specific fields (data, user_id, etc.)",
+        "consequence_if_ignored": "Breaking change - Merge Photo Paths will fail with missing fields",
+        "learning_id": "L-backward-compatibility"
+      },
+      {
+        "issue": "Rate limit exhaustion",
+        "description": "UPC Database free tier: 100 requests/day, 15 requests/30sec burst",
+        "reason": "After 100 barcode scans per day, tier 2 will always fail",
+        "mitigation": "Parse UPC Response detects rate limit (code=RATE_LIMIT_EXCEEDED) and routes to Vision",
+        "monitoring": "Check execution logs for rate limit errors, consider paid plan if frequent"
+      }
+    ],
+    "important": [
+      {
+        "issue": "Node references in Code nodes",
+        "description": "Use modern syntax $(\"Node Name\").first().json, NOT deprecated $node[\"Node Name\"]",
+        "reason": "Deprecated syntax causes 300-second timeout (L-060)",
+        "learning_id": "L-060",
+        "line_in_learnings": 3560
+      },
+      {
+        "issue": "IF node boolean comparison",
+        "description": "Use boolean true/false in rightValue, NOT string 'true'/'false'",
+        "reason": "String comparison will always fail",
+        "learning_id": "L-if-node-boolean"
+      },
+      {
+        "issue": "Error object structure",
+        "description": "Check $input.item.json.error to detect HTTP Request failures",
+        "reason": "continueOnFail=true doesn't throw error, but adds error field to output",
+        "learning_id": "L-error-handling",
+        "line_in_learnings": 2626
+      }
+    ],
+    "nice_to_know": [
+      {
+        "issue": "UPC vs EAN barcodes",
+        "description": "UPCitemdb supports both UPC (12-digit) and EAN (13-digit) formats",
+        "benefit": "Works with international products (EAN) and US products (UPC)"
+      },
+      {
+        "issue": "Response normalization",
+        "description": "Parse UPC Response converts UPCitemdb format to match OpenFoodFacts format",
+        "benefit": "Merge Photo Paths node doesn't need changes - sees same data structure from both sources"
+      },
+      {
+        "issue": "Source tracking",
+        "description": "Each parsed result includes source field: 'openfoodfacts', 'upc_database', or 'vision'",
+        "benefit": "Analytics: track which API successfully identified products"
+      }
+    ]
+  },
+  "expected_changes_summary": {
+    "nodes_added": 4,
+    "nodes_modified": 1,
+    "connections_added": 6,
+    "connections_removed": 1,
+    "total_nodes_after": 34,
+    "estimated_complexity": "medium",
+    "estimated_build_time": "15-20 minutes",
+    "validation_critical_points": [
+      "Get UPC Database has continueOnFail: true",
+      "Parse OpenFoodFacts includes success field",
+      "All Code nodes preserve binary data",
+      "IF nodes use boolean comparison (not string)",
+      "Smart parameters use branch='true'/'false'"
+    ]
+  },
+  "rollback_plan": {
+    "if_tier2_fails": [
+      "Remove: IF OpenFoodFacts Success, Get UPC Database, Parse UPC Response, IF UPC Success",
+      "Restore: Direct connection Parse OpenFoodFacts → Merge Photo Paths",
+      "Revert: Parse OpenFoodFacts code to original (remove success field)"
+    ],
+    "backup_required": true,
+    "backup_location": "memory/workflow_snapshots/sw3Qs3Fe3JahEbbW/pre_upc_integration.json"
+  },
+  "learnings_referenced": [
+    "L-continueOnFail (line 2598): HTTP Request error handling",
+    "L-068 (line 330): Binary data preservation through IF nodes",
+    "L-060 (line 3560): Deprecated $node[\"...\"] syntax causes timeout",
+    "L-modern-syntax: $(\"Node Name\").first().json",
+    "L-error-detection: Check $input.item.json.error after continueOnFail",
+    "L-if-node-v2.2: Modern conditions structure with operator object",
+    "L-smart-parameters: Use branch='true'/'false' for IF nodes",
+    "L-backward-compatibility: Preserve existing output fields when modifying nodes"
+  ],
+  "ready_for_builder": true,
+  "confidence": "HIGH",
+  "research_complete": true,
+  "next_agent": "builder",
+  "builder_instructions": "Implement 3-tier barcode lookup: OpenFoodFacts → UPC Database → Vision AI. Add 4 nodes, modify Parse OpenFoodFacts to detect 404, use continueOnFail at node level for Get UPC Database. Preserve binary data in all Code nodes. Use smart parameters (branch='true'/'false') for IF connections."
+}

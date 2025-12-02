@@ -673,9 +673,13 @@ Level 2: TARGETED_DEBUG (2 agents, ~2K tokens)
 Level 3: FULL_INVESTIGATION (NEW 9-STEP ALGORITHM!)
 ├── Trigger: Complex issue, user reports "bot not working"
 ├── **PHASE 1: FULL DIAGNOSIS** (Researcher only!)
-│   ├── Download COMPLETE workflow (mode="full")
+│   ├── Download workflow with smart mode selection (L-067):
+│   │   ├── If node_count > 10 → mode="structure" (safe, ~2-5K tokens)
+│   │   └── If node_count ≤ 10 → mode="full" (safe for small workflows)
 │   ├── Decompose ALL nodes (types, params, code, credentials)
-│   ├── Analyze 10 executions (patterns, break points)
+│   ├── Analyze executions with two-step approach (L-067):
+│   │   ├── STEP 1: mode="summary" (all nodes, find WHERE)
+│   │   └── STEP 2: mode="filtered" (problem nodes only, find WHY)
 │   ├── Find WHERE it breaks (exact node + reason)
 │   ├── Identify ROOT CAUSE (not symptom!)
 │   └── Output: diagnosis_complete.json with hypothesis

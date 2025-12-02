@@ -1,0 +1,97 @@
+{
+  "analysis_timestamp": "2025-12-01T06:10:00Z",
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "nodes_analyzed": ["Parse Barcode Result", "IF Has Barcode"],
+
+  "parse_barcode_result": {
+    "node_id": "7d0dc95a-b5cf-47e9-9945-b72fc691b490",
+    "type": "n8n-nodes-base.code",
+    "javascript_code": "const visionResponse = $json.content || $json.text || '';\nconst photoData = $(\"Process Photo\").first().json;\n\nconst barcodeMatch = visionResponse.match(/\\d{8,14}/);\nconst hasBarcode = barcodeMatch && visionResponse !== 'NO_BARCODE';\n\nreturn [{\n  json: {\n    barcode: hasBarcode ? barcodeMatch[0] : null,\n    has_barcode: hasBarcode,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner,\n    vision_response: visionResponse\n  },\n  binary: $input.item.binary\n}];",
+    "outputs": {
+      "barcode": "null when no barcode, or extracted digits",
+      "has_barcode": "boolean - true if barcodeMatch exists AND visionResponse !== 'NO_BARCODE'",
+      "user_id": "from Process Photo",
+      "telegram_user_id": "from Process Photo",
+      "owner": "from Process Photo",
+      "vision_response": "raw response from Extract Barcode node"
+    },
+    "regex": "/\\d{8,14}/",
+    "logic": "hasBarcode = barcodeMatch AND visionResponse !== 'NO_BARCODE'"
+  },
+
+  "if_has_barcode": {
+    "node_id": "a05b15c1-7b84-4eb7-895a-ec9a28219b69",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2,
+    "condition": {
+      "leftValue": "={{ $json.has_barcode }}",
+      "operator": "boolean.equals",
+      "rightValue": true
+    },
+    "outputs": {
+      "true": "Get OpenFoodFacts",
+      "false": "Restore Binary for Vision"
+    }
+  },
+
+  "hypothesis": {
+    "root_cause": "Extract Barcode Vision API not detecting barcodes in photos",
+    "evidence": [
+      "Parse Barcode Result logic is correct - checks for 8-14 digit numbers",
+      "IF Has Barcode condition is correct - checks $json.has_barcode === true",
+      "Field names match perfectly between nodes",
+      "Logic chain is sound: barcodeMatch from regex → hasBarcode calculation → IF evaluation"
+    ],
+    "probable_failure_point": "Extract Barcode node (OpenAI Vision API gpt-4o-mini)",
+    "why": [
+      "Vision API may be returning 'NO_BARCODE' text",
+      "OR: Vision API may be returning barcode with text (e.g., 'The barcode is 1234567890')",
+      "OR: Vision API quality issue - gpt-4o-mini may not be good at barcode recognition",
+      "Parse Barcode Result would extract digits from text, but 'NO_BARCODE' check comes first",
+      "If visionResponse === 'NO_BARCODE', hasBarcode = false (even if barcodeMatch exists)"
+    ],
+    "field_name_match": "PERFECT - no mismatch",
+    "logic_error": "NONE - logic is correct"
+  },
+
+  "recommended_investigation": {
+    "step_1": "Check recent execution data",
+    "step_2": "Inspect Extract Barcode node output (what Vision API actually returns)",
+    "step_3": "Compare Vision API response with Parse Barcode Result logic",
+    "critical_questions": [
+      "What does Extract Barcode return for barcode photos? (exact text)",
+      "Does it return 'NO_BARCODE' string?",
+      "Does it return barcode with surrounding text?",
+      "Is gpt-4o-mini sufficient for barcode recognition?"
+    ]
+  },
+
+  "potential_fixes": [
+    {
+      "fix_id": "FIX-1",
+      "description": "Upgrade Extract Barcode to gpt-4o (better vision)",
+      "impact": "Higher accuracy, costs more",
+      "confidence": "MEDIUM"
+    },
+    {
+      "fix_id": "FIX-2",
+      "description": "Improve Extract Barcode prompt - add examples of barcode formats",
+      "impact": "Better instruction following",
+      "confidence": "MEDIUM"
+    },
+    {
+      "fix_id": "FIX-3",
+      "description": "Change Parse Barcode Result logic - if visionResponse contains digits, extract even if text contains NO_BARCODE",
+      "impact": "More aggressive barcode detection",
+      "confidence": "LOW - may cause false positives"
+    },
+    {
+      "fix_id": "FIX-4",
+      "description": "Add dedicated barcode scanning library (not Vision API)",
+      "impact": "100% accuracy for clear barcodes, more complex",
+      "confidence": "HIGH - but requires new node/service"
+    }
+  ],
+
+  "next_step": "View execution data to see Extract Barcode actual output"
+}

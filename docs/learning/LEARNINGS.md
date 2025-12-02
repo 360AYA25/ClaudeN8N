@@ -323,6 +323,37 @@ if (nodeCount > 10) {
 - qa.md (4 locations)
 - orch.md Post-Build verification
 
+### Final Fix - Orchestrator L3 FULL_INVESTIGATION (v3.3.2)
+
+**Problem discovered:** User reported "Prompt is too long" on cycle 2 during L3_FULL_INVESTIGATION:
+- orch.md line 676 still had outdated `"Download COMPLETE workflow (mode="full")"`
+- This bypassed L-067 smart mode selection
+- Affected: Orchestrator L3 protocol + several builder/qa verification locations
+
+**Solution:** Complete L-067 coverage across all agent coordination:
+
+```
+orch.md L3 FULL_INVESTIGATION PHASE 1:
+BEFORE:
+│   ├── Download COMPLETE workflow (mode="full")
+│   ├── Analyze 10 executions (patterns, break points)
+
+AFTER:
+│   ├── Download workflow with smart mode selection (L-067):
+│   │   ├── If node_count > 10 → mode="structure" (safe, ~2-5K tokens)
+│   │   └── If node_count ≤ 10 → mode="full" (safe for small workflows)
+│   ├── Analyze executions with two-step approach (L-067):
+│   │   ├── STEP 1: mode="summary" (all nodes, find WHERE)
+│   │   └── STEP 2: mode="filtered" (problem nodes only, find WHY)
+```
+
+**Additional fixes in v3.3.2:**
+- architect.md line 163 - clarified no MCP tools for Architect
+- builder.md lines 215, 303, 487, 543 - all verification locations
+- qa.md line 488 - workflow verification
+
+**Impact:** L-067 now FULLY implemented across entire system (Orchestrator + all agents).
+
 **Tags:** #execution-analysis #mode-selection #large-workflows #performance #token-optimization #binary-data #L-067
 
 ---

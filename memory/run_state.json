@@ -1,59 +1,291 @@
 {
-  "id": "run_20251201_barcode_diagnosis",
-  "stage": "diagnosis",
+  "id": "run_20251201_bot_duplicate_wrong_data",
+  "stage": "test",
+  "level": "L3_FULL_INVESTIGATION",
   "project_id": "food-tracker",
   "project_path": "/Users/sergey/Projects/MultiBOT/bots/food-tracker",
   "workflow_id": "sw3Qs3Fe3JahEbbW",
   "workflow_name": "FoodTracker",
-  "user_request": "Diagnose and fix barcode scanning - Extract Barcode → Parse → IF Has Barcode → OpenFoodFacts flow not working",
-  "goal": "Fix barcode scanning flow - currently always goes to FALSE path instead of detecting barcode and calling OpenFoodFacts API",
-  "debug_level": "L3_FULL_INVESTIGATION",
-  "debug_reason": "Barcode flow broken - Vision API not detecting barcodes, or parsing/condition logic incorrect. Need full diagnosis of Extract Barcode + Parse Barcode Result + IF Has Barcode nodes.",
-  "cycle_count": 0,
-  "snapshot": {
-    "dir": "memory/workflow_snapshots/sw3Qs3Fe3JahEbbW",
-    "file": "memory/workflow_snapshots/sw3Qs3Fe3JahEbbW/canonical.json",
-    "version": 1,
-    "total_nodes": 29,
-    "anti_patterns_count": 0,
-    "loaded": true
-  },
-  "barcode_flow_context": {
-    "working_paths": ["text", "voice", "photo_vision"],
-    "broken_path": "barcode",
-    "expected_behavior": "Extract Barcode (Vision API) → Parse Barcode Result → IF Has Barcode TRUE → Get OpenFoodFacts",
-    "actual_behavior": "IF Has Barcode always FALSE → goes to Vision Analysis instead",
-    "nodes_to_investigate": [
-      "Extract Barcode",
-      "Parse Barcode Result",
-      "IF Has Barcode",
-      "Get OpenFoodFacts",
-      "Parse OpenFoodFacts"
-    ],
-    "openfoodfacts_api": "https://world.openfoodfacts.org/api/v2/product/{barcode}.json",
-    "telegram_user_id": "682776858"
-  },
-  "requirements": {
-    "do_not_break": ["text_path", "voice_path", "photo_vision_path"],
-    "fix_target": "barcode_detection_and_openfoodfacts",
-    "credentials": {
-      "telegram": "ofhXzaw3ObXDT5JY",
-      "openai": "NPHTuT9Bime92Mku",
-      "supabase": "DYpIGQK8a652aosj"
-    }
-  },
+  "user_request": "Bot sends duplicate messages with wrong nutrition data (35g protein in cookies)",
+  "goal": "Fix duplicate bot responses and incorrect nutrition data in barcode scan results",
+  "issues_reported": [
+    "Duplicate message: bot sends same response twice",
+    "Wrong nutrition data: 60g cookies = 317 kcal, protein: 35g (should be ~3-4g)",
+    "Barcode scan: 0661911965188 (cookies with chocolate chips)"
+  ],
+  "cycle_count": 2,
   "agent_log": [
     {
-      "ts": "2025-12-01T00:00:00Z",
+      "ts": "2025-12-01T21:45:00Z",
       "agent": "orchestrator",
-      "action": "new_task_initialized",
-      "details": "Barcode scanning diagnosis started. L3 FULL INVESTIGATION protocol. Phase 1: Researcher full diagnosis."
+      "action": "l3_investigation_started",
+      "details": "User reports: duplicate messages + wrong nutrition data. Starting PHASE 1 full diagnosis with Researcher."
+    },
+    {
+      "ts": "2025-12-01T21:50:00Z",
+      "agent": "researcher",
+      "action": "diagnosis_complete",
+      "details": "Root cause identified: UPC Database tier 2 never executes due to binary data loss at IF OpenFoodFacts Success node"
+    },
+    {
+      "ts": "2025-12-01T21:52:00Z",
+      "agent": "orchestrator",
+      "action": "stage_transition",
+      "details": "diagnosis → build. Delegating to Builder to insert binary data restore Code node per L-068 pattern."
+    },
+    {
+      "ts": "2025-12-01T21:53:04Z",
+      "agent": "builder",
+      "action": "fix_applied",
+      "details": "Inserted 'Restore Binary for UPC' Code node between IF OpenFoodFacts Success output[1] and Get UPC Database. Applied L-068 pattern to restore binary data from Download Photo node."
+    },
+    {
+      "ts": "2025-12-01T22:00:00Z",
+      "agent": "qa",
+      "action": "validation_complete",
+      "details": "Structure validation passed (0 errors, 55 warnings). Version 77→79 verified. Connections intact. Requires Phase 5 real test with barcode 0661911965188 to confirm UPC tier 2 executes."
+    },
+    {
+      "ts": "2025-12-01T22:10:00Z",
+      "agent": "orchestrator",
+      "action": "real_test_executed",
+      "details": "User tested with photo. Bot returned error message instead of wrong data. Execution #33586 shows Restore Binary for UPC ✅ executed, but Get UPC Database ❌ not executed. Investigating further."
+    },
+    {
+      "ts": "2025-12-01T22:15:00Z",
+      "agent": "orchestrator",
+      "action": "root_cause_identified",
+      "details": "NEW ROOT CAUSE: Get UPC Database URL uses $('Parse Barcode Result').first().json.barcode - this reference is not accessible after 6 nodes in chain. Binary data restoration works, but URL expression fails. Solution: Change to $json.barcode since Restore Binary for UPC already passes barcode in current input."
+    },
+    {
+      "ts": "2025-12-01T22:16:00Z",
+      "agent": "orchestrator",
+      "action": "stage_transition",
+      "details": "test → build (cycle 2). Delegating to Builder to fix Get UPC Database URL parameter."
+    },
+    {
+      "ts": "2025-12-01T22:17:00Z",
+      "agent": "builder",
+      "action": "fix_applied_cycle2",
+      "details": "Updated 'Get UPC Database' node URL from $('Parse Barcode Result').first().json.barcode to $json.barcode. Version 79→81."
+    },
+    {
+      "ts": "2025-12-01T22:17:30Z",
+      "agent": "orchestrator",
+      "action": "stage_transition",
+      "details": "build → validate (cycle 2). Delegating to QA for validation."
+    },
+    {
+      "ts": "2025-12-01T22:18:00Z",
+      "agent": "qa",
+      "action": "validation_complete_cycle2",
+      "details": "Structure validation passed (0 errors, 55 warnings). Version 79→81 verified. URL parameter change confirmed. Ready for real test."
+    },
+    {
+      "ts": "2025-12-01T22:18:30Z",
+      "agent": "orchestrator",
+      "action": "stage_transition",
+      "details": "validate → test (cycle 2). Requesting user to test with barcode photo."
     }
   ],
   "usage": {
-    "tokens_used": 0,
-    "agent_calls": 0,
+    "tokens_used": 95000,
+    "agent_calls": 2,
     "qa_cycles": 0,
-    "cost_usd": 0.0
+    "cost_usd": 0.35
+  },
+  "research_findings": {
+    "workflow_snapshot": {
+      "workflow_id": "sw3Qs3Fe3JahEbbW",
+      "node_count": 35,
+      "version_id": "70c2164d-ff3f-4a36-b6d7-8b5ae80fa075",
+      "version_counter": 77,
+      "updated_at": "2025-12-01T21:35:25.943Z",
+      "saved_to": "memory/diagnostics/workflow_sw3Qs3Fe3JahEbbW_full.json"
+    },
+    "execution_summary": {
+      "latest_execution_id": "33585",
+      "status": "success",
+      "total_nodes": 21,
+      "executed_nodes": 21,
+      "stopping_node": "Parse OpenFoodFacts",
+      "skipped_nodes": [
+        "Get UPC Database",
+        "Parse UPC Response",
+        "IF UPC Success"
+      ]
+    },
+    "break_point": {
+      "last_successful": "Parse OpenFoodFacts",
+      "first_failed": "Get UPC Database",
+      "connection_exists": true,
+      "why_failed": "Binary data lost at IF OpenFoodFacts Success node",
+      "evidence": {
+        "parse_openfoodfacts_output": "JSON data present with success:false",
+        "if_openfoodfacts_success_output": "JSON passes through output[1] (false branch)",
+        "get_upc_database_input": "Binary data missing - node never receives data",
+        "conclusion": "IF node strips binary data from output, downstream nodes receive only JSON"
+      }
+    },
+    "root_cause": {
+      "symptom": "Get UPC Database (tier 2) never executes",
+      "root_cause": "IF OpenFoodFacts Success node strips binary data from output",
+      "why_chain": [
+        "Parse OpenFoodFacts outputs JSON with success:false + binary data",
+        "IF OpenFoodFacts Success routes to output[1] (false branch)",
+        "IF node implementation only passes JSON, strips binary field",
+        "Get UPC Database receives JSON without binary → never executes"
+      ],
+      "hypothesis": "IF node 'IF OpenFoodFacts Success' strips binary data at output - requires Code node to restore binary before Get UPC Database",
+      "learnings_applied": [
+        "L-068: IF Nodes Don't Pass Binary Data"
+      ]
+    },
+    "evidence": [
+      "Execution #33585: Parse OpenFoodFacts executed, output has JSON + binary",
+      "IF OpenFoodFacts Success executed, routed to output[1] (false branch)",
+      "Get UPC Database NOT in execution data (never executed)",
+      "LEARNINGS L-068: IF nodes strip binary data from output",
+      "Pattern: Photo workflows require binary data for UPC/Vision APIs"
+    ],
+    "confidence": "HIGH",
+    "confidence_score": 95,
+    "alternative_hypotheses": [],
+    "hypothesis_validated": true,
+    "validation_method": "Workflow config + execution data + LEARNINGS L-068 + binary data flow analysis",
+    "fix_required": {
+      "location": "Between 'IF OpenFoodFacts Success' output[1] and 'Get UPC Database'",
+      "action": "Insert Code node to restore binary data",
+      "code_pattern": "L-068 restoration pattern",
+      "estimated_fix_time": "5 minutes"
+    }
+  },
+  "build_result": {
+    "success": true,
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "version_id_before": "70c2164d-ff3f-4a36-b6d7-8b5ae80fa075",
+    "version_id_after": "5a439cee-7396-4ab1-8b8d-f03ac3858463",
+    "version_counter_before": 77,
+    "version_counter_after": 79,
+    "node_count_before": 33,
+    "node_count_after": 34,
+    "changes_applied": [
+      {
+        "type": "add_node",
+        "node_name": "Restore Binary for UPC",
+        "node_id": "restore-binary-upc-001",
+        "position": [
+          1100,
+          960
+        ],
+        "verified": true
+      },
+      {
+        "type": "update_connection",
+        "from": "IF OpenFoodFacts Success output[1] → Get UPC Database",
+        "to": "IF OpenFoodFacts Success output[1] → Restore Binary for UPC → Get UPC Database",
+        "verified": true
+      },
+      {
+        "type": "reposition_node",
+        "node_name": "Get UPC Database",
+        "position_before": [
+          1184,
+          960
+        ],
+        "position_after": [
+          1280,
+          960
+        ]
+      },
+      {
+        "type": "reposition_node",
+        "node_name": "Parse UPC Response",
+        "position_before": [
+          1360,
+          960
+        ],
+        "position_after": [
+          1456,
+          960
+        ]
+      },
+      {
+        "type": "reposition_node",
+        "node_name": "IF UPC Success",
+        "position_before": [
+          1520,
+          976
+        ],
+        "position_after": [
+          1616,
+          976
+        ]
+      }
+    ],
+    "validation": {
+      "valid": true,
+      "error_count": 0,
+      "warning_count": 55,
+      "total_nodes": 34,
+      "connections": 37
+    },
+    "pattern_applied": "L-068: Restore Binary for UPC"
+  },
+  "workflow": {
+    "id": "sw3Qs3Fe3JahEbbW",
+    "name": "FoodTracker",
+    "node_count": 34,
+    "version_id": "5a439cee-7396-4ab1-8b8d-f03ac3858463",
+    "version_counter": 79,
+    "updated_at": "2025-12-01T21:53:04.750Z",
+    "active": true
+  },
+  "qa_report": {
+    "validation_status": "passed",
+    "test_status": "requires_real_test",
+    "error_count": 0,
+    "warning_count": 55,
+    "critical_warnings": 0,
+    "edit_scope": [],
+    "ready_for_deploy": false,
+    "ready_for_real_test": true,
+    "phase_5_pending": true,
+    "full_report_file": "memory/agent_results/qa_report_run_20251201_bot_duplicate_wrong_data.json",
+    "verdict": "STRUCTURE_VALID_NEEDS_REAL_TEST",
+    "summary": "Structure validation passed. UPC tier 2 fix correctly applied. Requires real test with barcode 0661911965188."
+  },
+  "fix_required_cycle2": {
+    "node_name": "Get UPC Database",
+    "node_id": "get-upc-database-001",
+    "issue": "URL expression uses unreachable node reference $('Parse Barcode Result').first().json.barcode",
+    "why_unreachable": "Parse Barcode Result is 6 nodes back in chain, inaccessible after multiple IF/Code transformations",
+    "execution_evidence": "Execution #33586: Restore Binary for UPC executed ✅, Get UPC Database NOT executed ❌",
+    "current_url": "=https://api.upcitemdb.com/prod/trial/lookup?upc={{ $('Parse Barcode Result').first().json.barcode }}",
+    "fixed_url": "=https://api.upcitemdb.com/prod/trial/lookup?upc={{ $json.barcode }}",
+    "rationale": "Restore Binary for UPC already passes barcode in its output json, use current input instead of distant node reference",
+    "estimated_fix_time": "2 minutes"
+  },
+  "build_result_cycle2": {
+    "success": true,
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "version_id_before": "5a439cee-7396-4ab1-8b8d-f03ac3858463",
+    "version_id_after": "5d4b2f7d-6491-4ac3-a04d-49bfb25798d1",
+    "version_counter_before": 79,
+    "version_counter_after": 81,
+    "node_count_before": 34,
+    "node_count_after": 34,
+    "changes_applied": [
+      {
+        "type": "update_node",
+        "node_name": "Get UPC Database",
+        "node_id": "get-upc-database-001",
+        "parameter": "url",
+        "value_before": "=https://api.upcitemdb.com/prod/trial/lookup?upc={{ $('Parse Barcode Result').first().json.barcode }}",
+        "value_after": "=https://api.upcitemdb.com/prod/trial/lookup?upc={{ $json.barcode }}",
+        "verified": true
+      }
+    ],
+    "fix_applied": "Changed URL expression to use current input $json.barcode instead of unreachable node reference"
   }
 }
