@@ -2,6 +2,54 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.4.0] - 2025-12-02
+
+### 🔧 System Consistency Audit - Complete Documentation Fix
+
+**Completes system-wide consistency after v3.3.2 mode="full" fix + Orchestrator tool restrictions.**
+
+### Changes
+
+**Critical Fixes:**
+- **QA threshold**: Standardized to 7 cycles with progressive escalation (was conflicting 3 vs 7)
+- **IMPACT_ANALYSIS**: Clarified as clarification sub-phase (not separate stage)
+- **L-067**: Consolidated to single source `.claude/agents/shared/L-067-smart-mode-selection.md`
+- **Orchestrator restrictions**: Added explicit "PURE ROUTER" rule - NO MCP tools, ONLY Task delegation
+
+**High Priority:**
+- Tool Access Model standardized across all 5 agents
+- Orchestrator column added to Permission Matrix (ALL MCP = NO)
+- Cognitive trap warning: "I'll just quickly check..." → NO! Delegate!
+
+**Impact:**
+- Consistency: All protocols reference single sources of truth
+- Token savings: ~17K tokens per complex task (Orchestrator delegation)
+- Maintainability: L-067 logic in 1 file, not 5
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `.claude/CLAUDE.md` | QA threshold, Permission Matrix (Orch column) |
+| `.claude/commands/orch.md` | ORCHESTRATOR = PURE ROUTER section, IMPACT_ANALYSIS note |
+| `.claude/agents/builder.md` | L-067 consolidation, Tool Access Model |
+| `.claude/agents/qa.md` | L-067 consolidation, Tool Access Model |
+| `.claude/agents/researcher.md` | L-067 consolidation, Tool Access Model |
+| `.claude/agents/architect.md` | IMPACT_ANALYSIS clarification, Tool Access Model |
+| `.claude/agents/analyst.md` | L-067 reference, Tool Access Model |
+
+**Total:** 7 modified, 1 new (L-067-smart-mode-selection.md)
+
+### Breaking Changes
+
+None. Backward compatible with v3.3.2.
+
+### Root Cause (from Analyst)
+
+Orchestrator was using MCP tools directly ("I need to check X" → direct MCP call) instead of delegating to agents. This broke the 5-agent isolation model and wasted ~17% of session tokens.
+
+---
+
 ## [3.3.2] - 2025-12-02
 
 ### 🔧 Final L-067 Fix - Orchestrator L3 FULL_INVESTIGATION Mode
