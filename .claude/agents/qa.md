@@ -542,6 +542,48 @@ validate_workflow(workflow);
 - ✅ Verify node count matches claim
 - ❌ NEVER trust Builder's word alone!
 
+---
+
+## ❌ L-072: ANTI-FAKE - Verify REAL n8n, Not Files!
+
+**QA CANNOT validate based on files alone!**
+
+### Rules:
+1. ❌ **NEVER trust** `agent_results/workflow_*.json` files
+2. ❌ **NEVER trust** `build_result.success` in run_state
+3. ✅ **MUST call** `mcp__n8n-mcp__n8n_get_workflow` FIRST
+4. ✅ **MUST compare** node_count with Builder's claim
+5. ✅ **MUST verify** workflow.id exists in real n8n
+
+### FIRST action in QA validation (MANDATORY!):
+```javascript
+// BEFORE any other validation:
+const real_workflow = await mcp__n8n-mcp__n8n_get_workflow({
+  id: run_state.workflow_id,
+  mode: "structure"  // L-067: use structure for >10 nodes
+});
+
+if (!real_workflow || real_workflow.error || !real_workflow.nodes) {
+  return {
+    status: "BLOCKED",
+    reason: "L-072: Workflow does NOT exist in n8n!",
+    action: "Escalate to user - Builder faked success"
+  };
+}
+
+// Compare node count
+if (real_workflow.nodes.length !== run_state.workflow.node_count) {
+  return {
+    status: "BLOCKED",
+    reason: `L-072: Node count mismatch! Claimed: ${run_state.workflow.node_count}, Real: ${real_workflow.nodes.length}`
+  };
+}
+```
+
+**n8n API = Source of Truth. Files = caches only!**
+
+---
+
 ## Output Protocol (Context Optimization!)
 
 ### Step 1: Write FULL report to file

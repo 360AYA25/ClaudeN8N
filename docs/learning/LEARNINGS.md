@@ -4741,3 +4741,127 @@ Should return "test_passed: true" with actual MCP tool execution.
 
 ### Tags
 `agent-system`, `mcp-tools`, `frontmatter`, `configuration`
+
+---
+
+## L-071: Builder MUST Use MCP Tools (Anti-Fake)
+
+**Category:** Agent Enforcement  
+**Severity:** CRITICAL  
+**Date:** 2025-12-02
+
+### Problem
+Builder wrote files with `success: true` but never actually called MCP tools. Workflow was never created but system thought it was.
+
+### Root Cause
+No enforcement that Builder MUST use MCP tools. Builder could "fake" success by just writing result files.
+
+### Solution
+1. Builder MUST log `mcp_calls` array in agent_log entry
+2. Orchestrator checks for `mcp_calls` before advancing stage
+3. Missing/empty `mcp_calls` → stage = "blocked"
+
+### Required agent_log format:
+```json
+{
+  "agent": "builder",
+  "action": "workflow_created",
+  "mcp_calls": ["n8n_create_workflow", "n8n_get_workflow"],
+  "workflow_id": "abc123",
+  "verified": true
+}
+```
+
+### Tags
+`anti-fake`, `mcp-enforcement`, `builder`, `trust-verification`
+
+---
+
+## L-072: QA MUST Verify Real n8n (Anti-Fake)
+
+**Category:** Agent Enforcement  
+**Severity:** CRITICAL  
+**Date:** 2025-12-02
+
+### Problem
+QA validated based on result files instead of checking real n8n state. Workflow didn't exist but QA said "passed".
+
+### Root Cause
+QA trusted `agent_results/*.json` files instead of verifying via n8n API.
+
+### Solution
+1. QA MUST call `n8n_get_workflow` as FIRST action
+2. If workflow doesn't exist in n8n → immediate FAIL
+3. Compare node_count with Builder's claim
+
+### FIRST action in QA:
+```javascript
+const real = await n8n_get_workflow({ id, mode: "structure" });
+if (!real || real.error) {
+  return { status: "BLOCKED", reason: "Workflow does NOT exist!" };
+}
+```
+
+### Tags
+`anti-fake`, `qa-enforcement`, `source-of-truth`, `mcp-verification`
+
+---
+
+## L-073: Orchestrator MUST Verify MCP Calls (Anti-Fake)
+
+**Category:** Orchestration  
+**Severity:** CRITICAL  
+**Date:** 2025-12-02
+
+### Problem
+Orchestrator blindly trusted agent results. If Builder faked success, Orchestrator passed it to QA.
+
+### Root Cause
+No verification layer in Orchestrator. Trusted agent_log without checking `mcp_calls` array.
+
+### Solution
+After Builder returns, BEFORE calling QA:
+1. Check `mcp_calls` array exists and is not empty
+2. Double-check workflow exists via MCP call
+3. Block if verification fails
+
+### Check:
+```bash
+mcp_calls=$(jq '.agent_log[-1].mcp_calls' memory/run_state.json)
+if [ "$mcp_calls" == "null" ]; then
+  # BLOCK! Fake success detected!
+fi
+```
+
+### Tags
+`anti-fake`, `orchestrator`, `verification`, `trust-nothing`
+
+---
+
+## L-074: Source of Truth = n8n API, Not Files
+
+**Category:** Architecture  
+**Severity:** CRITICAL  
+**Date:** 2025-12-02
+
+### Problem
+System treated local files as proof of state. Files can be stale, corrupted, or faked.
+
+### Root Cause
+No clear definition of Source of Truth. Agents wrote to files and other agents trusted those files.
+
+### Solution
+Define explicitly:
+
+| Data | Source of Truth | NOT Source |
+|------|-----------------|------------|
+| Workflow exists? | n8n API | agent_results/*.json |
+| Node count | n8n API | run_state.workflow |
+| Version | n8n versionCounter | canonical.json |
+| Success? | MCP call response | file with success:true |
+
+### Rule
+**Files are CACHES. MCP calls are PROOF.**
+
+### Tags
+`architecture`, `source-of-truth`, `anti-fake`, `trust-model`

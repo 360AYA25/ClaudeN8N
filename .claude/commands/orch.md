@@ -291,6 +291,53 @@ jq '.stage = "blocked"' memory/run_state.json > tmp.json && mv tmp.json memory/r
 
 ---
 
+## ❌ L-073: ANTI-FAKE - Verify MCP Calls in Agent Output!
+
+**Orchestrator MUST verify agents actually used MCP tools!**
+
+### After Builder returns (BEFORE calling QA):
+
+```bash
+# Check agent_log for MCP calls
+latest_builder=$(jq '[.agent_log[] | select(.agent=="builder")] | last' memory/run_state.json)
+mcp_calls=$(echo "$latest_builder" | jq -r '.mcp_calls // []')
+
+# BLOCK if no MCP calls!
+if [ "$mcp_calls" == "[]" ] || [ "$mcp_calls" == "null" ]; then
+  echo "❌ L-073 FRAUD DETECTED: Builder reported success without MCP calls!"
+  jq '.stage = "blocked" | .block_reason = "L-073: No MCP calls in agent_log"' \
+     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+  # DO NOT proceed to QA!
+  exit 1
+fi
+
+# Double-check: verify workflow exists via MCP
+workflow_id=$(jq -r '.workflow_id' memory/run_state.json)
+real_check=$(mcp__n8n-mcp__n8n_get_workflow id="$workflow_id" mode="minimal")
+
+if [ -z "$real_check" ] || echo "$real_check" | jq -e '.error' > /dev/null; then
+  echo "❌ L-073: Workflow $workflow_id does NOT exist in n8n!"
+  jq '.stage = "blocked" | .block_reason = "L-073: Workflow not found in n8n"' \
+     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+  exit 1
+fi
+
+echo "✅ L-073: MCP calls verified, workflow exists"
+```
+
+### What gets BLOCKED:
+
+| Check | Blocked If |
+|-------|-----------|
+| `mcp_calls` array | Missing or empty |
+| `verified` field | false or missing |
+| `n8n_get_workflow` | Returns error/null |
+| Node count | Doesn't match claim |
+
+**Trust NO agent! Verify EVERYTHING via MCP!**
+
+---
+
 ## 5-PHASE FLOW (Unified)
 
 **No complexity detection!** All requests follow the same flow:

@@ -1055,6 +1055,40 @@ async function blueGreenModify(workflow_id, changes) {
 - **NEVER** activate for production or run tests (QA does this)
 - **ONLY** agent that calls create/update/autofix
 
+---
+
+## ❌ L-071: ANTI-FAKE - MCP Tools are MANDATORY!
+
+**Builder CANNOT report success without REAL MCP calls!**
+
+### Rules:
+1. ✅ **MUST call** `mcp__n8n-mcp__n8n_create_workflow` or `n8n_update_*`
+2. ✅ **MUST call** `mcp__n8n-mcp__n8n_get_workflow` to verify existence
+3. ❌ **Writing file with `success: true` WITHOUT MCP = FRAUD!**
+4. ❌ **Reporting "workflow created" without MCP call = FRAUD!**
+
+### Required agent_log format (with mcp_calls!):
+```json
+{
+  "ts": "2025-12-02T10:30:00Z",
+  "agent": "builder",
+  "action": "workflow_created",
+  "mcp_calls": ["n8n_create_workflow", "n8n_get_workflow"],
+  "workflow_id": "abc123",
+  "node_count": 15,
+  "verified": true
+}
+```
+
+### What Orchestrator checks:
+- ❌ No `mcp_calls` array → **BLOCKED!**
+- ❌ `mcp_calls` empty → **BLOCKED!**
+- ❌ `verified: false` → **BLOCKED!**
+
+**Files are NOT proof! Only MCP calls are proof!**
+
+---
+
 ## Annotations
 - Preserve `_meta` on nodes (append-only)
 - Add `agent_log` entry for each mutation:

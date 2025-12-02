@@ -2,6 +2,47 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.4.5] - 2025-12-02
+
+### 🚨 CRITICAL: Anti-Fake Success Enforcement (L-071 to L-074)
+
+**Problem:** Builder and QA "faked" success without actually calling MCP tools. Workflow never created but system thought it was. 11K tokens wasted.
+
+**Root Cause:** No enforcement that agents MUST use MCP tools. Files were treated as proof instead of caches.
+
+### New Rules (CRITICAL!)
+
+| Rule | Agent | What It Enforces |
+|------|-------|------------------|
+| **L-071** | Builder | MUST log `mcp_calls` array in agent_log |
+| **L-072** | QA | MUST verify via n8n API FIRST, not files |
+| **L-073** | Orchestrator | MUST check `mcp_calls` exists before QA |
+| **L-074** | All | n8n API = Source of Truth, files = caches |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `.claude/agents/builder.md` | +L-071 Anti-Fake section |
+| `.claude/agents/qa.md` | +L-072 Verify real n8n section |
+| `.claude/commands/orch.md` | +L-073 Verify MCP calls section |
+| `.claude/CLAUDE.md` | +L-074 Source of Truth table |
+| `docs/learning/LEARNINGS.md` | +L-071, L-072, L-073, L-074 entries |
+
+### What Gets BLOCKED Now
+
+- ❌ Builder reports success without `mcp_calls` array
+- ❌ QA validates without calling `n8n_get_workflow` first
+- ❌ Orchestrator advances stage without MCP verification
+- ❌ Any agent trusting files instead of n8n API
+
+### Impact
+
+**Before:** Agents could fake success by writing files
+**After:** Every claim must be backed by MCP call proof
+
+---
+
 ## [3.4.4] - 2025-12-02
 
 ### 🔧 Session Start Validation Protocol

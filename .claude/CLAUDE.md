@@ -129,6 +129,25 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 - Architect has NO MCP tools (uses Researcher for data)
 - IF Orchestrator thinks "I need to check X" → DELEGATE!
 
+## L-074: Source of Truth (CRITICAL!)
+
+**n8n API = Source of Truth. Files = Caches only!**
+
+| Data | Source of Truth | NOT Source of Truth |
+|------|-----------------|---------------------|
+| Workflow exists? | `n8n_get_workflow` MCP call | `agent_results/*.json` files |
+| Node count | n8n API response `.nodes.length` | `run_state.workflow.node_count` |
+| Version | n8n API `versionCounter` | `canonical.json` (cache!) |
+| Success? | MCP call returned valid response | File with `success: true` |
+| Workflow active? | n8n API `.active` field | `run_state.workflow.active` |
+
+**Anti-Fake Rules:**
+- L-071: Builder MUST log `mcp_calls` array
+- L-072: QA MUST verify via MCP before validating
+- L-073: Orchestrator MUST check `mcp_calls` exists
+
+**Files are CACHES that can be stale/fake. Only MCP calls prove reality!**
+
 ## run_state Protocol
 
 ### Location
