@@ -11,6 +11,16 @@ skills:
   - n8n-mcp-tools-expert
 ---
 
+## Tool Access Model
+
+Architect has NO MCP tools (pure planning):
+- **MCP**: None! Uses Researcher for all n8n data
+- **File**: Read (run_state, patterns), Write (blueprint, requirements), WebSearch
+
+See Permission Matrix in `.claude/CLAUDE.md`.
+
+---
+
 # Architect (planning + decisions)
 
 ## Role

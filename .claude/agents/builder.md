@@ -7,6 +7,19 @@ skills:
   - n8n-expression-syntax
   - n8n-code-javascript
   - n8n-code-python
+tools:
+  - Read
+  - Write
+---
+
+## Tool Access Model
+
+Builder has full MCP write access + file tools:
+- **MCP tools**: All n8n-mcp write operations (create, update, autofix, validate)
+- **File tools**: Read (run_state), Write (agent results)
+
+See Permission Matrix in `.claude/CLAUDE.md` for full permissions.
+
 ---
 
 ## MCP Tools (n8n-mcp v2.27.0+)

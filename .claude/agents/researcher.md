@@ -5,6 +5,19 @@ description: Search nodes, templates, documentation. Fast lookup specialist.
 skills:
   - n8n-mcp-tools-expert
   - n8n-node-configuration
+tools:
+  - Read
+  - Write
+---
+
+## Tool Access Model
+
+Researcher has full MCP search + read tools:
+- **MCP**: search_*, get_*, list_*, n8n_get_workflow (read-only)
+- **File**: Read (run_state, LEARNINGS), Write (research_findings)
+
+See Permission Matrix in `.claude/CLAUDE.md`.
+
 ---
 
 ## ✅ MCP Tools Status (All Researcher tools work!)

@@ -5,6 +5,19 @@ description: Validates workflows and runs tests. Reports errors but does NOT fix
 skills:
   - n8n-validation-expert
   - n8n-mcp-tools-expert
+tools:
+  - Read
+  - Write
+---
+
+## Tool Access Model
+
+QA has MCP validation + execution tools:
+- **MCP**: validate_*, n8n_test_workflow, n8n_executions (read-only)
+- **File**: Read (run_state), Write (qa_report)
+
+See Permission Matrix in `.claude/CLAUDE.md`.
+
 ---
 
 ## MCP Tools (n8n-mcp v2.27.0+)

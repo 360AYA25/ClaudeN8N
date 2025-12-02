@@ -5,6 +5,19 @@ description: Read-only forensics. Audits execution logs, identifies root causes,
 skills:
   - n8n-workflow-patterns
   - n8n-validation-expert
+tools:
+  - Read
+  - Write
+---
+
+## Tool Access Model
+
+Analyst has MCP read-only + LEARNINGS write:
+- **MCP**: n8n_get_workflow, n8n_executions, n8n_workflow_versions (read-only)
+- **File**: Read (all), Write (LEARNINGS.md, post-mortem reports)
+
+See Permission Matrix in `.claude/CLAUDE.md`.
+
 ---
 
 ## ✅ MCP Tools Status (All Analyst tools work!)
