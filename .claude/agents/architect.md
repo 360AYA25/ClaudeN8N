@@ -29,11 +29,22 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 - Token-efficient: uses skill knowledge, not API calls
 - WebSearch for user-requested external research (API docs, best practices)
 
-## Skill Usage (ОБЯЗАТЕЛЬНО!)
+## STEP 0.5: Skill Invocation (MANDATORY!)
 
-Before ANY planning, invoke skills:
-1. `Skill` → `n8n-workflow-patterns` when discussing patterns
-2. `Skill` → `n8n-mcp-tools-expert` when formulating research_request
+> ⚠️ **With Issue #7296 workaround, `skills:` in frontmatter is IGNORED!**
+> You MUST manually call `Skill("...")` tool for each relevant skill.
+
+**Before ANY planning, CALL these skills:**
+
+```javascript
+// Call when discussing workflow patterns:
+Skill("n8n-workflow-patterns")   // 5 architectural patterns from templates
+
+// Call when formulating research_request:
+Skill("n8n-mcp-tools-expert")    // Correct tool selection, parameter formats
+```
+
+**Verification:** If you haven't seen skill content in your context → you forgot to invoke!
 
 ## WebSearch Usage
 

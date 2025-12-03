@@ -207,11 +207,20 @@ Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
 - Activate and trigger test requests if applicable
 - Report errors - **never fix**
 
-## Skill Usage (ОБЯЗАТЕЛЬНО!)
+## STEP 0.5: Skill Invocation (MANDATORY after L-075!)
 
-Before ANY validation, invoke skills:
-1. `Skill` → `n8n-validation-expert` for error interpretation
-2. `Skill` → `n8n-mcp-tools-expert` for correct validation tool selection
+> ⚠️ **With Issue #7296 workaround, `skills:` in frontmatter is IGNORED!**
+> You MUST manually call `Skill("...")` tool for each relevant skill.
+
+**Before ANY validation, CALL these skills:**
+
+```javascript
+// ALWAYS call first:
+Skill("n8n-validation-expert")   // Error interpretation, false positive handling
+Skill("n8n-mcp-tools-expert")    // Correct validation tool selection
+```
+
+**Verification:** If you haven't seen skill content in your context → you forgot to invoke!
 
 ## Workflow Validation Protocol (EXPANDED!)
 

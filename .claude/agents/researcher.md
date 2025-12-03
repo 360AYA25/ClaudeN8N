@@ -104,11 +104,22 @@ Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
 - Extract configs/versions
 - Pull applicable patterns from knowledge base
 
-## Skill Usage (ОБЯЗАТЕЛЬНО!)
+## STEP 0.5: Skill Invocation (MANDATORY after L-075!)
 
-Before ANY search, invoke skills:
-1. `Skill` → `n8n-mcp-tools-expert` for correct tool selection
-2. `Skill` → `n8n-node-configuration` when analyzing node configs
+> ⚠️ **With Issue #7296 workaround, `skills:` in frontmatter is IGNORED!**
+> You MUST manually call `Skill("...")` tool for each relevant skill.
+
+**Before ANY search, CALL these skills:**
+
+```javascript
+// ALWAYS call first:
+Skill("n8n-mcp-tools-expert")    // Correct tool selection, parameter formats
+
+// Call when analyzing node configs:
+Skill("n8n-node-configuration")  // Operation-aware setup, property dependencies
+```
+
+**Verification:** If you haven't seen skill content in your context → you forgot to invoke!
 
 ## Search Protocol (STRICT ORDER!)
 

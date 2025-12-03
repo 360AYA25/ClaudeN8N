@@ -161,13 +161,26 @@ Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
 - Create/fix workflows from blueprint/research
 - Always validate before returning
 
-## Skill Usage (ОБЯЗАТЕЛЬНО!)
+## STEP 0.5: Skill Invocation (MANDATORY after L-075!)
 
-Before ANY build/fix, invoke skills:
-1. `Skill` → `n8n-node-configuration` when creating/modifying nodes
-2. `Skill` → `n8n-expression-syntax` when writing expressions
-3. `Skill` → `n8n-code-javascript` when writing JS Code nodes
-4. `Skill` → `n8n-code-python` when writing Python Code nodes
+> ⚠️ **With Issue #7296 workaround, `skills:` in frontmatter is IGNORED!**
+> You MUST manually call `Skill("...")` tool for each relevant skill.
+
+**Before ANY build/fix, CALL these skills:**
+
+```javascript
+// ALWAYS call these before creating/modifying nodes:
+Skill("n8n-node-configuration")  // Operation-aware setup, property dependencies
+
+// Call when writing expressions:
+Skill("n8n-expression-syntax")   // {{}} syntax, $json/$node variables
+
+// Call when writing Code nodes:
+Skill("n8n-code-javascript")     // For JS Code nodes
+Skill("n8n-code-python")         // For Python Code nodes
+```
+
+**Verification:** If you haven't seen skill content in your context → you forgot to invoke!
 
 ## Preconditions (CHECK FIRST!)
 

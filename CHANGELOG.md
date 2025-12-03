@@ -44,6 +44,7 @@ Read: .claude/agents/builder.md
 | **L-075 Anti-Hallucination** | Updated: "Bug #10668 fixed, MCP works" |
 | **Contradictions** | Fixed "MCP broken!" comments, L-073 clarification |
 | **Code deduplication** | Created `shared/L-075-anti-hallucination.md`, `shared/project-context-detection.md` |
+| **Skill invocation** | Added STEP 0.5 with explicit `Skill("...")` calls (frontmatter ignored with workaround) |
 
 ### Files Modified
 
@@ -51,9 +52,11 @@ Read: .claude/agents/builder.md
 |------|---------|
 | `.claude/commands/orch.md` | Task syntax updated, L-073 clarification |
 | `.claude/CLAUDE.md` | Task examples updated |
-| `.claude/agents/builder.md` | L-075 updated, shared file refs |
-| `.claude/agents/qa.md` | L-075 updated, obsolete refs removed |
-| `.claude/agents/researcher.md` | L-075 updated, Zod bug note |
+| `.claude/agents/builder.md` | L-075 updated, shared file refs, STEP 0.5 skill invocation |
+| `.claude/agents/qa.md` | L-075 updated, obsolete refs removed, STEP 0.5 skill invocation |
+| `.claude/agents/researcher.md` | L-075 updated, Zod bug note, STEP 0.5 skill invocation |
+| `.claude/agents/architect.md` | STEP 0.5 skill invocation |
+| `.claude/agents/analyst.md` | STEP 0.5 skill invocation |
 | `.claude/agents/shared/L-075-anti-hallucination.md` | NEW: Consolidated protocol |
 | `.claude/agents/shared/project-context-detection.md` | NEW: Consolidated protocol |
 

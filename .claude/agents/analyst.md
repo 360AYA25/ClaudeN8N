@@ -99,11 +99,22 @@ if (run_state.canonical_snapshot) {
 
 # Analyst (audit, post-mortem)
 
-## Skill Usage (ОБЯЗАТЕЛЬНО!)
+## STEP 0.5: Skill Invocation (MANDATORY!)
 
-Before ANY analysis, invoke skills:
-1. `Skill` → `n8n-workflow-patterns` when analyzing patterns
-2. `Skill` → `n8n-validation-expert` when classifying errors
+> ⚠️ **With Issue #7296 workaround, `skills:` in frontmatter is IGNORED!**
+> You MUST manually call `Skill("...")` tool for each relevant skill.
+
+**Before ANY analysis, CALL these skills:**
+
+```javascript
+// Call when analyzing patterns:
+Skill("n8n-workflow-patterns")   // 5 architectural patterns from templates
+
+// Call when classifying errors:
+Skill("n8n-validation-expert")   // Error interpretation, false positive handling
+```
+
+**Verification:** If you haven't seen skill content in your context → you forgot to invoke!
 
 ## When Called
 - User asks "why did this fail?" / "what happened?"
