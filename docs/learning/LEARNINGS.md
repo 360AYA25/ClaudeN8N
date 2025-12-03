@@ -5370,3 +5370,426 @@ If repeat_node_fixes > 0 → Sequential validation detected
 
 ### Tags
 `qa`, `validation`, `efficiency`, `optimization`, `process-improvement`, `complete-validation`
+---
+
+## L-079: Builder Post-Change Verification
+
+**Category:** Builder Process / Quality Assurance
+**Severity:** CRITICAL
+**Date:** 2025-12-03
+
+### Problem
+
+Builder claims fix applied but doesn't verify changes actually saved to n8n. This causes:
+- Silent failures (Builder reports success, but workflow unchanged)
+- QA validates wrong version
+- Wasted debugging cycles
+
+### Real Example (FoodTracker v111, 2025-12-03)
+
+**v109 → v111 credential fix:**
+- Builder claimed: "Changed postgres → supabaseApi"
+- Execution showed: "Node doesn't have credentials for postgres"
+- **Root cause:** Fix NOT actually applied (either MCP failure or n8n cache)
+
+### Solution
+
+**MANDATORY verification after EVERY workflow mutation:**
+
+```javascript
+// STEP 1: Read version BEFORE
+const before_version = run_state.workflow.version_counter;
+
+// STEP 2: Apply changes
+const result = await n8n_update_workflow(...);
+
+// STEP 3: Re-fetch workflow via MCP
+const after = await n8n_get_workflow({ id, mode: "minimal" });
+
+// STEP 4: Verify version changed
+if (after.versionCounter === before_version) {
+  throw new Error("❌ CRITICAL: Version didn't change - update FAILED!");
+}
+
+// STEP 5: Verify expected changes present
+const verification = verifyChanges(after, expected_changes);
+if (!verification.all_passed) {
+  throw new Error("❌ Changes NOT applied correctly!");
+}
+
+// STEP 6: Log MCP calls in agent_log
+run_state.agent_log.push({
+  agent: "builder",
+  mcp_calls: [
+    { tool: "n8n_update_workflow", result: "success" },
+    { tool: "n8n_get_workflow", result: "verified" }
+  ]
+});
+```
+
+### Benefits
+
+- 🛡️ **Catch silent failures** immediately
+- ✅ **Verify actual state** vs claimed state
+- 📊 **Audit trail** via mcp_calls logging
+- ⚡ **Faster debugging** (know exactly what applied)
+
+### Related
+
+- L-073: Anti-Fake Protocol (trust but verify)
+- L-074: Source of Truth (n8n API is reality, files are cache)
+- builder.md: Post-Build Verification Protocol
+
+### Tags
+`builder`, `verification`, `critical`, `quality-assurance`, `silent-failure-prevention`
+
+---
+
+## L-080: QA Execution Testing
+
+**Category:** QA Process / Testing
+**Severity:** HIGH
+**Date:** 2025-12-03
+
+### Problem
+
+QA validates **configuration** but doesn't test **execution**. This causes:
+- Structure passes validation but workflow fails at runtime
+- Bot doesn't respond (but config looks correct)
+- Issues only discovered after deployment
+
+### Real Example (FoodTracker, 2025-12-03)
+
+**Memory node configured correctly:**
+- QA Phase 1-4: All pass ✅
+- QA Phase 5 (real test): Bot doesn't respond ❌
+- **Root cause:** Runtime credential error not caught by config validation
+
+### Solution
+
+**Phase 5: REAL TESTING (MANDATORY for bot workflows):**
+
+```javascript
+// STEP 1: Verify workflow active
+await verifyWorkflowActive(workflow_id);
+
+// STEP 2: Request user test
+await askUser("Please send test message to bot");
+
+// STEP 3: Wait for response (10s timeout)
+const bot_responded = await waitForResponse(timeout: 10s);
+
+// STEP 4: Analyze execution data
+if (!bot_responded) {
+  const execution = await n8n_executions({ action: "list", limit: 1 });
+  const stopping_point = findStoppingPoint(execution);
+
+  return {
+    ready_for_deploy: false,
+    real_test_status: "FAILED",
+    stopped_at: stopping_point.last_node,
+    reason: stopping_point.error,
+    recommendation: "Return to Researcher for deep analysis"
+  };
+}
+
+// STEP 5: Final verdict
+return {
+  ready_for_deploy: true,
+  real_test_status: "PASSED",
+  bot_responded: true
+};
+```
+
+### Critical Rule
+
+```
+QA CANNOT say "PASSED" until real test succeeds!
+
+Structure validation ≠ Functionality validation
+BOTH required for success!
+```
+
+### Benefits
+
+- 🔍 **Catch runtime errors** before deployment
+- ✅ **Verify actual behavior** vs expected behavior
+- 🎯 **Exact failure point** identified
+- 🚀 **Confidence in deployment**
+
+### Related
+
+- L-082: Cross-Path Testing (test all paths)
+- qa.md: Phase 5 Real Testing Protocol
+- validation-gates.md: Execution validation
+
+### Tags
+`qa`, `testing`, `execution`, `runtime-validation`, `bot-testing`, `real-world-testing`
+
+---
+
+## L-081: Canonical Snapshot Review
+
+**Category:** Researcher Process / Context
+**Severity:** HIGH
+**Date:** 2025-12-03
+
+### Problem
+
+Changes made without understanding working baseline. This causes:
+- Break working parts while fixing broken parts
+- Lose context between sessions
+- Repeat analysis (wasted tokens)
+
+### Real Example (FoodTracker, 2025-12-03)
+
+**v103 → v107 fixes:**
+- Fixed parallel connections → broke photo path
+- Fixed photo path → unknown impact on text/voice paths
+- **Root cause:** No preservation plan for working nodes
+
+### Solution
+
+**BEFORE any workflow modification:**
+
+```javascript
+// STEP 1: Read canonical snapshot
+const snapshot_file = `memory/workflow_snapshots/${workflow_id}/canonical.json`;
+const snapshot = readFile(snapshot_file);
+
+// STEP 2: Identify working parts
+const working_nodes = snapshot.execution_history
+  .filter(exec => exec.status === "success")
+  .flatMap(exec => exec.executedNodes);
+
+// STEP 3: Create preservation list
+const do_not_touch = {
+  nodes: working_nodes,
+  connections: snapshot.workflow_config.connections,
+  shared_nodes: identifySharedNodes(snapshot)
+};
+
+// STEP 4: Analyze cross-dependencies
+const dependencies = analyzePathDependencies(snapshot);
+// Example: text/voice/photo all use "Check User" node
+
+// STEP 5: Report
+return {
+  working_baseline_understood: true,
+  preservation_plan: do_not_touch,
+  cross_dependencies: dependencies,
+  recommendation: "Modify ONLY broken nodes, preserve working paths"
+};
+```
+
+### Benefits
+
+- 🧠 **Context preservation** across sessions
+- 🛡️ **Protect working parts** during fixes
+- ⚡ **Token savings** (~3K tokens per debug)
+- 📊 **Better decisions** based on history
+
+### Related
+
+- L-074: Source of Truth (snapshot as cache)
+- L-067: Smart Mode Selection (efficient downloads)
+- researcher.md: Canonical Snapshot Protocol
+
+### Tags
+`researcher`, `context`, `preservation`, `baseline`, `snapshot`, `cross-dependencies`
+
+---
+
+## L-082: Cross-Path Dependency Analysis
+
+**Category:** QA Process / Testing
+**Severity:** HIGH
+**Date:** 2025-12-03
+
+### Problem
+
+Fix one execution path → breaks other paths (shared nodes issue). This causes:
+- Text path works, but voice/photo paths broken
+- Regression not detected until user tests manually
+- Multiple fix cycles
+
+### Real Example (FoodTracker, 2025-12-03)
+
+**v103 parallel connection fix:**
+- Fixed: Text path worked
+- Broke: Photo path stopped working
+- **Root cause:** Both paths use "Check User" node, connections changed
+
+### Solution
+
+**After ANY change to shared nodes:**
+
+```javascript
+// STEP 1: Identify all execution paths
+const paths = identifyExecutionPaths(workflow);
+// Example: ["text_path", "voice_path", "photo_path"]
+
+// STEP 2: Test EACH path
+for (const path of paths) {
+  await askUser(`Send test ${path} input`);
+  const responded = await waitForResponse(timeout: 10s);
+  const execution = await n8n_executions({ limit: 1 });
+
+  path_results[path] = {
+    triggered: execution.exists,
+    completed: execution.status === "success",
+    bot_responded: responded,
+    stopped_at: execution.stoppedAt || null
+  };
+}
+
+// STEP 3: Report ALL results
+report = {
+  total_paths: paths.length,
+  paths_passed: path_results.filter(r => r.completed).length,
+  paths_failed: path_results.filter(r => !r.completed).length,
+  details: path_results
+};
+
+// STEP 4: FAIL if ANY path broken
+if (report.paths_failed > 0) {
+  return {
+    ready_for_deploy: false,
+    reason: `${report.paths_failed} paths broken (cross-path regression)`
+  };
+}
+```
+
+### Critical Rule
+
+```
+IF shared node modified AND not all paths tested → BLOCK deployment!
+
+Shared nodes: Check User, AI Agent, Database, Memory, Error Handler
+```
+
+### Benefits
+
+- 🛡️ **Prevent regressions** in other paths
+- ✅ **Complete validation** of all workflows
+- 🎯 **Early detection** of cross-dependencies
+- 🚀 **Confidence in multi-path systems**
+
+### Related
+
+- L-080: Execution Testing (real test protocol)
+- L-081: Canonical Snapshot (identify dependencies)
+- qa.md: L-082 Cross-Path Testing Protocol
+
+### Tags
+`qa`, `testing`, `cross-path`, `regression`, `multi-path-workflow`, `shared-nodes`
+
+---
+
+## L-083: Credential Type Verification
+
+**Category:** Researcher Process / Configuration
+**Severity:** CRITICAL
+**Date:** 2025-12-03
+
+### Problem
+
+Wrong credential type causes immediate failure. This causes:
+- Node rejects credential at runtime
+- Error: "Credential does not exist for type X"
+- Silent failures in configuration
+
+### Real Example (FoodTracker v111, 2025-12-03)
+
+**memoryPostgresChat credential issue:**
+- Builder tried: `supabaseApi` credential type
+- Node requires: `postgres` credential type
+- **Result:** Rejected by n8n validation (ONLY accepts postgres)
+
+**Key insight:**
+```
+Supabase IS PostgreSQL, but credential MUST be type 'postgres' not 'supabaseApi'!
+
+memoryPostgresChat.credentials = ["postgres"]
+Even though Supabase credential exists (ID: DYpIGQK8a652aosj),
+if type is 'supabaseApi' → REJECTED!
+
+Correct: Create postgres credential with Supabase connection string
+Wrong: Try to use supabaseApi credential for postgres-only node
+```
+
+### Solution
+
+**BEFORE configuring node with credentials:**
+
+```javascript
+// STEP 1: Get node documentation
+const nodeInfo = await get_node({
+  nodeType: "nodes-langchain.memoryPostgresChat",
+  detail: "standard"
+});
+
+// Extract accepted credential types
+const acceptedTypes = nodeInfo.credentials.map(c => c.name);
+// Example: ["postgres"]
+
+// STEP 2: List available credentials
+const availableCredentials = run_state.credentials_discovered;
+
+// STEP 3: Match requirements with available
+const matches = [];
+const mismatches = [];
+
+for (const credType of acceptedTypes) {
+  if (availableCredentials[credType]) {
+    matches.push({
+      required: credType,
+      available: availableCredentials[credType]
+    });
+  } else {
+    mismatches.push({
+      required: credType,
+      available: "NONE",
+      problem: `Node requires '${credType}' but not found`
+    });
+  }
+}
+
+// STEP 4: Report verification
+return {
+  node_type: nodeInfo.nodeType,
+  credential_requirements: acceptedTypes,
+  can_configure: mismatches.length === 0,
+  recommendation: matches.length > 0 ? 
+    `Use credential ${matches[0].available[0].id}` :
+    `Create ${acceptedTypes[0]} credential first`
+};
+```
+
+### Critical Rules
+
+**❌ BLOCK if:**
+- Required credential type NOT available
+- User tries to substitute wrong type
+- Credential ID exists but type mismatch
+
+**✅ ALLOW if:**
+- Exact credential type match
+- Multiple credentials of same type (let user choose)
+
+### Benefits
+
+- 🛡️ **Prevent credential errors** before configuration
+- ✅ **Verify compatibility** node ↔ credential
+- 🎯 **Correct guidance** on credential creation
+- ⚡ **Faster resolution** (no trial-and-error)
+
+### Related
+
+- L-079: Post-Change Verification (verify applied correctly)
+- researcher.md: L-083 Credential Type Verification Protocol
+- Credential Discovery Protocol
+
+### Tags
+`researcher`, `credentials`, `critical`, `type-verification`, `configuration`, `compatibility`
+

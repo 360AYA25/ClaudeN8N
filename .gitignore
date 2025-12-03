@@ -42,3 +42,4 @@ venv/
 # Memory runtime files (exclude snapshots)
 memory/*
 !memory/workflow_snapshots/
+*.code-workspace

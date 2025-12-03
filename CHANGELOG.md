@@ -2,6 +2,72 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.5.0] - 2025-12-03
+
+### 🛡️ Five Critical Safety Protocols (L-079 to L-083)
+
+**FoodTracker v111 failure recovery led to 5 new mandatory protocols.**
+
+**Problem:** FoodTracker bot failed after memory upgrade (v107→v111):
+- Builder claimed fix applied but didn't verify (silent failure)
+- QA validated config but not execution (bot didn't respond)
+- No canonical snapshot baseline (context lost)
+- Fix broke other paths (text OK, voice/photo unknown)
+- Wrong credential type used (supabaseApi vs postgres)
+
+**Solution:** Implemented 5 new safety protocols across all agents.
+
+### New Protocols
+
+| ID | Protocol | Agent | Impact |
+|----|----------|-------|--------|
+| **L-079** | Post-Change Verification | builder | Builder MUST re-fetch workflow after mutation to verify changes applied |
+| **L-080** | Execution Testing | qa | QA MUST test execution (bot responds), not just config validation |
+| **L-081** | Canonical Snapshot Review | researcher | Researcher MUST read snapshot BEFORE modifications (preserve working baseline) |
+| **L-082** | Cross-Path Testing | qa | QA MUST test ALL execution paths after shared node changes |
+| **L-083** | Credential Type Verification | researcher | Researcher MUST verify credential type matches node requirements |
+
+### Files Modified
+
+**Agent protocols:**
+- `.claude/agents/builder.md` - Added L-079 (post-change verification)
+- `.claude/agents/qa.md` - Added L-080 (execution testing) + L-082 (cross-path testing)
+- `.claude/agents/researcher.md` - Added L-081 (canonical snapshot) + L-083 (credential verification)
+
+**Knowledge base:**
+- `docs/learning/LEARNINGS.md` - Added 5 new learnings (~400 lines)
+- `docs/learning/LEARNINGS-INDEX.md` - Updated index (68→73 entries)
+
+### Impact
+
+**Before (v111 failure):**
+- Builder: "Fix applied" → workflow unchanged (no verification)
+- QA: "Config valid" → bot doesn't respond (no execution test)
+- Researcher: Blind modifications (no baseline understanding)
+
+**After (v3.5.0):**
+- Builder: Re-fetches workflow, verifies version changed, confirms parameters match
+- QA: Triggers real bot test, waits for response, analyzes execution data
+- Researcher: Reads canonical snapshot, identifies working parts, preserves dependencies
+- QA: Tests all 3 paths (text/voice/photo) after shared node changes
+- Researcher: Verifies credential type before configuration (prevents type mismatches)
+
+### Benefits
+
+- 🛡️ **Prevent silent failures** (L-079 catches when changes don't apply)
+- ✅ **Runtime validation** (L-080 ensures bot actually works, not just config)
+- 🧠 **Context preservation** (L-081 protects working parts during fixes)
+- 🔍 **Regression detection** (L-082 catches cross-path breakage)
+- 🎯 **Type safety** (L-083 prevents credential type mismatches)
+
+### Related
+
+- FoodTracker recovery: Rolled back v111→v107, identified root cause
+- Root cause: `memoryPostgresChat` requires `postgres` credential (not `supabaseApi`)
+- New protocols applied to future memory implementation
+
+---
+
 ## [3.4.7] - 2025-12-03
 
 ### 🔧 Issue #7296 Workaround + System Cleanup

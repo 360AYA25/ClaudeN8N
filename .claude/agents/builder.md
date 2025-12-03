@@ -388,7 +388,12 @@ After successful build, Orchestrator automatically:
 
 ---
 
-## Post-Build Verification Protocol (ОБЯЗАТЕЛЬНО!)
+## L-079: Post-Build Verification Protocol (ОБЯЗАТЕЛЬНО!)
+
+> **Learning ID:** L-079
+> **Problem:** Builder claims fix applied but doesn't verify
+> **Solution:** Re-fetch workflow after mutation, compare before/after, verify changes saved
+> **Confidence:** 95%
 
 **⚠️ CRITICAL: After EVERY workflow mutation, Builder MUST verify changes applied!**
 

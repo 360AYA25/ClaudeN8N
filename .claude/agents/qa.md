@@ -406,6 +406,13 @@ for (const connKey of Object.keys(workflow.connections)) {
 
 ### Phase 5: REAL TESTING (🔥 MANDATORY for bot workflows!)
 
+## L-080: Execution Testing Protocol
+
+> **Learning ID:** L-080
+> **Problem:** QA validates configuration but doesn't test execution
+> **Solution:** Check recent executions + trigger real test, verify runtime behavior
+> **Confidence:** 90%
+
 **⚠️ КРИТИЧНО:** Structure validation НЕ ДОСТАТОЧНО!
 
 **Purpose:** Verify workflow works in REAL conditions, not just structure!
@@ -512,6 +519,98 @@ BOTH required for success!
   "ready_for_deploy": false,
   "final_verdict": "FAILED - bot did not respond to test message"
 }
+```
+
+---
+
+## L-082: Cross-Path Dependency Analysis (MANDATORY for multi-path workflows!)
+
+> **Learning ID:** L-082
+> **Problem:** Fix text path → breaks photo/voice paths (shared nodes issue)
+> **Solution:** After ANY change to shared nodes, test ALL execution paths
+> **Confidence:** 90%
+
+**Trigger:** Workflow with multiple execution paths (e.g., text/voice/photo in FoodTracker)
+
+### When to Apply
+
+- ✅ Workflow has IF/Switch nodes (branching logic)
+- ✅ Shared nodes used by multiple paths (Check User, AI Agent, Database)
+- ✅ After modifying ANY shared node
+- ✅ After credential changes
+- ✅ After connection changes
+
+### Testing Protocol
+
+```javascript
+// STEP 1: Identify all execution paths
+const paths = identifyExecutionPaths(workflow);
+// Example: ["text_path", "voice_path", "photo_path"]
+
+// STEP 2: Test EACH path independently
+for (const path of paths) {
+  // Request user to send test input for this path
+  await askUser(`Send test ${path} input (e.g., text message / voice / photo)`);
+
+  // Verify bot responds
+  const responded = await waitForResponse(timeout: 10s);
+
+  // Check execution data
+  const execution = await n8n_executions({ action: "list", limit: 1 });
+
+  path_results[path] = {
+    triggered: execution.exists,
+    completed: execution.status === "success",
+    bot_responded: responded,
+    nodes_executed: execution.executedNodes.length,
+    stopped_at: execution.stoppedAt || null
+  };
+}
+
+// STEP 3: Report ALL results
+report = {
+  total_paths: paths.length,
+  paths_tested: paths.length,
+  paths_passed: path_results.filter(r => r.completed && r.bot_responded).length,
+  paths_failed: path_results.filter(r => !r.completed || !r.bot_responded).length,
+  details: path_results
+};
+
+// STEP 4: Mark as FAILED if ANY path broken
+if (report.paths_failed > 0) {
+  return {
+    ready_for_deploy: false,
+    reason: `${report.paths_failed} paths broken (cross-path regression)`,
+    failing_paths: path_results.filter(r => !r.completed).map(r => r.path)
+  };
+}
+```
+
+### Output Format
+
+```json
+{
+  "L082_cross_path_test": {
+    "applicable": true,
+    "total_paths": 3,
+    "paths_tested": 3,
+    "paths_passed": 2,
+    "paths_failed": 1,
+    "results": {
+      "text_path": { "triggered": true, "completed": true, "bot_responded": true },
+      "voice_path": { "triggered": true, "completed": true, "bot_responded": true },
+      "photo_path": { "triggered": true, "completed": false, "bot_responded": false, "stopped_at": "Process Photo" }
+    },
+    "verdict": "FAILED - photo_path broken"
+  }
+}
+```
+
+**CRITICAL RULE:**
+```
+IF any shared node modified AND not all paths tested → BLOCK deployment!
+
+Shared nodes include: Check User, AI Agent, Database, Memory, Error Handler
 ```
 
 ---

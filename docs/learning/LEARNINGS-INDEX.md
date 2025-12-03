@@ -34,12 +34,13 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 68
-- **Categories:** 12
+- **Total Entries:** 73 (Added L-079 to L-083)
+- **Categories:** 13
 - **Node Types Covered:** 15+
 - **Error Types Cataloged:** 30+
-- **File Size:** 5,400+ lines (~165,000 tokens)
-- **Index Size:** ~800 tokens (99.5% reduction)
+- **File Size:** 5,800+ lines (~180,000 tokens)
+- **Index Size:** ~850 tokens (99.5% reduction)
+- **Last Updated:** 2025-12-03
 
 ---
 
@@ -331,3 +332,22 @@ node scripts/generate-learnings-index.js
 - **Problem:** Agents couldn't call MCP tools - output pseudocode instead
 - **Solution:** Explicitly list ALL MCP tools in frontmatter `tools` array
 - **Impact:** High - core agent functionality
+
+### New Learnings (2025-12-03 FoodTracker Recovery)
+
+| ID | Title | Category | Agent | Severity | Line |
+|----|-------|----------|-------|----------|------|
+| **L-079** | Builder Post-Change Verification | Builder Process / QA | builder | CRITICAL | ~5370 |
+| **L-080** | QA Execution Testing | QA Process / Testing | qa | HIGH | ~5450 |
+| **L-081** | Canonical Snapshot Review | Researcher Process / Context | researcher | HIGH | ~5530 |
+| **L-082** | Cross-Path Dependency Analysis | QA Process / Testing | qa | HIGH | ~5610 |
+| **L-083** | Credential Type Verification | Researcher Process / Config | researcher | CRITICAL | ~5690 |
+
+**Summary:** Five new protocols from FoodTracker v111 failure recovery (2025-12-03):
+- L-079: Builder MUST re-fetch workflow after mutation to verify changes applied
+- L-080: QA MUST test execution (not just config validation)
+- L-081: Researcher MUST read canonical snapshot BEFORE modifications
+- L-082: QA MUST test ALL execution paths after shared node changes
+- L-083: Researcher MUST verify credential types match node requirements
+
+**Keywords:** `builder-verification`, `execution-testing`, `canonical-snapshot`, `cross-path-testing`, `credential-verification`, `foodtracker`, `v111-failure`, `post-change-verification`, `runtime-validation`, `context-preservation`

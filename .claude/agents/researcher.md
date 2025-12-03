@@ -168,8 +168,15 @@ STEP 4: NODES (если нужны новые)
 
 ```
 ═══════════════════════════════════════════════════════════════
-ФАЗА 0: CHECK CANONICAL SNAPSHOT (NEW - SAVES TOKENS!)
+ФАЗА 0: CHECK CANONICAL SNAPSHOT (L-081 - MANDATORY!)
 ═══════════════════════════════════════════════════════════════
+
+## L-081: Canonical Snapshot Review Protocol
+
+> **Learning ID:** L-081
+> **Problem:** Changes made without understanding working baseline
+> **Solution:** Read canonical snapshot BEFORE modifications, identify working parts, create preservation plan
+> **Confidence:** 85%
 
 STEP 0.0: READ CANONICAL SNAPSHOT FIRST
 ├── Check: run_state.canonical_snapshot exists?
@@ -546,6 +553,105 @@ STEP 4: EXPRESSION EXAMPLES (if needed)
 ```
 
 **After build_guidance written:** Set stage → `build`
+
+## L-083: Credential Type Verification Protocol (MANDATORY!)
+
+> **Learning ID:** L-083
+> **Problem:** Wrong credential type causes immediate failure (e.g., supabaseApi for node requiring postgres)
+> **Solution:** Verify node's accepted credential types BEFORE configuration
+> **Confidence:** 95%
+
+**Trigger:** BEFORE Builder configures any node with credentials
+
+### Protocol Steps
+
+```javascript
+// STEP 1: Get node documentation for credential requirements
+const nodeInfo = await get_node({
+  nodeType: "nodes-langchain.memoryPostgresChat",
+  detail: "standard"
+});
+
+// Extract accepted credential types
+const acceptedTypes = nodeInfo.credentials.map(c => c.name);
+// Example: ["postgres"]
+
+// STEP 2: List available credentials (from discovery or workflow scan)
+const availableCredentials = run_state.credentials_discovered;
+
+// STEP 3: Match requirements with available
+const matches = [];
+const mismatches = [];
+
+for (const credType of acceptedTypes) {
+  if (availableCredentials[credType]) {
+    matches.push({
+      required: credType,
+      available: availableCredentials[credType]
+    });
+  } else {
+    mismatches.push({
+      required: credType,
+      available: "NONE",
+      problem: `Node requires '${credType}' but not found in available credentials`
+    });
+  }
+}
+
+// STEP 4: Report verification result
+verification_result = {
+  node_type: nodeInfo.nodeType,
+  credential_requirements: acceptedTypes,
+  matches: matches,
+  mismatches: mismatches,
+  can_configure: mismatches.length === 0
+};
+```
+
+### Critical Rules
+
+**❌ BLOCK if:**
+- Required credential type NOT available
+- User tries to substitute wrong type (e.g., `supabaseApi` for `postgres`)
+- Credential ID exists but type mismatch
+
+**✅ ALLOW if:**
+- Exact credential type match
+- Multiple credentials of same type available (let user choose)
+
+### Example Output
+
+```json
+{
+  "L083_credential_verification": {
+    "node_type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+    "required_credential_types": ["postgres"],
+    "available_credentials": {
+      "postgres": [
+        { "id": "cred_001", "name": "Supabase DB (postgres type)" }
+      ],
+      "supabaseApi": [
+        { "id": "DYpIGQK8a652aosj", "name": "Supabase account" }
+      ]
+    },
+    "verification": "PASS",
+    "recommendation": "Use credential cred_001 (postgres type points to Supabase)"
+  }
+}
+```
+
+**KEY INSIGHT from v111 failure:**
+```
+Supabase IS PostgreSQL, but credential MUST be type 'postgres' not 'supabaseApi'!
+
+memoryPostgresChat only accepts: ["postgres"]
+Even though Supabase credential exists, if type is 'supabaseApi' → REJECTED!
+
+Correct: Create postgres credential with Supabase connection string
+Wrong: Try to use supabaseApi credential
+```
+
+---
 
 ## Credential Discovery Protocol (Phase 3)
 
