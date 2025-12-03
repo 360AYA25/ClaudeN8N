@@ -46,10 +46,10 @@ Launch the multi-agent system to create, modify, or fix n8n workflows.
 
 Examples:
 - ❌ WRONG: `const workflow = await n8n_get_workflow({id})`
-- ✅ RIGHT: `Task({ agent: "researcher", prompt: "Get workflow X" })`
+- ✅ RIGHT: `Task({ subagent_type: "general-purpose", prompt: "## ROLE: Researcher\nRead: .claude/agents/researcher.md\n\n## TASK: Get workflow X" })`
 
 - ❌ WRONG: `const result = await validate_workflow({workflow})`
-- ✅ RIGHT: `Task({ agent: "qa", prompt: "Validate workflow" })`
+- ✅ RIGHT: `Task({ subagent_type: "general-purpose", prompt: "## ROLE: QA\nRead: .claude/agents/qa.md\n\n## TASK: Validate workflow" })`
 
 **Cognitive trap:** "I'll just quickly check..." → NO! Always delegate!
 
@@ -86,15 +86,41 @@ Examples:
 
 ## Execution Protocol
 
-### Calling Agents
+### Calling Agents (Workaround for Issue #7296)
+
+**Problem:** Custom agents can't use tools (MCP, Bash, Read, Write).
+**Solution:** Use `general-purpose` with role in prompt.
 
 ```javascript
-// ✅ CORRECT:
-Task({ agent: "architect", prompt: "Clarify requirements..." })
+// ✅ CORRECT (workaround for Issue #7296):
+Task({
+  subagent_type: "general-purpose",
+  model: "opus",  // for builder only, others use default sonnet
+  prompt: `## ROLE: Builder Agent
 
-// ❌ WRONG (don't use subagent_type for custom agents!):
-Task({ subagent_type: "architect", prompt: "..." })
+You are the Builder agent. Read and follow your instructions from:
+/Users/sergey/Projects/ClaudeN8N/.claude/agents/builder.md
+
+## CONTEXT
+Read current state from: memory/run_state.json
+
+## TASK
+Create the workflow per blueprint...`
+})
+
+// ❌ WRONG (custom agents can't use tools!):
+Task({ agent: "builder", prompt: "..." })
 ```
+
+### Agent Role Templates
+
+| Agent | Model | Role Prompt |
+|-------|-------|-------------|
+| architect | sonnet (default) | `## ROLE: Architect Agent\nRead: .claude/agents/architect.md` |
+| researcher | sonnet (default) | `## ROLE: Researcher Agent\nRead: .claude/agents/researcher.md` |
+| builder | `model: "opus"` | `## ROLE: Builder Agent\nRead: .claude/agents/builder.md` |
+| qa | sonnet (default) | `## ROLE: QA Agent\nRead: .claude/agents/qa.md` |
+| analyst | sonnet (default) | `## ROLE: Analyst Agent\nRead: .claude/agents/analyst.md` |
 
 ### Agent Delegation
 
@@ -191,10 +217,11 @@ if (qa_fail_count >= 7) {
 
 ### Context Isolation
 
-Each `Task({ agent: "..." })` = **NEW PROCESS**:
+Each `Task({ subagent_type: "general-purpose", ... })` = **NEW PROCESS**:
 - Clean context (~30-75K tokens)
-- Model from agent's frontmatter
-- Tools from agent's frontmatter
+- Model via `model: "opus"` param (or default sonnet)
+- Tools inherited from built-in agent (works!)
+- Agent reads role instructions from .md file
 - Contexts do NOT overlap — exchange via files!
 
 ### Algorithm
@@ -527,7 +554,7 @@ refresh_canonical_snapshot() {
   fi
 
   # Researcher creates new snapshot
-  Task({ agent: "researcher", prompt: "Create fresh canonical snapshot for workflow $workflow_id" })
+  Task({ subagent_type: "general-purpose", prompt: "## ROLE: Researcher\nRead: .claude/agents/researcher.md\n\n## TASK: Create fresh canonical snapshot for workflow $workflow_id" })
 
   echo "🔄 Canonical snapshot refreshed"
 }
@@ -553,7 +580,7 @@ jq --arg req "$USER_REQUEST" \
 ### Step 5: Start Architect
 
 ```bash
-Task({ agent: "architect", prompt: "Clarify requirements with user" })
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: Architect\nRead: .claude/agents/architect.md\n\n## TASK: Clarify requirements with user" })
 ```
 
 ### Validation Decision Matrix
@@ -761,8 +788,16 @@ fi
 
 ```javascript
 Task({
-  agent: "builder",
-  prompt: `Fix workflow per edit_scope.
+  subagent_type: "general-purpose",
+  model: "opus",
+  prompt: `## ROLE: Builder Agent
+Read: .claude/agents/builder.md
+
+## CONTEXT
+Read state from: memory/run_state.json
+
+## TASK
+Fix workflow per edit_scope.
 
 ${already_tried ? `⚠️ ALREADY TRIED (don't repeat!):
 ${already_tried}

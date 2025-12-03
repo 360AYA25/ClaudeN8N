@@ -169,66 +169,72 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 ### CRITICAL: Correct Syntax for Custom Agents
 
 ```javascript
-// ✅ CORRECT - use "agent" parameter for custom agents:
+// ✅ CORRECT (workaround for Issue #7296 - custom agents can't use tools):
 Task({
-  agent: "architect",
-  prompt: "Clarify requirements with user"
+  subagent_type: "general-purpose",
+  model: "opus",  // for builder only
+  prompt: `## ROLE: Builder Agent
+Read: .claude/agents/builder.md
+
+## TASK
+Clarify requirements with user`
 })
 
-// ❌ WRONG - don't use "subagent_type" for custom agents!
+// ❌ WRONG - custom agents can't use tools!
 Task({
-  subagent_type: "architect",  // This won't work!
+  agent: "builder",  // This agent won't have MCP/Bash access!
   prompt: "..."
 })
 ```
 
-### 5-Phase Flow
+### 5-Phase Flow (using workaround)
 ```javascript
 // Phase 1: Clarification
-Task({ agent: "architect", prompt: "Clarify requirements with user" })
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: Architect\nRead: .claude/agents/architect.md\n\n## TASK: Clarify requirements" })
 → returns requirements
 
 // Phase 2: Research
-Task({ agent: "researcher", prompt: "Search for solutions per research_request" })
-→ returns research_findings (fit_score, popularity, existing_workflows)
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: Researcher\nRead: .claude/agents/researcher.md\n\n## TASK: Search for solutions" })
+→ returns research_findings
 
 // Phase 3: Decision
-Task({ agent: "architect", prompt: "Present options to user, get decision" })
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: Architect\n...\n\n## TASK: Present options" })
 → returns decision + blueprint
 
 // Phase 4: Implementation
-Task({ agent: "researcher", prompt: "Deep dive on HOW to build per blueprint" })
-→ returns build_guidance (learnings, patterns, node_configs, warnings)
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: Researcher\n...\n\n## TASK: Deep dive" })
+→ returns build_guidance
 
 // Phase 5: Build
-Task({ agent: "builder", prompt: "Build workflow per blueprint + build_guidance" })
+Task({ subagent_type: "general-purpose", model: "opus", prompt: "## ROLE: Builder\n...\n\n## TASK: Build workflow" })
 → returns workflow
-Task({ agent: "qa", prompt: "Validate and test workflow" })
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: QA\n...\n\n## TASK: Validate" })
 → returns qa_report
 ```
 
 ### QA Fix Loop
 ```javascript
-Task({ agent: "builder", prompt: "Fix issues. edit_scope=[node_123]. qa_report={...}" })
+Task({ subagent_type: "general-purpose", model: "opus", prompt: "## ROLE: Builder\n...\n\n## TASK: Fix issues per edit_scope" })
 → returns updated workflow
-Task({ agent: "qa", prompt: "Re-validate workflow" })
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: QA\n...\n\n## TASK: Re-validate" })
 → returns qa_report (cycle 2/3)
 ```
 
 ### L4 Post-mortem
 ```javascript
 // After stage="blocked"
-Task({ agent: "analyst", prompt: "Analyze why this failed + token usage report" })
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: Analyst\nRead: .claude/agents/analyst.md\n\n## TASK: Analyze failure" })
 → returns root_cause, proposed_learnings, token_usage
 ```
 
 ### Context Isolation
 Each agent runs in **isolated context** with its own model:
-- Orchestrator calls `Task({ agent: "builder" })` → NEW process (Opus)
-- Builder gets clean context (~50-75K tokens)
-- Builder reads `memory/run_state.json` for details
-- Builder writes results to `memory/agent_results/workflow_{id}.json`
-- Builder returns ONLY summary to Orchestrator
+- Orchestrator calls `Task({ subagent_type: "general-purpose", model: "opus" })` → NEW process
+- Agent reads its role from .claude/agents/*.md file
+- Agent gets clean context (~50-75K tokens) + TOOLS WORK!
+- Agent reads `memory/run_state.json` for details
+- Agent writes results to `memory/agent_results/workflow_{id}.json`
+- Agent returns ONLY summary to Orchestrator
 
 ## Safety Rules
 
