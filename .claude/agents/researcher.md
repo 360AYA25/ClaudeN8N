@@ -22,24 +22,27 @@ tools:
 
 ## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)
 
+> **Status:** MCP tools working (Bug #10668 fixed, n8n-mcp v2.27.0+)
+> **Purpose:** Verify real API responses, never simulate results
+> **Full protocol:** `.claude/agents/shared/L-075-anti-hallucination.md`
+
 ### NEVER SIMULATE MCP CALLS! NEVER INVENT DATA!
 
 **STEP 0: MCP Check (MANDATORY FIRST!)**
 ```
 Call: mcp__n8n-mcp__n8n_list_workflows with limit=1
-IF no <function_results> → STOP! Return MCP_NOT_AVAILABLE
+IF you see actual data → MCP works, continue
+IF error OR no response → Report error, do not proceed
 ```
 
 **FORBIDDEN:**
 - ❌ Inventing workflow IDs
 - ❌ Generating fake search results
-- ❌ Saying "found 5 templates" without real MCP response
 - ❌ Creating plausible-looking data from imagination
 
 **REQUIRED:**
 - ✅ Only report data from REAL `<function_results>`
 - ✅ Quote exact values from API responses
-- ✅ If MCP fails → return `{"error": "MCP_NOT_AVAILABLE"}`
 
 ---
 
@@ -64,11 +67,13 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 | `n8n_list_workflows` | ✅ | List existing workflows |
 | `n8n_get_workflow` | ✅ | Workflow details |
 
-**Note:** All Researcher tools are read-only → not affected by Zod bug #444, #447.
+**Note:** All Researcher tools are read-only. Zod bugs #444, #447 fixed in n8n-mcp v2.27.0+.
 
 ---
 
 ## Project Context Detection
+
+> **Full protocol:** `.claude/agents/shared/project-context-detection.md`
 
 **At session start, detect which project you're working on:**
 

@@ -2,6 +2,76 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.4.7] - 2025-12-03
+
+### 🔧 Issue #7296 Workaround + System Cleanup
+
+**Custom agents (builder, qa, etc.) cannot execute tools. Implemented workaround.**
+
+### Problem
+
+GitHub Issue #7296: Custom agents from `.claude/agents/` cannot call tools (MCP, Bash, Read, Write).
+They generate text but hallucinate results instead of actually executing.
+
+### Solution: Use `general-purpose` with Role Injection
+
+```javascript
+// OLD (broken):
+Task({ subagent_type: "builder", prompt: "..." })
+
+// NEW (works):
+Task({
+  subagent_type: "general-purpose",
+  model: "opus",  // for builder
+  prompt: `## ROLE: Builder Agent
+Read: .claude/agents/builder.md
+
+## TASK: ...`
+})
+```
+
+### Verification
+
+- Test workflow created and verified via MCP
+- All tools work correctly in `general-purpose` agent
+- Context isolation preserved (each agent = separate process)
+
+### System Cleanup (12 issues fixed)
+
+| Category | Issues Fixed |
+|----------|--------------|
+| **Obsolete references** | Removed `docs/MCP-BUG-RESTORE.md` ref, updated bug status |
+| **L-075 Anti-Hallucination** | Updated: "Bug #10668 fixed, MCP works" |
+| **Contradictions** | Fixed "MCP broken!" comments, L-073 clarification |
+| **Code deduplication** | Created `shared/L-075-anti-hallucination.md`, `shared/project-context-detection.md` |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `.claude/commands/orch.md` | Task syntax updated, L-073 clarification |
+| `.claude/CLAUDE.md` | Task examples updated |
+| `.claude/agents/builder.md` | L-075 updated, shared file refs |
+| `.claude/agents/qa.md` | L-075 updated, obsolete refs removed |
+| `.claude/agents/researcher.md` | L-075 updated, Zod bug note |
+| `.claude/agents/shared/L-075-anti-hallucination.md` | NEW: Consolidated protocol |
+| `.claude/agents/shared/project-context-detection.md` | NEW: Consolidated protocol |
+
+### What's Preserved
+
+- 5-agent architecture (architect, researcher, builder, qa, analyst)
+- Specialized instructions in .md files
+- run_state.json shared state
+- All learnings and patterns
+- Context isolation (each agent = separate ~50-75K token process)
+
+### Commits
+
+- `39fe29f` fix: workaround for Issue #7296 - agents can't use tools
+- `b4f229b` docs: update bug monitor status (v2.0.57, auto-updates enabled)
+
+---
+
 ## [3.4.6] - 2025-12-02
 
 ### 🚨 CRITICAL: L-075 Anti-Hallucination Protocol

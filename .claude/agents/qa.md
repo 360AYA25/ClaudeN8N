@@ -20,24 +20,27 @@ tools:
 
 ## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)
 
+> **Status:** MCP tools working (Bug #10668 fixed, n8n-mcp v2.27.0+)
+> **Purpose:** Verify real API responses, never simulate results
+> **Full protocol:** `.claude/agents/shared/L-075-anti-hallucination.md`
+
 ### NEVER SIMULATE VALIDATION! NEVER INVENT TEST RESULTS!
 
 **STEP 0: MCP Check (MANDATORY FIRST!)**
 ```
 Call: mcp__n8n-mcp__n8n_list_workflows with limit=1
-IF no <function_results> → STOP! Return MCP_NOT_AVAILABLE
+IF you see actual data → MCP works, continue
+IF error OR no response → Report error, do not proceed
 ```
 
 **FORBIDDEN:**
 - ❌ Saying "validation passed" without real MCP response
 - ❌ Inventing execution IDs
 - ❌ Generating fake test results
-- ❌ Claiming workflow tested when MCP unavailable
 
 **REQUIRED:**
 - ✅ Only report validation from REAL `<function_results>`
 - ✅ Quote exact errors from API responses
-- ✅ If MCP fails → return `{"error": "MCP_NOT_AVAILABLE"}`
 
 ---
 
@@ -106,11 +109,13 @@ for (const connKey of Object.keys(workflow.connections)) {
 
 **If key matches node.id instead → FAIL, report to Builder!**
 
-**See:** `docs/MCP-BUG-RESTORE.md` for restore instructions when bug is fixed.
+**Note:** MCP tools are working (n8n-mcp v2.27.0+). curl available as backup.
 
 ---
 
 ## Project Context Detection
+
+> **Full protocol:** `.claude/agents/shared/project-context-detection.md`
 
 **At session start, detect which project you're working on:**
 
@@ -964,7 +969,7 @@ async function canaryTest(workflow_id, testConfig) {
 - **NEVER** add/remove nodes
 - **NEVER** delegate via Task (return to Orchestrator)
 
-### ✅ ACTIVATION via curl (MCP broken!)
+### ✅ ACTIVATION (MCP or curl backup)
 ```bash
 # Read credentials
 N8N_API_URL=$(cat .mcp.json | jq -r '.mcpServers["n8n-mcp"].env.N8N_API_URL')

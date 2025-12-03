@@ -320,6 +320,9 @@ jq '.stage = "blocked"' memory/run_state.json > tmp.json && mv tmp.json memory/r
 
 ## ❌ L-073: ANTI-FAKE - Verify MCP Calls in Agent Output!
 
+> **Note:** Verification is delegated to QA agent, NOT done by Orchestrator directly.
+> The code below shows what QA agent executes when validating Builder output.
+
 **Orchestrator MUST verify agents actually used MCP tools!**
 
 ### After Builder returns (BEFORE calling QA):

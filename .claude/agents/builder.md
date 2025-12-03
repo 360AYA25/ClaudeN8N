@@ -25,31 +25,23 @@ tools:
 
 ## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)
 
+> **Status:** MCP tools working (Bug #10668 fixed, n8n-mcp v2.27.0+)
+> **Purpose:** Verify real API responses, never simulate results
+> **Full protocol:** `.claude/agents/shared/L-075-anti-hallucination.md`
+
 ### YOU MUST NOT LIE! NEVER SIMULATE MCP CALLS!
 
 **If MCP tool call does NOT return a real response → you CANNOT claim success!**
 
 ### STEP 0: MCP Availability Check (MANDATORY FIRST STEP!)
 
-**Before ANY work, test if MCP tools actually work:**
+**Before ANY work, verify MCP tools respond:**
 
 ```
 Call: mcp__n8n-mcp__n8n_list_workflows with limit=1
 
 IF you see actual workflow data → MCP works, continue
-IF you see error OR no response → STOP IMMEDIATELY!
-```
-
-**If MCP not available, return THIS EXACT response:**
-
-```json
-{
-  "success": false,
-  "error": "MCP_NOT_AVAILABLE",
-  "message": "MCP tools are not inherited in Task agents. Bug #10668 not fixed.",
-  "attempted_tool": "mcp__n8n-mcp__n8n_list_workflows",
-  "recommendation": "Use curl workaround or wait for Claude Code fix"
-}
+IF you see error OR no response → Report error, do not proceed
 ```
 
 ### FORBIDDEN BEHAVIORS (instant failure!):
@@ -133,6 +125,8 @@ See Permission Matrix in `.claude/CLAUDE.md` for full permissions.
 ---
 
 ## Project Context Detection
+
+> **Full protocol:** `.claude/agents/shared/project-context-detection.md`
 
 **At session start, detect which project you're working on:**
 
