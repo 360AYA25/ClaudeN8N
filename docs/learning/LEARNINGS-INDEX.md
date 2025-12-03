@@ -34,12 +34,12 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 65
+- **Total Entries:** 68
 - **Categories:** 12
 - **Node Types Covered:** 15+
-- **Error Types Cataloged:** 29+
-- **File Size:** 4,600+ lines (~135,000 tokens)
-- **Index Size:** ~800 tokens (99.4% reduction)
+- **Error Types Cataloged:** 30+
+- **File Size:** 5,400+ lines (~165,000 tokens)
+- **Index Size:** ~800 tokens (99.5% reduction)
 
 ---
 
@@ -52,8 +52,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **Supabase** | 5 | 1020-1130 | Schema checks, RLS, RPC, insert/update, getAll |
 | **Set (v3.4)** | 2 | 285-400 | ={{ syntax, expression validation, manual mode |
 | **HTTP Request** | 3 | 1441-1710 | continueOnFail, credentials, status codes, error handling |
-| **Webhook** | 2 | 730-1458 | Creation, production setup, path uniqueness |
-| **Telegram** | 2 | 1130-1190, 400-490 | Parameter format, AI Agent integration |
+| **Webhook** | 3 | 730-1458, 4940-5076 | Creation, production setup, path uniqueness, **L-076: Telegram Webhook configuration checklist** |
+| **Telegram** | 3 | 1130-1190, 400-490, 4940-5076 | Parameter format, AI Agent integration, **L-076: Webhook onError+path parameters** |
 | **Notion** | 6 | 890-1050 | Filters, dates, properties, page objects, timezone |
 | **Memory (AI Agent)** | 2 | 1639-1683 | Session ID, context passing, customKey |
 | **Code Node** | 3 | 1570-1602, 3560-3718 | IF routing, regex escaping, **🔴 L-060: Deprecated $node["..."] syntax causes 300s timeout (CRITICAL)** |
@@ -67,7 +67,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | Error Type | Entries | Related Nodes | Line Numbers |
 |------------|---------|---------------|--------------|
 | **Missing Parameter** | 6 | Supabase, Set, HTTP Request | 285-400, 1020-1130, 1380-1394 |
-| **Validation Error** | 5 | Set, n8n API, Partial Update | 285-339, 1602-1639 |
+| **Validation Error** | 6 | Set, n8n API, Partial Update, QA Complete Check | 285-339, 1602-1639, 5182-5372 (L-078) |
 | **Authentication** | 2 | HTTP Request, Credentials | 1441-1458, 616-661 |
 | **Schema Mismatch** | 3 | Supabase, RPC Functions | 1336-1364, 1394-1415 |
 | **Connection Issues** | 2 | Supabase, HTTP Request | 1364-1380, 1683-1709 |
@@ -86,6 +86,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | **False Positives** | 4 | Validation, continueOnFail+onError, IF combinator (L-053), QA override (L-054) | 2051-2143, 2616-2771 |
 | **Fan-Out Routing** | 1 | Switch Node, Multi-Way | 2145-2279 |
 | **Binary Data Loss** | 1 | 🔴 **IF Node strips binary data at output (L-068 CRITICAL)** | 330-430 |
+| **Webhook Configuration** | 1 | Telegram Webhook onError+path parameters (L-076) | 4940-5076 |
 
 ### By Category (from Quick Index)
 
@@ -137,6 +138,9 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-12-03 | L-078: QA Complete Parameter Validation | 5182 | Methodology / QA |
+| 2025-12-03 | L-077: Template #2465 - Production Base for Telegram AI Bots | 5080 | n8n Workflows / Templates |
+| 2025-12-03 | L-076: Telegram Webhook Configuration Checklist | 4940 | n8n Workflows / Telegram |
 | 2025-11-30 | 🔴 L-068: IF Nodes Don't Pass Binary Data (CRITICAL) | 330 | n8n Workflows / Binary Data |
 | 2025-11-30 | 🔴 L-067: Execution Mode Selection for Large Workflows (CRITICAL) | 172 | n8n Workflows / Performance |
 | 2025-11-28 | 🔥 L-066: Solution Search Hierarchy - 5-Tier Systematic Research | 4187 | Methodology / Research |
@@ -217,8 +221,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `supabase` → Lines: 1020-1130, 490-616, 1336-1415
 - `set node` → Lines: 285-400
 - `http request` → Lines: 1441-1530, 1528-1710
-- `webhook` OR `chat trigger` → Lines: 172, 730-871, 1458-1474
-- `telegram` → Lines: 1130-1190, 400-490
+- `webhook` OR `chat trigger` → Lines: 172, 730-871, 1458-1474, 4940-5076 (L-076)
+- `telegram` → Lines: 1130-1190, 400-490, 4940-5076 (L-076)
 - `notion` → Lines: 890-1020, 1229-1336
 - `memory` OR `ai agent` → Lines: 1639-1683, 1661-1683
 - `code node` → Lines: 1570-1602, 1586-1602, 3560-3718
@@ -228,7 +232,10 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ### Error Keywords
 - `missing parameter` OR `required field` → Lines: 285-400, 1380-1394
-- `validation` OR `zod` → Lines: 285-339, 1602-1639
+- `validation` OR `zod` → Lines: 285-339, 1602-1639, 5182-5372 (L-078: Complete validation)
+- `webhook configuration` OR `onError` OR `webhook path` → Lines: 4940-5076 (L-076)
+- `template` OR `#2465` OR `ai-chatbot` OR `telegram bot template` → Lines: 5080-5178 (L-077)
+- `qa validation` OR `complete check` OR `sequential validation` → Lines: 5182-5372 (L-078)
 - `authentication` OR `credentials` → Lines: 1441-1458, 616-661
 - `schema` → Lines: 1336-1415
 - `connection` → Lines: 1364-1380, 1683-1709
@@ -312,11 +319,11 @@ node scripts/generate-learnings-index.js
 
 ---
 
-**Last Updated:** 2025-11-30
-**Version:** 1.6.0
+**Last Updated:** 2025-12-03
+**Version:** 1.7.0
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent
-**Latest Additions:** L-068 (IF Nodes Binary Data Loss), L-067 (Execution Mode Selection for Large Workflows)
+**Latest Additions:** L-078 (QA Complete Parameter Validation), L-077 (Template #2465), L-076 (Telegram Webhook Configuration Checklist)
 
 ### L-069: Agent Frontmatter Must Explicitly List MCP Tools
 - **Category:** Agent System
