@@ -189,6 +189,87 @@ Skill("n8n-code-python")         // For Python Code nodes
 3. **edit_scope** - If set, touch ONLY those nodes
 4. **blueprint** - Follow Architect's blueprint structure
 
+## 🚨 GATE 2: Execution Analysis Requirement (MANDATORY!)
+
+> **NEW (v3.5.0):** Prevents guessing without data (Task 2.4 failure pattern)
+> **Source:** `.claude/agents/validation-gates.md` GATE 2
+
+**BEFORE fixing ANY broken workflow, verify execution analysis exists!**
+
+### Check Requirement
+
+```bash
+stage=$(jq -r '.stage' memory/run_state_active.json)
+workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
+
+# If fixing existing workflow (not creating new)
+if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canonical.json" ]; then
+  # This is a FIX - execution analysis REQUIRED!
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state_active.json)
+
+  if [ "$execution_analysis" != "true" ]; then
+    echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
+    echo "REQUIRED: Analyst must analyze last 5 executions FIRST."
+    echo "RETURN: execution_analysis_missing"
+    exit 1
+  fi
+
+  # Read execution diagnosis
+  diagnosis_file=$(jq -r '.execution_analysis.diagnosis_file' memory/run_state_active.json)
+  if [ -f "$diagnosis_file" ]; then
+    echo "✅ Execution analysis found: $diagnosis_file"
+    # Read diagnosis to understand root cause
+    cat "$diagnosis_file"
+  fi
+fi
+```
+
+### Required Fields in run_state_active.json
+
+```json
+{
+  "execution_analysis": {
+    "completed": true,
+    "analyst_agent": "analyst",
+    "timestamp": "2025-12-04T15:30:00Z",
+    "findings": {
+      "break_point": "AI Agent node - input field missing telegram_user_id",
+      "root_cause": "Prepare Message Data passes only text, not full context",
+      "failed_executions": 5
+    },
+    "diagnosis_file": "memory/agent_results/{workflow_id}/execution_analysis.json"
+  }
+}
+```
+
+### When This Gate Applies
+
+| Scenario | Gate Required? |
+|----------|----------------|
+| Creating NEW workflow | ❌ NO (nothing to analyze yet) |
+| Fixing broken workflow (canonical.json exists) | ✅ YES (MANDATORY!) |
+| Modifying working workflow | ❌ NO (no execution failures) |
+| QA cycle 2+ (fixing after QA FAIL) | ✅ YES (Analyst must analyze first!) |
+
+### If Gate Violated
+
+**DO NOT proceed with fix!**
+
+Return error to Orchestrator:
+```json
+{
+  "status": "blocked",
+  "gate_violation": "GATE 2",
+  "reason": "Execution analysis required before fixing workflow",
+  "required_action": "Call Analyst to analyze last 5 executions first",
+  "workflow_id": "{workflow_id}"
+}
+```
+
+**Orchestrator will call Analyst → Analyst analyzes executions → You get diagnosis → Then you fix!**
+
+---
+
 ## Code Node Syntax Validation (MANDATORY!)
 
 **⚠️ CRITICAL: Check for deprecated syntax in ALL Code nodes!**

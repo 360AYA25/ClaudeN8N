@@ -5,6 +5,383 @@ description: Centralized validation rules for all agents
 
 # Validation Gates - Cross-Agent Enforcement
 
+> **UPDATED:** 2025-12-04 - Added Priority 0 Critical Enforcement Gates
+> **Source:** SYSTEM_AUDIT_AGENT_FAILURES.md analysis
+
+---
+
+## 🚨 PRIORITY 0: CRITICAL ENFORCEMENT GATES
+
+**Context:** Task 2.4 revealed systemic failures - Orchestrator ignored its own progressive escalation protocol, causing 8 wasted cycles instead of 3 + escalation. These gates MUST be checked before EVERY agent delegation.
+
+**Authority:** Orchestrator MUST enforce these gates. Violations = system stop.
+
+---
+
+### GATE 1: Progressive Escalation (QA Loop) - MANDATORY!
+
+**Enforcement Point:** After EACH QA failure
+
+**Protocol Source:** [orch.md lines 196-203](../commands/orch.md#L196-L203)
+
+**Problem Solved:** Builder trying 8+ times with same approach (Task 2.4 failure)
+
+**Rules by Cycle Count:**
+
+```bash
+# Cycle 1-3: Builder Direct Fix
+IF cycle_count IN [1, 2, 3]:
+  ALLOW: Builder (direct fix attempts)
+  BLOCK: Researcher (too early), Analyst (too early)
+  Rationale: Simple fixes first, Builder may succeed quickly
+
+# Cycle 4-5: Researcher Alternative Approach (MANDATORY!)
+IF cycle_count IN [4, 5]:
+  BLOCK: Builder (exhausted direct fixes!)
+  REQUIRE: Researcher FIRST (find alternative approach)
+  THEN: Builder with new approach from Researcher
+
+  Rationale: 3 failures = current approach wrong, need different solution
+
+  Researcher Prompt:
+  "Builder failed 3 times. Find ALTERNATIVE approach:
+   - Different architecture (Code node? Different tool?)
+   - Different data flow (Inject context differently?)
+   - Workaround (Skip broken tool, use alternative?)
+   Check LEARNINGS.md for similar issues."
+
+# Cycle 6-7: Analyst Root Cause Diagnosis (MANDATORY!)
+IF cycle_count IN [6, 7]:
+  BLOCK: Builder (no more guessing!), Researcher (alternatives exhausted)
+  REQUIRE: Analyst FIRST (root cause diagnosis)
+  THEN: Decision (fix vs redesign vs user escalation)
+
+  Rationale: 5 failures = architectural issue, need deep analysis
+
+  Analyst Prompt:
+  "6 failed attempts! Find ROOT CAUSE:
+   - Analyze execution logs (last 10 runs)
+   - Find WHERE exactly it breaks
+   - Identify architectural flaw
+   - Check if problem is solvable"
+
+# Cycle 8+: BLOCKED - User Escalation
+IF cycle_count >= 8:
+  BLOCK: ALL agents (no more attempts!)
+  SET: stage = "blocked"
+  REPORT: Full failure history + recommendation
+```
+
+**Orchestrator Check (before every Task call in QA loop):**
+
+```bash
+cycle=$(jq -r '.cycle_count // 0' memory/run_state_active.json)
+
+# Cycle 4-5: MUST call Researcher first
+if [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
+  if [ "$calling_builder_without_researcher" = true ]; then
+    echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Researcher FIRST!"
+    exit 1
+  fi
+fi
+
+# Cycle 6-7: MUST call Analyst first
+if [ "$cycle" -ge 6 ] && [ "$cycle" -le 7 ]; then
+  if [ "$calling_builder_without_analyst" = true ]; then
+    echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Analyst FIRST!"
+    exit 1
+  fi
+fi
+
+# Cycle 8+: NO more attempts
+if [ "$cycle" -ge 8 ]; then
+  echo "🚨 GATE 1 VIOLATION: Cycle 8+ blocked! User escalation required."
+  exit 1
+fi
+```
+
+---
+
+### GATE 2: Execution Analysis Requirement
+
+**Enforcement Point:** Before calling Builder for ANY fix to existing workflow
+
+**Problem Solved:** Builder guessing without data (Attempts 1-4, 6-8 in Task 2.4)
+
+**Rule:**
+
+```bash
+IF fixing_broken_workflow:
+  IF execution_analysis_done = false:
+    BLOCK: Builder (cannot fix without diagnosis!)
+    REQUIRE: Analyst execution analysis FIRST
+    THEN: Builder with diagnosis results
+
+  Rationale: No guessing - always data-driven fixes
+```
+
+**Orchestrator Check:**
+
+```bash
+stage=$(jq -r '.stage' memory/run_state_active.json)
+workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
+
+# Check if fixing existing workflow (not creating new)
+if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canonical.json" ]; then
+  # This is a FIX, not new build
+
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state_active.json)
+
+  if [ "$execution_analysis" != "true" ]; then
+    echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
+    echo "Required: Call Analyst to analyze last 5 executions FIRST."
+    exit 1
+  fi
+fi
+```
+
+**Required Fields in run_state_active.json:**
+
+```json
+{
+  "execution_analysis": {
+    "completed": true,
+    "analyst_agent": "analyst",
+    "timestamp": "2025-12-04T15:30:00Z",
+    "findings": {
+      "break_point": "AI Agent node - input field missing telegram_user_id",
+      "root_cause": "Prepare Message Data passes only text, not full context",
+      "failed_executions": 5
+    },
+    "diagnosis_file": "memory/agent_results/{workflow_id}/execution_analysis.json"
+  }
+}
+```
+
+---
+
+### GATE 3: Phase 5 Real Testing (QA Requirement)
+
+**Enforcement Point:** Before QA reports status = "PASS"
+
+**Problem Solved:** "Fixed" without verification (Builder said "done", bot still silent)
+
+**Rule:**
+
+```bash
+IF qa_validation_complete:
+  IF workflow.has_trigger:
+    IF phase_5_real_test NOT executed:
+      BLOCK: QA from reporting "PASS"
+      REQUIRE: Trigger workflow and verify execution
+
+  Rationale: Static validation ≠ real functionality
+```
+
+**QA Must Execute:**
+
+**Phase 1-4:** Static validation (configuration, syntax, connections)
+
+**Phase 5 (MANDATORY):** Real execution testing
+
+```bash
+# If workflow has trigger
+if workflow_has_trigger; then
+  # Trigger workflow
+  execution_id=$(n8n_test_workflow --workflow-id "$workflow_id" --wait)
+
+  # Check execution result
+  status=$(n8n_executions --action get --id "$execution_id" | jq -r '.status')
+
+  if [ "$status" != "success" ]; then
+    # Phase 5 FAILED
+    qa_report.status = "FAIL"
+    qa_report.phase_5_failure = {
+      "execution_id": "$execution_id",
+      "status": "$status"
+    }
+  fi
+fi
+
+# ONLY if Phase 5 passes → status = "PASS"
+```
+
+**Orchestrator Check:**
+
+```bash
+qa_status=$(jq -r '.qa_report.status' memory/run_state_active.json)
+
+if [ "$qa_status" = "PASS" ]; then
+  phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' memory/agent_results/$workflow_id/qa_report.json)
+
+  if [ "$phase_5_executed" != "true" ]; then
+    echo "🚨 GATE 3 VIOLATION: QA reported PASS without Phase 5 real testing!"
+    exit 1
+  fi
+fi
+```
+
+---
+
+### GATE 4: Context Injection (Fix Attempts History)
+
+**Enforcement Point:** Before calling Builder in QA loop (cycle 2+)
+
+**Problem Solved:** Repeating same failed approaches (Attempts 1-3 repeated patterns)
+
+**Rule:**
+
+```bash
+IF cycle_count >= 2:
+  IF fix_attempts.length = 0:
+    BLOCK: Builder (no context about previous failures!)
+    REQUIRE: Inject fix_attempts history into prompt
+
+  Rationale: Prevent repeating same failed approaches
+```
+
+**Required Context in Builder Prompt (cycle 2+):**
+
+```markdown
+## ALREADY TRIED (don't repeat!):
+- Cycle 1: promptType change → FAIL (field contract mismatch)
+- Cycle 2: body format jsonBody→parametersBody → FAIL (still wrong)
+
+## WHY THEY FAILED:
+- Approach 1: Changed wrong field
+- Approach 2: Didn't check execution logs
+
+## NEW APPROACH:
+Try something DIFFERENT based on execution analysis...
+```
+
+**Orchestrator Check:**
+
+```bash
+cycle=$(jq -r '.cycle_count // 0' memory/run_state_active.json)
+
+if [ "$cycle" -ge 2 ]; then
+  fix_attempts=$(jq -r '.fix_attempts // []' memory/run_state_active.json)
+
+  if [ "$fix_attempts" = "[]" ]; then
+    echo "🚨 GATE 4 VIOLATION: Cycle $cycle requires fix_attempts context!"
+    exit 1
+  fi
+fi
+```
+
+---
+
+### GATE 5: MCP Call Verification (L-074)
+
+**Enforcement Point:** Before accepting Builder result as "done"
+
+**Problem Solved:** Fake success without real MCP calls (L-073 pattern)
+
+**Rule:**
+
+```bash
+IF builder_reports_done:
+  IF mcp_calls.length = 0:
+    BLOCK: Accept as done
+    REASON: Fake success (L-073 pattern)
+    REQUIRE: Builder provide MCP call proof
+
+  Rationale: Files can be faked, only MCP calls prove reality
+```
+
+**Orchestrator Check:**
+
+```bash
+builder_status=$(jq -r '.build_result.status' memory/agent_results/$workflow_id/build_result.json)
+
+if [ "$builder_status" = "success" ]; then
+  mcp_calls=$(jq -r '.build_result.mcp_calls // []' memory/agent_results/$workflow_id/build_result.json)
+
+  if [ "$mcp_calls" = "[]" ]; then
+    echo "🚨 GATE 5 VIOLATION: Builder reported success without MCP call proof!"
+    exit 1
+  fi
+
+  # Verify at least one create/update call
+  has_mutation=$(echo "$mcp_calls" | jq '[.[] | select(.tool | test("create|update|autofix"))] | length > 0')
+
+  if [ "$has_mutation" != "true" ]; then
+    echo "🚨 GATE 5 VIOLATION: No create/update MCP calls found!"
+    exit 1
+  fi
+fi
+```
+
+---
+
+### GATE 6: Researcher Hypothesis Validation
+
+**Enforcement Point:** Before Researcher proposes solution to Builder
+
+**Problem Solved:** Untested assumptions (Researcher proposed $fromAI() without verifying)
+
+**Rule:**
+
+```bash
+IF researcher_proposes_solution:
+  IF hypothesis_tested = false:
+    BLOCK: Researcher proposal
+    REQUIRE: Validate hypothesis with execution data
+
+  Rationale: No untested assumptions, only verified solutions
+```
+
+**Required Validation Fields:**
+
+```json
+{
+  "research_findings": {
+    "status": "complete",
+    "proposed_solution": "$fromAI() to access telegram_user_id",
+    "hypothesis_validated": true,
+    "validation_method": "Checked execution logs - Process Text passes full $json",
+    "validation_result": "FAIL - AI Agent receives only $json.data (text)",
+    "alternative_approach": "Use Set node to restructure data before AI Agent"
+  }
+}
+```
+
+**Orchestrator Check:**
+
+```bash
+researcher_status=$(jq -r '.research_findings.status' memory/agent_results/$workflow_id/research_findings.json)
+
+if [ "$researcher_status" = "complete" ]; then
+  hypothesis_validated=$(jq -r '.research_findings.hypothesis_validated // false' memory/agent_results/$workflow_id/research_findings.json)
+
+  if [ "$hypothesis_validated" != "true" ]; then
+    echo "🚨 GATE 6 VIOLATION: Researcher proposed solution without testing hypothesis!"
+    exit 1
+  fi
+fi
+```
+
+---
+
+## 📊 Critical Gates Summary
+
+| Gate # | Enforces | Prevents | Impact |
+|--------|----------|----------|--------|
+| **GATE 1** | Progressive escalation | 8+ Builder cycles | 75% cycle reduction |
+| **GATE 2** | Execution analysis | Guessing without data | 80% time savings |
+| **GATE 3** | Phase 5 real testing | Fake "fixed" claims | 100% deploy confidence |
+| **GATE 4** | Fix attempts history | Repeated failures | No circular debugging |
+| **GATE 5** | MCP call proof | Fake success (L-073) | L-074 compliance |
+| **GATE 6** | Hypothesis validation | Wrong solutions | 80% success rate |
+
+**Expected Outcomes:**
+- Failed attempts: 8 → 2-3 (75% reduction)
+- Time to fix: 3h → 30min (80% reduction)
+- Success rate: 12% → 80%
+
+---
+
 ## Stage Transition Gates
 
 ### Gate: clarification → research

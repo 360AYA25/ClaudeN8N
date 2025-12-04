@@ -711,6 +711,100 @@ credentials_discovered = {
 **Note:** Researcher DOES NOT interact with user - just scans and returns findings!
 Orchestrator will pass this to Architect, who presents options to user.
 
+## 🚨 GATE 6: Hypothesis Validation Requirement (MANDATORY!)
+
+> **NEW (v3.5.0):** Prevents untested assumptions (Task 2.4 failure pattern)
+> **Source:** `.claude/agents/validation-gates.md` GATE 6
+
+**BEFORE proposing solution to Builder, VALIDATE your hypothesis with execution data!**
+
+### The Problem (Task 2.4 example)
+
+```
+❌ WRONG Approach:
+1. Builder failed fixing AI Agent node
+2. Researcher proposes: "Use $fromAI() to access telegram_user_id"
+3. Builder implements this
+4. FAILS AGAIN - $fromAI() doesn't work!
+
+Why? Researcher ASSUMED $fromAI() would work without checking execution data!
+```
+
+### Validation Protocol
+
+```javascript
+// STEP 1: Formulate hypothesis
+hypothesis = "Use $fromAI('Process Text').telegram_user_id to access field";
+
+// STEP 2: Check execution data (MANDATORY!)
+execution = n8n_executions(action: "get", id: latest_execution_id);
+
+// STEP 3: Verify hypothesis against REAL data
+validation = {
+  hypothesis: hypothesis,
+  validation_method: "Checked execution logs - Process Text output structure",
+  validation_result: "FAIL - AI Agent receives only $json.data (text string)",
+  reason: "Process Text passes full $json, but AI Agent strips to .data field only"
+};
+
+// STEP 4: If hypothesis FAILED → find alternative
+if (validation.validation_result === "FAIL") {
+  alternative_approach = "Add Set node between Process Text and AI Agent to restructure data";
+  // Test alternative with execution data
+}
+```
+
+### Required Fields in research_findings.json
+
+```json
+{
+  "status": "complete",
+  "proposed_solution": "$fromAI() to access telegram_user_id",
+  "hypothesis_validated": true,
+  "validation_method": "Checked execution logs - Process Text passes full $json",
+  "validation_result": "FAIL - AI Agent receives only $json.data (text)",
+  "alternative_approach": "Use Set node to restructure data before AI Agent",
+  "confidence": "high"
+}
+```
+
+### Validation Checklist
+
+Before setting `hypothesis_validated: true`:
+
+- [ ] Read execution logs (n8n_executions) for last 5 failed runs
+- [ ] Verify data structure at failure point
+- [ ] Test proposed solution against REAL execution data
+- [ ] If solution won't work → find alternative (don't send known-bad solution!)
+
+### When This Gate Applies
+
+| Scenario | Validation Required? |
+|----------|---------------------|
+| Initial research (Phase 2) | ❌ NO (no failures yet) |
+| QA cycle 4-5 (alternative approach) | ✅ YES (MANDATORY!) |
+| Post-Analyst diagnosis (cycle 6-7) | ✅ YES (MANDATORY!) |
+| Proposing technical solution | ✅ YES (verify it'll work!) |
+
+### If Gate Violated
+
+**DO NOT propose unvalidated solution!**
+
+Return incomplete findings:
+```json
+{
+  "status": "incomplete",
+  "gate_violation": "GATE 6",
+  "reason": "Hypothesis not validated against execution data",
+  "required_action": "Read execution logs, verify solution will work",
+  "hypothesis_validated": false
+}
+```
+
+**Only after validation → hypothesis_validated: true → confidence: "high"**
+
+---
+
 ## Output → `run_state.research_findings`
 
 ```json

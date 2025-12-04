@@ -406,6 +406,75 @@ for (const connKey of Object.keys(workflow.connections)) {
 
 ### Phase 5: REAL TESTING (🔥 MANDATORY for bot workflows!)
 
+## 🚨 GATE 3: Phase 5 Real Testing Requirement (MANDATORY!)
+
+> **NEW (v3.5.0):** Prevents "Fixed" without verification (Task 2.4 failure)
+> **Source:** `.claude/agents/validation-gates.md` GATE 3
+
+**BEFORE reporting status = "PASS", verify Phase 5 real testing executed!**
+
+### Enforcement Rule
+
+```bash
+qa_status=$(jq -r '.qa_report.status' memory/run_state_active.json)
+
+if [ "$qa_status" = "PASS" ]; then
+  workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
+  phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' memory/agent_results/$workflow_id/qa_report.json)
+
+  if [ "$phase_5_executed" != "true" ]; then
+    echo "🚨 GATE 3 VIOLATION: Cannot report PASS without Phase 5 real testing!"
+    echo "REQUIRED: Execute Phase 5 protocol (trigger workflow, verify execution)"
+    exit 1
+  fi
+fi
+```
+
+### Required Field in qa_report.json
+
+```json
+{
+  "status": "PASS",
+  "phase_5_executed": true,
+  "phase_5_result": {
+    "test_timestamp": "2025-12-04T15:45:00Z",
+    "workflow_triggered": true,
+    "execution_id": "abc123",
+    "execution_status": "success",
+    "bot_responded": true,
+    "response_correct": true
+  }
+}
+```
+
+### When This Gate Applies
+
+| Workflow Type | Phase 5 Required? |
+|---------------|-------------------|
+| Bot workflows (Telegram, Discord) | ✅ YES (MANDATORY!) |
+| Webhook workflows | ✅ YES (MANDATORY!) |
+| Scheduled workflows | ✅ YES (trigger manually) |
+| Manual-only workflows | ❌ NO (can't test without trigger) |
+
+### If Gate Violated
+
+**DO NOT report status = "PASS"!**
+
+Set status = "INCOMPLETE" and return:
+```json
+{
+  "status": "INCOMPLETE",
+  "gate_violation": "GATE 3",
+  "reason": "Phase 5 real testing not executed",
+  "required_action": "Execute Phase 5 protocol (L-080), verify bot responds",
+  "phase_5_executed": false
+}
+```
+
+**Only after Phase 5 succeeds → set phase_5_executed: true → then status: "PASS"**
+
+---
+
 ## L-080: Execution Testing Protocol
 
 > **Learning ID:** L-080

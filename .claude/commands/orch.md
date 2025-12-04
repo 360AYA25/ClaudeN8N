@@ -757,6 +757,202 @@ final_validate → complete | blocked
 
 **CRITICAL:** System WAITS for user "да"/"ok"/"next" after each checkpoint!
 
+## 🚨 ENFORCEMENT PROTOCOL (MANDATORY!)
+
+> **Source:** validation-gates.md (Priority 0 Critical Gates)
+> **Orchestrator MUST check gates BEFORE every Task call in QA loop!**
+
+### BEFORE Calling ANY Agent in QA Loop
+
+**Step 1: Check GATE 1 - Progressive Escalation**
+
+```bash
+# Read current cycle
+cycle=$(jq -r '.cycle_count // 0' memory/run_state.json)
+stage=$(jq -r '.stage' memory/run_state.json)
+
+# GATE 1 CHECK: Progressive Escalation
+if [ "$stage" = "validate" ] || [ "$stage" = "build" ]; then
+  # Cycle 1-3: Builder OK
+  if [ "$cycle" -ge 1 ] && [ "$cycle" -le 3 ]; then
+    echo "✅ GATE 1 PASS: Cycle $cycle allows Builder direct fix"
+  fi
+
+  # Cycle 4-5: MUST call Researcher FIRST!
+  if [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
+    # Check if Researcher was already called this cycle
+    researcher_called=$(jq -r '[.agent_log[] | select(.agent=="researcher" and .cycle_context=='$cycle')] | length > 0' memory/run_state.json 2>/dev/null || echo "false")
+
+    if [ "$researcher_called" != "true" ]; then
+      echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Researcher FIRST (alternative approach)!"
+      echo "Required: Call Researcher to find different solution before Builder."
+      echo "See validation-gates.md GATE 1 for details."
+      exit 1
+    fi
+  fi
+
+  # Cycle 6-7: MUST call Analyst FIRST!
+  if [ "$cycle" -ge 6 ] && [ "$cycle" -le 7 ]; then
+    analyst_called=$(jq -r '[.agent_log[] | select(.agent=="analyst" and .cycle_context=='$cycle')] | length > 0' memory/run_state.json 2>/dev/null || echo "false")
+
+    if [ "$analyst_called" != "true" ]; then
+      echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Analyst FIRST (root cause diagnosis)!"
+      echo "Required: Call Analyst to analyze execution logs and identify root cause."
+      echo "See validation-gates.md GATE 1 for details."
+      exit 1
+    fi
+  fi
+
+  # Cycle 8+: BLOCKED!
+  if [ "$cycle" -ge 8 ]; then
+    echo "🚨 GATE 1 VIOLATION: Cycle 8+ blocked! No more attempts allowed."
+    echo "Required: Set stage='blocked' and escalate to user."
+    echo "See validation-gates.md GATE 1 for details."
+    exit 1
+  fi
+fi
+```
+
+**Step 2: Check GATE 2 - Execution Analysis (if fixing workflow)**
+
+```bash
+# GATE 2 CHECK: Execution Analysis Required
+workflow_id=$(jq -r '.workflow_id // ""' memory/run_state.json)
+
+# Check if fixing existing workflow (not creating new)
+if [ "$stage" = "build" ] && [ -n "$workflow_id" ] && [ -f "memory/workflow_snapshots/$workflow_id/canonical.json" ]; then
+  # This is a FIX to existing workflow
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state.json)
+
+  if [ "$execution_analysis" != "true" ]; then
+    echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
+    echo "Required: Call Analyst to analyze last 5 executions FIRST."
+    echo "Must identify: WHERE it breaks, root cause, failed executions count."
+    echo "See validation-gates.md GATE 2 for details."
+    exit 1
+  fi
+
+  echo "✅ GATE 2 PASS: Execution analysis completed"
+fi
+```
+
+**Step 3: Check GATE 4 - Context Injection (cycle 2+)**
+
+```bash
+# GATE 4 CHECK: Fix Attempts History
+if [ "$cycle" -ge 2 ]; then
+  fix_attempts=$(jq -r '.fix_attempts // []' memory/run_state.json)
+
+  if [ "$fix_attempts" = "[]" ]; then
+    echo "🚨 GATE 4 VIOLATION: Cycle $cycle requires fix_attempts history!"
+    echo "Required: Extract previous failed approaches and add to run_state.fix_attempts[]"
+    echo "See validation-gates.md GATE 4 for details."
+    exit 1
+  fi
+
+  echo "✅ GATE 4 PASS: Fix attempts history present (cycle $cycle)"
+fi
+```
+
+**Step 4: Check GATE 5 - MCP Call Verification (after Builder)**
+
+```bash
+# GATE 5 CHECK: MCP Call Verification (after Builder completes)
+# This check runs AFTER Builder Task returns
+
+build_result_file="memory/agent_results/${workflow_id}/build_result.json"
+
+if [ -f "$build_result_file" ]; then
+  builder_status=$(jq -r '.build_result.status // ""' "$build_result_file")
+
+  if [ "$builder_status" = "success" ]; then
+    mcp_calls=$(jq -r '.build_result.mcp_calls // []' "$build_result_file")
+
+    if [ "$mcp_calls" = "[]" ]; then
+      echo "🚨 GATE 5 VIOLATION: Builder reported success without MCP call proof!"
+      echo "Possible L-073 fake success pattern detected."
+      echo "See validation-gates.md GATE 5 for details."
+      exit 1
+    fi
+
+    # Verify at least one create/update call
+    has_mutation=$(echo "$mcp_calls" | jq '[.[] | select(.tool | test("create|update|autofix"))] | length > 0')
+
+    if [ "$has_mutation" != "true" ]; then
+      echo "🚨 GATE 5 VIOLATION: No create/update MCP calls found!"
+      echo "See validation-gates.md GATE 5 for details."
+      exit 1
+    fi
+
+    echo "✅ GATE 5 PASS: MCP calls verified ($mcp_calls)"
+  fi
+fi
+```
+
+**Step 5: Check GATE 6 - Researcher Hypothesis Validation (after Researcher)**
+
+```bash
+# GATE 6 CHECK: Hypothesis Validation (after Researcher completes)
+research_file="memory/agent_results/${workflow_id}/research_findings.json"
+
+if [ -f "$research_file" ]; then
+  researcher_status=$(jq -r '.research_findings.status // ""' "$research_file")
+
+  if [ "$researcher_status" = "complete" ]; then
+    hypothesis_validated=$(jq -r '.research_findings.hypothesis_validated // false' "$research_file")
+
+    if [ "$hypothesis_validated" != "true" ]; then
+      echo "🚨 GATE 6 VIOLATION: Researcher proposed solution without testing hypothesis!"
+      echo "Required: Validate hypothesis with execution data before proposing to Builder."
+      echo "See validation-gates.md GATE 6 for details."
+      exit 1
+    fi
+
+    echo "✅ GATE 6 PASS: Hypothesis validated"
+  fi
+fi
+```
+
+**Step 6: Check GATE 3 - Phase 5 Real Testing (before accepting QA PASS)**
+
+```bash
+# GATE 3 CHECK: Phase 5 Real Testing (before accepting QA PASS)
+qa_report_file="memory/agent_results/${workflow_id}/qa_report.json"
+
+if [ -f "$qa_report_file" ]; then
+  qa_status=$(jq -r '.qa_report.status // ""' memory/run_state.json)
+
+  if [ "$qa_status" = "PASS" ]; then
+    phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' "$qa_report_file")
+
+    if [ "$phase_5_executed" != "true" ]; then
+      echo "🚨 GATE 3 VIOLATION: QA reported PASS without Phase 5 real testing!"
+      echo "Required: QA must trigger workflow and verify execution."
+      echo "See validation-gates.md GATE 3 for details."
+      exit 1
+    fi
+
+    echo "✅ GATE 3 PASS: Phase 5 real testing completed"
+  fi
+fi
+```
+
+### Enforcement Summary
+
+**Before EVERY Task call in QA loop:**
+1. ✅ Check GATE 1 (progressive escalation - cycle based agent selection)
+2. ✅ Check GATE 2 (execution analysis required for fixes)
+3. ✅ Check GATE 4 (fix attempts history for cycle 2+)
+
+**After agent returns:**
+4. ✅ Check GATE 5 (MCP call verification after Builder)
+5. ✅ Check GATE 6 (hypothesis validation after Researcher)
+6. ✅ Check GATE 3 (Phase 5 testing before QA PASS)
+
+**If ANY gate fails → STOP, report violation, exit 1**
+
+---
+
 ## QA Loop (max 7 cycles — progressive)
 
 ```
