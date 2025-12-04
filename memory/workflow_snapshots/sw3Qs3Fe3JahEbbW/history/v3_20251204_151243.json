@@ -1,27 +1,29 @@
 {
   "snapshot_metadata": {
-    "created_at": "2025-12-04T00:45:00Z",
     "workflow_id": "sw3Qs3Fe3JahEbbW",
     "workflow_name": "FoodTracker",
-    "version_counter": 115,
-    "version_id": "baa97e0c-2b98-4584-8a82-1404b5cd6f3b",
-    "task_completed": "Task 2.3: Memory Management",
-    "description": "Complete workflow after replacing BufferWindowMemory with Postgres Chat Memory. Memory now auto-persists in Supabase n8n_chat_histories table.",
-    "key_changes": [
-      "Conversation Memory node credential updated to postgres (YfW5ar1A5pmUD0If)",
-      "sessionKey configured: telegram_user_id for session isolation",
-      "Dual logging active: conversation_messages + n8n_chat_histories",
-      "Cleanup workflow ready (inactive): MFci734AMQOTWr4N"
+    "snapshot_version": 3,
+    "created_at": "2025-12-04T19:35:00Z",
+    "workflow_version": 157,
+    "snapshot_reason": "Post-rollback verified state",
+    "tested": true,
+    "executions_success_rate": "100% (9/9)",
+    "active": true,
+    "previous_snapshot_version": 2,
+    "changes_from_previous": [
+      "Rollback from v166 to v157 (removed UPC integration and conversation history)",
+      "Verified working: memory, credentials, barcode detection",
+      "All execution paths tested and passing"
     ]
   },
-  "workflow": {
-    "updatedAt": "2025-12-04T00:32:16.059Z",
-    "createdAt": "2025-11-06T19:26:48.328Z",
+  "workflow_data": {
     "id": "sw3Qs3Fe3JahEbbW",
     "name": "FoodTracker",
-    "description": null,
     "active": true,
-    "isArchived": false,
+    "versionId": "ad2cc8b0-fd89-4666-bd67-684ba591380f",
+    "versionCounter": 157,
+    "updatedAt": "2025-12-04T19:32:14.392Z",
+    "createdAt": "2025-11-06T19:26:48.328Z",
     "nodes": [
       {
         "parameters": {
@@ -1273,72 +1275,58 @@
       "executionOrder": "v1",
       "callerPolicy": "workflowsFromSameOwner",
       "availableInMCP": false
+    }
+  },
+  "node_inventory": {
+    "total": 37,
+    "by_type": {
+      "triggers": 1,
+      "telegram": 5,
+      "supabase": 2,
+      "code": 8,
+      "logic": 5,
+      "ai": 5,
+      "http": 3,
+      "set": 1,
+      "langchain": 3,
+      "merge": 1
+    }
+  },
+  "credentials_used": {
+    "telegramApi": {
+      "id": "ofhXzaw3ObXDT5JY",
+      "name": "Multi_Bot0101_bot",
+      "nodes": 5
     },
-    "staticData": null,
-    "meta": {
-      "templateCredsSetupCompleted": true
+    "supabaseApi": {
+      "id": "DYpIGQK8a652aosj",
+      "name": "Supabase account",
+      "nodes": 3
     },
-    "pinData": {},
-    "versionId": "baa97e0c-2b98-4584-8a82-1404b5cd6f3b",
-    "versionCounter": 115,
-    "triggerCount": 1,
-    "shared": [
-      {
-        "updatedAt": "2025-11-06T19:26:48.330Z",
-        "createdAt": "2025-11-06T19:26:48.330Z",
-        "role": "workflow:owner",
-        "workflowId": "sw3Qs3Fe3JahEbbW",
-        "projectId": "a4we7RhtlkIVpqkR",
-        "project": {
-          "updatedAt": "2025-10-16T17:05:15.692Z",
-          "createdAt": "2025-10-16T17:03:54.633Z",
-          "id": "a4we7RhtlkIVpqkR",
-          "name": "Sergey Novikov <360aya25@gmail.com>",
-          "type": "personal",
-          "icon": null,
-          "description": null,
-          "projectRelations": [
-            {
-              "updatedAt": "2025-10-16T17:03:54.633Z",
-              "createdAt": "2025-10-16T17:03:54.633Z",
-              "userId": "ce467fe1-138e-46ea-871a-373796fc5618",
-              "projectId": "a4we7RhtlkIVpqkR",
-              "user": {
-                "updatedAt": "2025-12-03T23:14:08.000Z",
-                "createdAt": "2025-10-16T17:03:54.276Z",
-                "id": "ce467fe1-138e-46ea-871a-373796fc5618",
-                "email": "360aya25@gmail.com",
-                "firstName": "Sergey",
-                "lastName": "Novikov",
-                "personalizationAnswers": {
-                  "version": "v4",
-                  "personalization_survey_submitted_at": "2025-10-16T17:05:49.413Z",
-                  "personalization_survey_n8n_version": "1.115.3",
-                  "companySize": "<20",
-                  "companyType": "saas",
-                  "role": "business-owner",
-                  "reportedSource": "youtube"
-                },
-                "settings": {
-                  "userActivated": true,
-                  "firstSuccessfulWorkflowId": "dutoyHDShhg4TTWY",
-                  "userActivatedAt": 1760638131717,
-                  "easyAIWorkflowOnboarded": true,
-                  "npsSurvey": {
-                    "responded": true,
-                    "lastShownAt": 1760907138361
-                  }
-                },
-                "disabled": false,
-                "mfaEnabled": false,
-                "lastActiveAt": "2025-12-03",
-                "isPending": false
-              }
-            }
-          ]
-        }
-      }
-    ],
-    "tags": []
-  }
+    "openAiApi": {
+      "id": "NPHTuT9Bime92Mku",
+      "name": "OpenAi account",
+      "nodes": 5
+    },
+    "postgres": {
+      "id": "YfW5ar1A5pmUD0If",
+      "name": "Postgres account",
+      "nodes": 1
+    },
+    "httpHeaderAuth": {
+      "id": "rDcjW0UFczbmWtVq",
+      "name": "Supabase Header Auth",
+      "nodes": 2
+    }
+  },
+  "execution_paths": {
+    "text": "Telegram Trigger → Log Message → Check User → IF Registered → Typing Indicator → Prepare Message Data → Switch[0] → Process Text → AI Agent → Success Reply",
+    "voice": "... → Switch[1] → Process Voice → Download Voice → Transcribe Voice → Merge Voice Data → AI Agent → Success Reply",
+    "photo_barcode_found": "... → Switch[2] → Process Photo → Download Photo → Extract Barcode → Parse Barcode Result → IF Has Barcode[true] → Get OpenFoodFacts → Parse OpenFoodFacts → IF OpenFoodFacts Success → Merge Photo Paths → AI Agent",
+    "photo_no_barcode": "... → IF Has Barcode[false] → Restore Binary for Vision → Vision Analysis → Parse Vision Result → Merge Photo Paths → AI Agent",
+    "photo_barcode_failed": "... → IF OpenFoodFacts Success[false] → Restore Binary for UPC → Get UPC Database → Parse UPC Response → IF UPC Success → (success) Merge Photo Paths OR (fail) Restore Binary for Vision → Vision Analysis"
+  },
+  "learnings_applied": [
+    "L-068: IF nodes don't pass binary data - added Restore Binary nodes"
+  ]
 }

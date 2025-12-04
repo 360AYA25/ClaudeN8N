@@ -1,5 +1,22 @@
 # /orch — 5-Agent n8n Workflow Orchestration
 
+## 🚨 ORCHESTRATOR STRICT MODE (MANDATORY!)
+
+**Read FIRST:** `.claude/ORCHESTRATOR-STRICT-MODE.md`
+
+**ABSOLUTE RULES:**
+- ❌ NO "fast solutions"
+- ❌ NO MCP tools usage
+- ❌ NO direct checks
+- ✅ ONLY Task tool delegation
+- ✅ ONLY Read/Write for run_state.json
+- ✅ ONLY Bash for jq
+
+**IF I think "I need to check X" → DELEGATE!**
+**IF I think "This will be faster..." → STOP! Delegate!**
+
+---
+
 ## 📋 Доступные режимы
 
 | Команда | Описание |

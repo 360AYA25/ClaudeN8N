@@ -2,238 +2,752 @@
   "snapshot_metadata": {
     "workflow_id": "sw3Qs3Fe3JahEbbW",
     "workflow_name": "FoodTracker",
-    "snapshot_version": 2,
-    "created_at": "2025-11-30T14:50:00Z",
-    "n8n_version_id": "1dba9a9f-e258-4aec-8f4d-6258345d31e0",
-    "n8n_version_counter": 51,
-    "active": true,
-    "previous_snapshot_version": 1,
-    "changes_from_previous": [
-      "Added 'Restore Binary for Vision' Code node (L-068: IF nodes don't pass binary data)",
-      "Updated Process Photo to include telegram_user_id",
-      "Updated Parse Vision Result to include telegram_user_id",
-      "Updated Parse Barcode Result to include telegram_user_id",
-      "Updated Parse OpenFoodFacts to include telegram_user_id",
-      "Updated Merge Voice Data to include telegram_user_id",
-      "Rerouted IF Has Barcode[false] → Restore Binary for Vision → Vision Analysis"
-    ]
+    "snapshot_version": 159,
+    "n8n_version_counter": 159,
+    "snapshot_date": "2025-12-04T15:12:43Z",
+    "snapshot_reason": "Task 2.4 complete - Code Node Injection Pattern",
+    "node_count": 37,
+    "active": true
   },
-  "node_inventory": {
-    "total": 30,
-    "by_type": {
-      "triggers": ["Telegram Trigger"],
-      "supabase": ["Log Message", "Check User", "Create a row in Supabase"],
-      "telegram": ["Not Registered", "Typing Indicator", "Download Voice", "Download Photo", "Success Reply"],
-      "code": ["Process Text", "Process Voice", "Merge Voice Data", "Process Photo", "Parse Barcode Result", "Parse OpenFoodFacts", "Parse Vision Result", "Restore Binary for Vision"],
-      "logic": ["IF Registered", "Switch", "IF Has Barcode", "Merge Photo Paths"],
-      "ai": ["Transcribe Voice", "Vision Analysis", "Extract Barcode", "AI Agent", "OpenAI Chat Model", "Conversation Memory"],
-      "tools": ["Save Food Entry", "Get OpenFoodFacts"],
-      "set": ["Prepare Message Data"]
-    },
-    "node_ids": {
-      "Telegram Trigger": "454ac29e-dce6-43f0-82cf-2304cc20545f",
-      "Log Message": "98883f54-610b-485a-a45b-83b7bfd88a8f",
-      "Check User": "90b986bb-f244-4a25-9d55-a3f2baa451bf",
-      "IF Registered": "04a22337-2efe-48c2-9a4f-b70b9dc6072e",
-      "Not Registered": "0dc205e8-dff5-48f9-9f75-29540fa3910f",
-      "Typing Indicator": "0538def8-e810-40ec-949e-22cda344d2a7",
-      "Prepare Message Data": "prepare-message-data-001",
-      "Switch": "52133fd5-62ec-4aaa-a265-c225274c6c16",
-      "Process Text": "009e557b-b9d5-4087-bedd-0736f1b04544",
-      "Process Voice": "04f2c478-b7d9-4b36-b3bb-1ee97e60fed9",
-      "Download Voice": "f0320ed4-3e52-4346-881a-2316b7af6ae2",
-      "Transcribe Voice": "8eea1509-2f8a-45f4-ba73-cece0e9b43ab",
-      "Merge Voice Data": "232b4bc6-e052-4570-b15a-f6300e09a7d5",
-      "Process Photo": "bcac5096-0cc4-42ce-93bd-4fb471ed67d9",
-      "Download Photo": "d8ce2c0b-9fb4-4579-98a7-581481e29c30",
-      "Extract Barcode": "e23b98c5-c49d-4d11-83e4-3ee2dab350c3",
-      "Parse Barcode Result": "7d0dc95a-b5cf-47e9-9945-b72fc691b490",
-      "IF Has Barcode": "a05b15c1-7b84-4eb7-895a-ec9a28219b69",
-      "Get OpenFoodFacts": "3eb4fa16-23f0-4e33-b6b9-509d315ba719",
-      "Parse OpenFoodFacts": "f4b72600-dcaf-41d1-bc46-039e2e0a0739",
-      "Restore Binary for Vision": "restore-binary-vision-001",
-      "Vision Analysis": "9364c869-f156-4214-810d-0a680db5e188",
-      "Parse Vision Result": "4c26424a-a4da-40e2-8fba-0555f1356ddb",
-      "Merge Photo Paths": "ad709023-1205-4d27-8414-41e0590318d5",
-      "AI Agent": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
-      "OpenAI Chat Model": "18d2242f-51eb-48c9-8d1c-1fef81ce9974",
-      "Conversation Memory": "memory-buffer-node-001",
-      "Save Food Entry": "cccfae9d-4439-438c-9471-baf194b83445",
-      "Create a row in Supabase": "3b9dc923-9a6d-4970-afce-71c99582c1e4",
-      "Success Reply": "42dcf96b-5da1-489b-9be1-933feaf17f34"
-    }
-  },
-  "extracted_code": {
-    "Process Text": {
-      "node_id": "009e557b-b9d5-4087-bedd-0736f1b04544",
-      "code": "const input = $input.first().json;\nconst message = input.message;\nconst user = input.user;\n\nif (!user || !user.telegram_user_id) {\n  throw new Error(\"User data not found in execution context\");\n}\n\nreturn [{ \n  type: 'text', \n  data: message.text, \n  telegram_user_id: user.telegram_user_id, \n  user_id: user.id, \n  owner: user.owner \n}];",
-      "uses_modern_syntax": true,
-      "patterns_used": ["$input.first().json"],
-      "outputs": ["type", "data", "telegram_user_id", "user_id", "owner"]
-    },
-    "Process Voice": {
-      "node_id": "04f2c478-b7d9-4b36-b3bb-1ee97e60fed9",
-      "code": "const input = $input.first().json;\nconst message = input.message;\nconst user = input.user;\n\nif (!user || !user.id) {\n  throw new Error(\"User data not found in execution context\");\n}\n\nreturn [{\n  type: 'voice',\n  voice_file_id: message.voice.file_id,\n  message: message,\n  user_id: user.id,\n  telegram_user_id: user.telegram_user_id,\n  owner: user.owner\n}];",
-      "uses_modern_syntax": true,
-      "patterns_used": ["$input.first().json"],
-      "outputs": ["type", "voice_file_id", "message", "user_id", "telegram_user_id", "owner"]
-    },
-    "Merge Voice Data": {
-      "node_id": "232b4bc6-e052-4570-b15a-f6300e09a7d5",
-      "code": "const transcription = $json.text;\nconst voiceData = $(\"Process Voice\").first().json;\nreturn [{\n  type: 'voice',\n  data: transcription,\n  user_id: voiceData.user_id,\n  telegram_user_id: voiceData.telegram_user_id,\n  owner: voiceData.owner\n}];",
-      "uses_modern_syntax": true,
-      "patterns_used": ["$(\"...\").first().json"],
-      "outputs": ["type", "data", "user_id", "telegram_user_id", "owner"]
-    },
-    "Process Photo": {
-      "node_id": "bcac5096-0cc4-42ce-93bd-4fb471ed67d9",
-      "code": "const input = $input.first().json;\nconst message = input.message;\nconst user = input.user;\n\nif (!user || !user.id) {\n  throw new Error(\"User data not found in execution context\");\n}\n\nconst photos = message.photo;\nconst largestPhoto = photos[photos.length - 1];\nreturn [{ \n  type: 'photo', \n  photo_file_id: largestPhoto.file_id, \n  message: message, \n  user_id: user.id, \n  telegram_user_id: user.telegram_user_id, \n  owner: user.owner \n}];",
-      "uses_modern_syntax": true,
-      "patterns_used": ["$input.first().json"],
-      "outputs": ["type", "photo_file_id", "message", "user_id", "telegram_user_id", "owner"]
-    },
-    "Parse Barcode Result": {
-      "node_id": "7d0dc95a-b5cf-47e9-9945-b72fc691b490",
-      "code": "const visionResponse = $json.content || $json.text || '';\nconst photoData = $(\"Process Photo\").first().json;\n\nconst barcodeMatch = visionResponse.match(/\\d{8,14}/);\nconst hasBarcode = barcodeMatch && visionResponse !== 'NO_BARCODE';\n\nreturn [{\n  json: {\n    barcode: hasBarcode ? barcodeMatch[0] : null,\n    has_barcode: hasBarcode,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner,\n    vision_response: visionResponse\n  },\n  binary: $input.item.binary\n}];",
-      "uses_modern_syntax": true,
-      "patterns_used": ["$(\"...\").first().json", "$input.item.binary"],
-      "outputs": ["barcode", "has_barcode", "user_id", "telegram_user_id", "owner", "vision_response"],
-      "preserves_binary": true
-    },
-    "Parse OpenFoodFacts": {
-      "node_id": "f4b72600-dcaf-41d1-bc46-039e2e0a0739",
-      "code": "if ($input.item.json.error) {\n  const photoData = $(\"Process Photo\").first().json;\n  return [{\n    type: 'photo',\n    data: null,\n    barcode_not_found: true,\n    barcode: $(\"Parse Barcode Result\").first().json.barcode,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner\n  }];\n}\n\nconst response = $json;\nconst photoData = $(\"Process Photo\").first().json;\n\nif (response.status === 1 && response.product) {\n  const product = response.product;\n  return [{\n    type: 'photo',\n    data: product.product_name || 'Unknown Product',\n    calories: product.nutriments?.['energy-kcal_100g'] || 0,\n    protein: product.nutriments?.proteins_100g || 0,\n    carbs: product.nutriments?.carbohydrates_100g || 0,\n    fat: product.nutriments?.fat_100g || 0,\n    source: 'barcode',\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner\n  }];\n} else {\n  return [{\n    type: 'photo',\n    data: null,\n    barcode_not_found: true,\n    barcode: $(\"Parse Barcode Result\").first().json.barcode,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner\n  }];\n}",
-      "uses_modern_syntax": true,
-      "patterns_used": ["$(\"...\").first().json", "$input.item.json"],
-      "outputs": ["type", "data", "user_id", "telegram_user_id", "owner", "barcode_not_found", "barcode", "calories", "protein", "carbs", "fat", "source"]
-    },
-    "Parse Vision Result": {
-      "node_id": "4c26424a-a4da-40e2-8fba-0555f1356ddb",
-      "code": "const visionResult = $json.content || $json.text || $json.response || $json.output;\nconst photoData = $(\"Process Photo\").first().json;\n\nreturn [{\n  type: 'photo',\n  data: visionResult,\n  source: 'vision',\n  user_id: photoData.user_id,\n  telegram_user_id: photoData.telegram_user_id,\n  owner: photoData.owner\n}];",
-      "uses_modern_syntax": true,
-      "patterns_used": ["$(\"...\").first().json"],
-      "outputs": ["type", "data", "source", "user_id", "telegram_user_id", "owner"]
-    },
-    "Restore Binary for Vision": {
-      "node_id": "restore-binary-vision-001",
-      "code": "const downloadedPhoto = $(\"Download Photo\").first();\nconst currentData = $input.first().json;\n\nreturn [{\n  json: {\n    ...currentData,\n    telegram_user_id: currentData.telegram_user_id\n  },\n  binary: downloadedPhoto.binary\n}];",
-      "uses_modern_syntax": true,
-      "patterns_used": ["$(\"...\").first()", "$input.first().json", "spread operator"],
-      "purpose": "Restore binary data lost by IF node while preserving all JSON fields including telegram_user_id",
-      "learning_applied": "L-068: IF nodes don't pass binary data"
-    }
-  },
-  "deprecated_syntax_in_expressions": {
-    "found": true,
-    "severity": "warning",
-    "occurrences": [
+
+  "workflow_config": {
+    "nodes": [
       {
-        "node": "Check User",
-        "field": "filters.conditions[0].keyValue",
-        "expression": "={{ $node[\"Telegram Trigger\"].json.message.from.id }}",
-        "recommended": "={{ $('Telegram Trigger').item.json.message.from.id }}"
+        "id": "454ac29e-dce6-43f0-82cf-2304cc20545f",
+        "name": "Telegram Trigger",
+        "type": "n8n-nodes-base.telegramTrigger",
+        "position": [-1136, 128],
+        "disabled": false
       },
       {
-        "node": "Typing Indicator",
-        "field": "chatId",
-        "expression": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
-        "recommended": "={{ $('Telegram Trigger').item.json.message.chat.id }}"
+        "id": "98883f54-610b-485a-a45b-83b7bfd88a8f",
+        "name": "Log Message",
+        "type": "n8n-nodes-base.supabase",
+        "position": [-976, 128],
+        "disabled": false
       },
       {
-        "node": "Not Registered",
-        "field": "chatId",
-        "expression": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
-        "recommended": "={{ $('Telegram Trigger').item.json.message.chat.id }}"
+        "id": "90b986bb-f244-4a25-9d55-a3f2baa451bf",
+        "name": "Check User",
+        "type": "n8n-nodes-base.supabase",
+        "position": [-800, 128],
+        "disabled": false
       },
       {
-        "node": "Success Reply",
-        "field": "chatId",
-        "expression": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
-        "recommended": "={{ $('Telegram Trigger').item.json.message.chat.id }}"
+        "id": "04a22337-2efe-48c2-9a4f-b70b9dc6072e",
+        "name": "IF Registered",
+        "type": "n8n-nodes-base.if",
+        "position": [-640, 128],
+        "disabled": false
+      },
+      {
+        "id": "0dc205e8-dff5-48f9-9f75-29540fa3910f",
+        "name": "Not Registered",
+        "type": "n8n-nodes-base.telegram",
+        "position": [-256, 400],
+        "disabled": false
+      },
+      {
+        "id": "0538def8-e810-40ec-949e-22cda344d2a7",
+        "name": "Typing Indicator",
+        "type": "n8n-nodes-base.telegram",
+        "position": [-528, -16],
+        "disabled": false
+      },
+      {
+        "id": "prepare-message-data-001",
+        "name": "Prepare Message Data",
+        "type": "n8n-nodes-base.set",
+        "position": [-400, -16],
+        "disabled": false
+      },
+      {
+        "id": "52133fd5-62ec-4aaa-a265-c225274c6c16",
+        "name": "Switch",
+        "type": "n8n-nodes-base.switch",
+        "position": [-288, 128],
+        "disabled": false
+      },
+      {
+        "id": "009e557b-b9d5-4087-bedd-0736f1b04544",
+        "name": "Process Text",
+        "type": "n8n-nodes-base.code",
+        "position": [0, 0],
+        "disabled": false
+      },
+      {
+        "id": "04f2c478-b7d9-4b36-b3bb-1ee97e60fed9",
+        "name": "Process Voice",
+        "type": "n8n-nodes-base.code",
+        "position": [0, 144],
+        "disabled": false
+      },
+      {
+        "id": "f0320ed4-3e52-4346-881a-2316b7af6ae2",
+        "name": "Download Voice",
+        "type": "n8n-nodes-base.telegram",
+        "position": [192, 144],
+        "disabled": false
+      },
+      {
+        "id": "8eea1509-2f8a-45f4-ba73-cece0e9b43ab",
+        "name": "Transcribe Voice",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "position": [400, 144],
+        "disabled": false
+      },
+      {
+        "id": "232b4bc6-e052-4570-b15a-f6300e09a7d5",
+        "name": "Merge Voice Data",
+        "type": "n8n-nodes-base.code",
+        "position": [592, 144],
+        "disabled": false
+      },
+      {
+        "id": "bcac5096-0cc4-42ce-93bd-4fb471ed67d9",
+        "name": "Process Photo",
+        "type": "n8n-nodes-base.code",
+        "position": [0, 288],
+        "disabled": false
+      },
+      {
+        "id": "d8ce2c0b-9fb4-4579-98a7-581481e29c30",
+        "name": "Download Photo",
+        "type": "n8n-nodes-base.telegram",
+        "position": [192, 288],
+        "disabled": false
+      },
+      {
+        "id": "a05b15c1-7b84-4eb7-895a-ec9a28219b69",
+        "name": "IF Has Barcode",
+        "type": "n8n-nodes-base.if",
+        "position": [240, 608],
+        "disabled": false
+      },
+      {
+        "id": "restore-binary-vision-001",
+        "name": "Restore Binary for Vision",
+        "type": "n8n-nodes-base.code",
+        "position": [496, 656],
+        "disabled": false
+      },
+      {
+        "id": "9364c869-f156-4214-810d-0a680db5e188",
+        "name": "Vision Analysis",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "position": [672, 656],
+        "disabled": false
+      },
+      {
+        "id": "ad709023-1205-4d27-8414-41e0590318d5",
+        "name": "Merge Photo Paths",
+        "type": "n8n-nodes-base.merge",
+        "position": [1008, 672],
+        "disabled": false
+      },
+      {
+        "id": "42dcf96b-5da1-489b-9be1-933feaf17f34",
+        "name": "Success Reply",
+        "type": "n8n-nodes-base.telegram",
+        "position": [1920, 144],
+        "disabled": false
+      },
+      {
+        "id": "4c26424a-a4da-40e2-8fba-0555f1356ddb",
+        "name": "Parse Vision Result",
+        "type": "n8n-nodes-base.code",
+        "position": [816, 672],
+        "disabled": false
+      },
+      {
+        "id": "e23b98c5-c49d-4d11-83e4-3ee2dab350c3",
+        "name": "Extract Barcode",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "position": [400, 288],
+        "disabled": false
+      },
+      {
+        "id": "7d0dc95a-b5cf-47e9-9945-b72fc691b490",
+        "name": "Parse Barcode Result",
+        "type": "n8n-nodes-base.code",
+        "position": [592, 320],
+        "disabled": false
+      },
+      {
+        "id": "3eb4fa16-23f0-4e33-b6b9-509d315ba719",
+        "name": "Get OpenFoodFacts",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [496, 528],
+        "disabled": false
+      },
+      {
+        "id": "f4b72600-dcaf-41d1-bc46-039e2e0a0739",
+        "name": "Parse OpenFoodFacts",
+        "type": "n8n-nodes-base.code",
+        "position": [672, 512],
+        "disabled": false
+      },
+      {
+        "id": "18d2242f-51eb-48c9-8d1c-1fef81ce9974",
+        "name": "OpenAI Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "position": [1376, 688],
+        "disabled": false
+      },
+      {
+        "id": "cccfae9d-4439-438c-9471-baf194b83445",
+        "name": "Save Food Entry",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "position": [2064, 688],
+        "disabled": false
+      },
+      {
+        "id": "memory-buffer-node-001",
+        "name": "Conversation Memory",
+        "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+        "position": [1520, 688],
+        "disabled": false
+      },
+      {
+        "id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
+        "name": "AI Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "position": [1456, 352],
+        "disabled": false
+      },
+      {
+        "id": "if-openfoodfacts-success-001",
+        "name": "IF OpenFoodFacts Success",
+        "type": "n8n-nodes-base.if",
+        "position": [1008, 496],
+        "disabled": false
+      },
+      {
+        "id": "restore-binary-upc-001",
+        "name": "Restore Binary for UPC",
+        "type": "n8n-nodes-base.code",
+        "position": [1104, 960],
+        "disabled": false
+      },
+      {
+        "id": "get-upc-database-001",
+        "name": "Get UPC Database",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [1280, 960],
+        "disabled": false
+      },
+      {
+        "id": "parse-upc-response-001",
+        "name": "Parse UPC Response",
+        "type": "n8n-nodes-base.code",
+        "position": [1456, 960],
+        "disabled": false
+      },
+      {
+        "id": "if-upc-success-001",
+        "name": "IF UPC Success",
+        "type": "n8n-nodes-base.if",
+        "position": [1616, 976],
+        "disabled": false
+      },
+      {
+        "id": "save-user-message-001",
+        "name": "Save User Message",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [200, 0],
+        "disabled": false
+      },
+      {
+        "id": "save-ai-response-001",
+        "name": "Save AI Response",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [1720, 352],
+        "disabled": false
+      },
+      {
+        "id": "inject-context-001",
+        "name": "Inject Context",
+        "type": "n8n-nodes-base.code",
+        "position": [200, 0],
+        "disabled": false
       }
     ],
-    "note": "These work but are legacy syntax. Consider updating for future compatibility."
+    "connections": {
+      "Telegram Trigger": {
+        "main": [
+          [
+            {
+              "node": "Log Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Message": {
+        "main": [
+          [
+            {
+              "node": "Check User",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check User": {
+        "main": [
+          [
+            {
+              "node": "IF Registered",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF Registered": {
+        "main": [
+          [
+            {
+              "node": "Typing Indicator",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Not Registered",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Typing Indicator": {
+        "main": [
+          [
+            {
+              "node": "Prepare Message Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Message Data": {
+        "main": [
+          [
+            {
+              "node": "Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Switch": {
+        "main": [
+          [
+            {
+              "node": "Process Text",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Process Voice",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Process Photo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Voice": {
+        "main": [
+          [
+            {
+              "node": "Download Voice",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download Voice": {
+        "main": [
+          [
+            {
+              "node": "Transcribe Voice",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Transcribe Voice": {
+        "main": [
+          [
+            {
+              "node": "Merge Voice Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Voice Data": {
+        "main": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Photo": {
+        "main": [
+          [
+            {
+              "node": "Download Photo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download Photo": {
+        "main": [
+          [
+            {
+              "node": "Extract Barcode",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Barcode": {
+        "main": [
+          [
+            {
+              "node": "Parse Barcode Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Barcode Result": {
+        "main": [
+          [
+            {
+              "node": "IF Has Barcode",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF Has Barcode": {
+        "main": [
+          [
+            {
+              "node": "Get OpenFoodFacts",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Restore Binary for Vision",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Restore Binary for Vision": {
+        "main": [
+          [
+            {
+              "node": "Vision Analysis",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get OpenFoodFacts": {
+        "main": [
+          [
+            {
+              "node": "Parse OpenFoodFacts",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse OpenFoodFacts": {
+        "main": [
+          [
+            {
+              "node": "IF OpenFoodFacts Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Vision Analysis": {
+        "main": [
+          [
+            {
+              "node": "Parse Vision Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Vision Result": {
+        "main": [
+          [
+            {
+              "node": "Merge Photo Paths",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Merge Photo Paths": {
+        "main": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Conversation Memory": {
+        "ai_memory": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_memory",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Food Entry": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF OpenFoodFacts Success": {
+        "main": [
+          [
+            {
+              "node": "Merge Photo Paths",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Restore Binary for UPC",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Restore Binary for UPC": {
+        "main": [
+          [
+            {
+              "node": "Get UPC Database",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get UPC Database": {
+        "main": [
+          [
+            {
+              "node": "Parse UPC Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse UPC Response": {
+        "main": [
+          [
+            {
+              "node": "IF UPC Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF UPC Success": {
+        "main": [
+          [
+            {
+              "node": "Merge Photo Paths",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Restore Binary for Vision",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "node": "Success Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Success Reply": {
+        "main": [
+          [
+            {
+              "node": "Save User Message",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Save AI Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Process Text": {
+        "main": [
+          [
+            {
+              "node": "Inject Context",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Inject Context": {
+        "main": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {}
   },
+
+  "key_features": [
+    "Code Node Injection Pattern (Inject Context node)",
+    "AI Agent with SYSTEM prefix context passing",
+    "6 HTTP Request tools (save_food_entry, search_today_entries, search_food_by_product, get_current_goal, update_user_goal, delete_food_entry)",
+    "Postgres Chat Memory (session_id based on telegram_user_id)",
+    "Multi-modal input: text, voice (Whisper), photo (Vision + Barcode)",
+    "Barcode recognition: OpenFoodFacts → UPC Database → Vision fallback",
+    "Conversation history saved to Supabase (messages table)",
+    "Telegram integration with typing indicators"
+  ],
+
+  "recent_changes": [
+    {
+      "version": 159,
+      "date": "2025-12-04",
+      "task": "Task 2.4 - Fix AI Agent context passing",
+      "changes": [
+        "Added 'Inject Context' Code node (inject-context-001) before AI Agent",
+        "Updated AI Agent text parameter to use chatInput from injected context",
+        "Updated System Prompt with SYSTEM prefix extraction instructions",
+        "Fixed tool parameter passing (p_telegram_user_id now works correctly)",
+        "Verified with execution #33666 - all 6 tools now accessible to AI Agent"
+      ],
+      "verification": "QA Phase 5 passed - execution #33666 showed successful context injection and tool parameter passing",
+      "previous_issue": "AI Agent couldn't access dynamic context ($json variables) due to $fromAI() scope limitation (L-090)"
+    }
+  ],
+
   "anti_patterns_detected": [],
-  "learnings_matched": [
-    "L-060: Code Node Anti-Pattern - checked all Code nodes, all use modern syntax",
-    "L-068: IF Nodes Binary Data - Restore Binary for Vision node added to fix binary data loss after IF node"
+
+  "learnings_applied": [
+    "L-074: Source of Truth (MCP verification) - Always verify workflow state via MCP, not cached files",
+    "L-089: AI Agent Input Must Include Context (Code Node Injection) - Use Code node to inject $json context into chatInput",
+    "L-090: $fromAI() Scope Limited to AI Input - AI nodes cannot access sibling node data via $json expressions",
+    "L-067: Smart Mode Selection - Used structure mode (37 nodes, under 50 threshold)"
   ],
+
+  "known_issues": [],
+
   "recommendations": [
-    {
-      "priority": "low",
-      "type": "syntax_modernization",
-      "description": "4 nodes use legacy $node[\"...\"] expression syntax",
-      "affected_nodes": ["Check User", "Typing Indicator", "Not Registered", "Success Reply"],
-      "action": "Consider updating to modern $('NodeName').item.json syntax for future compatibility"
-    }
+    "Test remaining AI Agent tools (search_food_by_product, update_user_goal, delete_food_entry) via Telegram",
+    "Monitor AI Agent token usage with SYSTEM prefix context overhead (~100-200 tokens per message)",
+    "Consider activating memory cleanup workflow if chat memory table grows large",
+    "Monitor UPC Database fallback rate to optimize barcode recognition flow"
   ],
-  "known_fixes": [
-    {
-      "issue": "Vision Analysis path fails - binary data lost after IF node",
-      "fixed_in_version": 51,
-      "solution": "Added 'Restore Binary for Vision' Code node between IF Has Barcode[false] and Vision Analysis",
-      "learning": "L-068"
-    },
-    {
-      "issue": "Conversation Memory 'Key parameter is empty' error",
-      "fixed_in_version": 46,
-      "solution": "Added telegram_user_id to all Code node outputs (Process Photo, Parse Vision Result, Parse Barcode Result, Parse OpenFoodFacts, Merge Voice Data)",
-      "learning": "Session memory requires telegram_user_id for sessionKey"
-    }
-  ],
-  "execution_history_summary": {
-    "last_tested": "2025-11-30T14:50:00Z",
-    "test_result": "SUCCESS - Vision analysis path working correctly",
-    "tested_paths": [
-      "text_path: Process Text → AI Agent → Success Reply",
-      "photo_vision_path: Process Photo → Vision Analysis → AI Agent → Success Reply"
-    ]
-  },
-  "change_history": [
-    {
-      "version": 1,
-      "timestamp": "2025-11-29T03:15:00Z",
-      "action": "initial_snapshot",
-      "description": "Initial canonical snapshot creation via /orch snapshot refresh"
-    },
-    {
-      "version": 2,
-      "timestamp": "2025-11-30T14:50:00Z",
-      "action": "update_after_fixes",
-      "description": "Updated after fixing Vision Analysis path: added Restore Binary for Vision node, updated all Code nodes to include telegram_user_id",
-      "n8n_version_counter": 51,
-      "fixes_applied": [
-        "L-068: Added Restore Binary for Vision node to preserve binary data through IF node",
-        "Updated Process Photo to include telegram_user_id",
-        "Updated Parse Vision Result to include telegram_user_id",
-        "Updated Parse Barcode Result to include telegram_user_id",
-        "Updated Parse OpenFoodFacts to include telegram_user_id",
-        "Updated Merge Voice Data to include telegram_user_id"
-      ]
-    }
-  ],
-  "credentials_used": {
-    "telegramApi": {
-      "id": "ofhXzaw3ObXDT5JY",
-      "name": "Multi_Bot0101_bot",
-      "used_by": ["Telegram Trigger", "Not Registered", "Typing Indicator", "Download Voice", "Download Photo", "Success Reply"]
-    },
-    "supabaseApi": {
-      "id": "DYpIGQK8a652aosj",
-      "name": "Supabase account",
-      "used_by": ["Log Message", "Check User", "Create a row in Supabase", "Save Food Entry"]
-    },
-    "openAiApi": {
-      "id": "NPHTuT9Bime92Mku",
-      "name": "OpenAi account",
-      "used_by": ["Transcribe Voice", "Vision Analysis", "Extract Barcode", "OpenAI Chat Model"]
-    }
-  },
-  "flow_paths": {
-    "text_path": "Telegram Trigger → Log Message → Check User → IF Registered → Typing Indicator → Prepare Message Data → Switch[0] → Process Text → AI Agent → Success Reply",
-    "voice_path": "... → Switch[1] → Process Voice → Download Voice → Transcribe Voice → Merge Voice Data → AI Agent → Success Reply",
-    "photo_barcode_path": "... → Switch[2] → Process Photo → Download Photo → Extract Barcode → Parse Barcode Result → IF Has Barcode[true] → Get OpenFoodFacts → Parse OpenFoodFacts → Merge Photo Paths → AI Agent → Success Reply",
-    "photo_vision_path": "... → IF Has Barcode[false] → Restore Binary for Vision → Vision Analysis → Parse Vision Result → Merge Photo Paths → AI Agent → Success Reply"
+
+  "system_notes": {
+    "ai_agent_context_pattern": "Text input path uses Inject Context node to pass dynamic data. Voice/Photo paths merge their context before AI Agent. This ensures all execution paths provide necessary context to AI Agent.",
+    "tool_parameters": "All 6 HTTP Request tools use p_telegram_user_id parameter injected via SYSTEM prefix. AI Agent extracts this from input and passes to tools correctly.",
+    "memory_strategy": "Postgres Chat Memory uses telegram_user_id as session_id. Each user gets isolated conversation history. No cross-user data leakage.",
+    "barcode_recognition": "3-stage fallback: OpenFoodFacts (fast, free) → UPC Database (paid, accurate) → Vision (AI, flexible). Optimizes for cost and accuracy."
   }
 }
