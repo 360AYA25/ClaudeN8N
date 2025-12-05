@@ -320,13 +320,13 @@ Skill("n8n-code-python")         // For Python Code nodes
 ### Check Requirement
 
 ```bash
-stage=$(jq -r '.stage' memory/run_state_active.json)
-workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
+stage=$(jq -r '.stage' memory/run_state.json)
+workflow_id=$(jq -r '.workflow_id' memory/run_state.json)
 
 # If fixing existing workflow (not creating new)
 if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canonical.json" ]; then
   # This is a FIX - execution analysis REQUIRED!
-  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state_active.json)
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state.json)
 
   if [ "$execution_analysis" != "true" ]; then
     echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
@@ -336,7 +336,7 @@ if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canoni
   fi
 
   # Read execution diagnosis
-  diagnosis_file=$(jq -r '.execution_analysis.diagnosis_file' memory/run_state_active.json)
+  diagnosis_file=$(jq -r '.execution_analysis.diagnosis_file' memory/run_state.json)
   if [ -f "$diagnosis_file" ]; then
     echo "✅ Execution analysis found: $diagnosis_file"
     # Read diagnosis to understand root cause
@@ -345,7 +345,7 @@ if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canoni
 fi
 ```
 
-### Required Fields in run_state_active.json
+### Required Fields in run_state.json
 
 ```json
 {
