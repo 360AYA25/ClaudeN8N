@@ -2,274 +2,1222 @@
   "snapshot_metadata": {
     "workflow_id": "sw3Qs3Fe3JahEbbW",
     "workflow_name": "FoodTracker",
-    "snapshot_version": 159,
-    "n8n_version_counter": 159,
-    "snapshot_date": "2025-12-04T15:12:43Z",
-    "snapshot_reason": "Task 2.4 complete - Code Node Injection Pattern",
-    "node_count": 37,
-    "active": true
+    "snapshot_version": 167,
+    "n8n_version_counter": 167,
+    "snapshot_date": "2025-12-04T21:00:04Z",
+    "snapshot_reason": "Task 2.4 - AI Agent 6 tools + cascade search",
+    "node_count": 42,
+    "active": true,
+    "changes_summary": {
+      "task": "Task 2.4 - AI Agent with 6 Connected Tools + Cascade Search Logic",
+      "tools_added": [
+        "Search Food by Product (tool-search-food-product-001)",
+        "Search Similar Entries (tool-search-similar-001)",
+        "Search Today Entries (tool-search-today-001)",
+        "Get Daily Summary (tool-daily-summary-001)",
+        "Update User Goal (tool-update-goal-001)"
+      ],
+      "system_prompt_updated": "Added cascade search logic: today → recent history → similar items",
+      "tests_passed": [
+        "history_found - search_food_by_product returned chicken from 2025-11-28",
+        "history_not_found - search_similar_entries suggested alternatives when product not found",
+        "today_data - search_today_entries returned all meals for 2025-12-04"
+      ]
+    }
   },
 
-  "workflow_config": {
+  "ai_tool_connections": {
+    "total": 6,
+    "tools": [
+      "Save Food Entry -> AI Agent (ai_tool)",
+      "Search Food by Product -> AI Agent (ai_tool)",
+      "Search Similar Entries -> AI Agent (ai_tool)",
+      "Search Today Entries -> AI Agent (ai_tool)",
+      "Get Daily Summary -> AI Agent (ai_tool)",
+      "Update User Goal -> AI Agent (ai_tool)"
+    ]
+  },
+
+  "workflow_structure": {
+    "total_nodes": 42,
+    "tool_nodes": 6,
+    "trigger_nodes": 1,
+    "ai_nodes": 3,
+    "code_nodes": 11,
+    "other_nodes": 21
+  },
+
+  "critical_configurations": {
+    "ai_agent": {
+      "node_id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
+      "system_prompt_includes": "cascade search logic",
+      "input_field": "={{ $json.chatInput }}",
+      "system_prompt_length": "~2800 chars"
+    },
+    "inject_context": {
+      "node_id": "inject-context-001",
+      "pattern": "[SYSTEM: user_id=XXX] user_message",
+      "status": "working (verified in tests)"
+    },
+    "credential_id": "DYpIGQK8a652aosj"
+  },
+
+  "workflow": {
+    "updatedAt": "2025-12-04T21:00:04.065Z",
+    "createdAt": "2025-11-06T19:26:48.328Z",
+    "id": "sw3Qs3Fe3JahEbbW",
+    "name": "FoodTracker",
+    "description": null,
+    "active": true,
+    "isArchived": false,
     "nodes": [
       {
+        "parameters": {
+          "updates": [
+            "message"
+          ],
+          "additionalFields": {}
+        },
         "id": "454ac29e-dce6-43f0-82cf-2304cc20545f",
         "name": "Telegram Trigger",
         "type": "n8n-nodes-base.telegramTrigger",
-        "position": [-1136, 128],
-        "disabled": false
+        "typeVersion": 1.2,
+        "position": [
+          -1136,
+          128
+        ],
+        "webhookId": "1bf5d250-c832-495e-992f-12d2bf57dfbd",
+        "credentials": {
+          "telegramApi": {
+            "id": "ofhXzaw3ObXDT5JY",
+            "name": "Multi_Bot0101_bot"
+          }
+        }
       },
       {
+        "parameters": {
+          "tableId": "message_processing_log",
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "message_id",
+                "fieldValue": "={{ $json.message.message_id }}"
+              },
+              {
+                "fieldId": "telegram_user_id",
+                "fieldValue": "={{ $json.message.from.id }}"
+              }
+            ]
+          }
+        },
         "id": "98883f54-610b-485a-a45b-83b7bfd88a8f",
         "name": "Log Message",
         "type": "n8n-nodes-base.supabase",
-        "position": [-976, 128],
-        "disabled": false
+        "typeVersion": 1,
+        "position": [
+          -976,
+          128
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "DYpIGQK8a652aosj",
+            "name": "Supabase account"
+          }
+        }
       },
       {
+        "parameters": {
+          "operation": "get",
+          "tableId": "users",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "telegram_user_id",
+                "keyValue": "={{ $node[\"Telegram Trigger\"].json.message.from.id }}"
+              }
+            ]
+          }
+        },
         "id": "90b986bb-f244-4a25-9d55-a3f2baa451bf",
         "name": "Check User",
         "type": "n8n-nodes-base.supabase",
-        "position": [-800, 128],
-        "disabled": false
+        "typeVersion": 1,
+        "position": [
+          -800,
+          128
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "DYpIGQK8a652aosj",
+            "name": "Supabase account"
+          }
+        }
       },
       {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "condition1",
+                "leftValue": "={{ $json.id }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "exists"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
         "id": "04a22337-2efe-48c2-9a4f-b70b9dc6072e",
         "name": "IF Registered",
         "type": "n8n-nodes-base.if",
-        "position": [-640, 128],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          -640,
+          128
+        ]
       },
       {
+        "parameters": {
+          "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+          "text": "Please register first: /start",
+          "additionalFields": {}
+        },
         "id": "0dc205e8-dff5-48f9-9f75-29540fa3910f",
         "name": "Not Registered",
         "type": "n8n-nodes-base.telegram",
-        "position": [-256, 400],
-        "disabled": false
+        "typeVersion": 1.2,
+        "position": [
+          -256,
+          400
+        ],
+        "webhookId": "3ef5eafe-411b-4eb2-9a8c-da4e142819b2",
+        "credentials": {
+          "telegramApi": {
+            "id": "ofhXzaw3ObXDT5JY",
+            "name": "Multi_Bot0101_bot"
+          }
+        }
       },
       {
+        "parameters": {
+          "operation": "sendChatAction",
+          "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}"
+        },
         "id": "0538def8-e810-40ec-949e-22cda344d2a7",
         "name": "Typing Indicator",
         "type": "n8n-nodes-base.telegram",
-        "position": [-528, -16],
-        "disabled": false
+        "typeVersion": 1.2,
+        "position": [
+          -528,
+          -16
+        ],
+        "webhookId": "7a38b2bd-6d17-42c5-9bee-5778a2e75918",
+        "credentials": {
+          "telegramApi": {
+            "id": "ofhXzaw3ObXDT5JY",
+            "name": "Multi_Bot0101_bot"
+          }
+        }
       },
       {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "restore-message",
+                "name": "message",
+                "value": "={{ $node[\"Telegram Trigger\"].json.message }}",
+                "type": "object"
+              },
+              {
+                "id": "add-user-data",
+                "name": "user",
+                "value": "={{ $node[\"Check User\"].json }}",
+                "type": "object"
+              }
+            ]
+          },
+          "options": {}
+        },
         "id": "prepare-message-data-001",
         "name": "Prepare Message Data",
         "type": "n8n-nodes-base.set",
-        "position": [-400, -16],
-        "disabled": false
+        "typeVersion": 3.4,
+        "position": [
+          -400,
+          -16
+        ]
       },
       {
-        "id": "52133fd5-62ec-4aaa-a265-c225274c6c16",
-        "name": "Switch",
+        "parameters": {
+          "mode": "expression",
+          "output": "={{ $json.message.text ? 0 : ($json.message.voice ? 1 : ($json.message.photo ? 2 : 0)) }}"
+        },
         "type": "n8n-nodes-base.switch",
-        "position": [-288, 128],
-        "disabled": false
+        "typeVersion": 3.3,
+        "position": [
+          -288,
+          128
+        ],
+        "id": "52133fd5-62ec-4aaa-a265-c225274c6c16",
+        "name": "Switch"
       },
       {
+        "parameters": {
+          "jsCode": "const input = $input.first().json;\nconst message = input.message;\nconst user = input.user;\n\nif (!user || !user.telegram_user_id) {\n  throw new Error(\"User data not found in execution context\");\n}\n\nreturn [{ \n  type: 'text', \n  data: message.text, \n  telegram_user_id: user.telegram_user_id, \n  user_id: user.id, \n  owner: user.owner \n}];"
+        },
         "id": "009e557b-b9d5-4087-bedd-0736f1b04544",
         "name": "Process Text",
         "type": "n8n-nodes-base.code",
-        "position": [0, 0],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ]
       },
       {
+        "parameters": {
+          "jsCode": "const input = $input.first().json;\nconst message = input.message;\nconst user = input.user;\n\nif (!user || !user.id) {\n  throw new Error(\"User data not found in execution context\");\n}\n\nreturn [{\n  type: 'voice',\n  voice_file_id: message.voice.file_id,\n  message: message,\n  user_id: user.id,\n  telegram_user_id: user.telegram_user_id,\n  owner: user.owner\n}];"
+        },
         "id": "04f2c478-b7d9-4b36-b3bb-1ee97e60fed9",
         "name": "Process Voice",
         "type": "n8n-nodes-base.code",
-        "position": [0, 144],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          0,
+          144
+        ]
       },
       {
+        "parameters": {
+          "resource": "file",
+          "fileId": "={{ $json.voice_file_id }}",
+          "additionalFields": {}
+        },
         "id": "f0320ed4-3e52-4346-881a-2316b7af6ae2",
         "name": "Download Voice",
         "type": "n8n-nodes-base.telegram",
-        "position": [192, 144],
-        "disabled": false
+        "typeVersion": 1.2,
+        "position": [
+          192,
+          144
+        ],
+        "webhookId": "d5682e09-d29e-47d0-9c65-552ec9dea4ca",
+        "credentials": {
+          "telegramApi": {
+            "id": "ofhXzaw3ObXDT5JY",
+            "name": "Multi_Bot0101_bot"
+          }
+        }
       },
       {
+        "parameters": {
+          "resource": "audio",
+          "operation": "transcribe",
+          "options": {}
+        },
         "id": "8eea1509-2f8a-45f4-ba73-cece0e9b43ab",
         "name": "Transcribe Voice",
         "type": "@n8n/n8n-nodes-langchain.openAi",
-        "position": [400, 144],
-        "disabled": false
+        "typeVersion": 1.8,
+        "position": [
+          400,
+          144
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "NPHTuT9Bime92Mku",
+            "name": "OpenAi account"
+          }
+        }
       },
       {
+        "parameters": {
+          "jsCode": "const transcription = $json.text;\nconst voiceData = $(\"Process Voice\").first().json;\nreturn [{\n  type: 'voice',\n  data: transcription,\n  user_id: voiceData.user_id,\n  telegram_user_id: voiceData.telegram_user_id,\n  owner: voiceData.owner\n}];"
+        },
         "id": "232b4bc6-e052-4570-b15a-f6300e09a7d5",
         "name": "Merge Voice Data",
         "type": "n8n-nodes-base.code",
-        "position": [592, 144],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          592,
+          144
+        ]
       },
       {
+        "parameters": {
+          "jsCode": "const input = $input.first().json;\nconst message = input.message;\nconst user = input.user;\n\nif (!user || !user.id) {\n  throw new Error(\"User data not found in execution context\");\n}\n\nconst photos = message.photo;\nconst largestPhoto = photos[photos.length - 1];\nreturn [{ \n  type: 'photo', \n  photo_file_id: largestPhoto.file_id, \n  message: message, \n  user_id: user.id, \n  telegram_user_id: user.telegram_user_id, \n  owner: user.owner \n}];"
+        },
         "id": "bcac5096-0cc4-42ce-93bd-4fb471ed67d9",
         "name": "Process Photo",
         "type": "n8n-nodes-base.code",
-        "position": [0, 288],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          0,
+          288
+        ]
       },
       {
+        "parameters": {
+          "resource": "file",
+          "fileId": "={{ $json.photo_file_id }}",
+          "additionalFields": {}
+        },
         "id": "d8ce2c0b-9fb4-4579-98a7-581481e29c30",
         "name": "Download Photo",
         "type": "n8n-nodes-base.telegram",
-        "position": [192, 288],
-        "disabled": false
+        "typeVersion": 1.2,
+        "position": [
+          192,
+          288
+        ],
+        "webhookId": "82c56e64-5ae0-4ee6-93b0-b7811539f5b9",
+        "credentials": {
+          "telegramApi": {
+            "id": "ofhXzaw3ObXDT5JY",
+            "name": "Multi_Bot0101_bot"
+          }
+        }
       },
       {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "barcode-check",
+                "leftValue": "={{ $json.has_barcode }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
         "id": "a05b15c1-7b84-4eb7-895a-ec9a28219b69",
         "name": "IF Has Barcode",
         "type": "n8n-nodes-base.if",
-        "position": [240, 608],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          240,
+          608
+        ]
       },
       {
+        "parameters": {
+          "jsCode": "const downloadedPhoto = $(\"Download Photo\").first();\nconst currentData = $input.first().json;\n\nreturn [{\n  json: {\n    ...currentData,\n    telegram_user_id: currentData.telegram_user_id\n  },\n  binary: downloadedPhoto.binary\n}];"
+        },
         "id": "restore-binary-vision-001",
         "name": "Restore Binary for Vision",
         "type": "n8n-nodes-base.code",
-        "position": [496, 656],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          496,
+          656
+        ]
       },
       {
+        "parameters": {
+          "resource": "image",
+          "operation": "analyze",
+          "modelId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4o-mini"
+          },
+          "text": "Analyze this food photo. Identify the food items visible and estimate their quantities. Return in format: 'food_name: quantity unit'",
+          "inputType": "base64",
+          "options": {}
+        },
         "id": "9364c869-f156-4214-810d-0a680db5e188",
         "name": "Vision Analysis",
         "type": "@n8n/n8n-nodes-langchain.openAi",
-        "position": [672, 656],
-        "disabled": false
+        "typeVersion": 1.8,
+        "position": [
+          672,
+          656
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "NPHTuT9Bime92Mku",
+            "name": "OpenAi account"
+          }
+        }
       },
       {
+        "parameters": {},
         "id": "ad709023-1205-4d27-8414-41e0590318d5",
         "name": "Merge Photo Paths",
         "type": "n8n-nodes-base.merge",
-        "position": [1008, 672],
-        "disabled": false
+        "typeVersion": 3,
+        "position": [
+          1008,
+          672
+        ]
       },
       {
+        "parameters": {
+          "chatId": "={{ $node[\"Telegram Trigger\"].json.message.chat.id }}",
+          "text": "={{ $json.output }}"
+        },
         "id": "42dcf96b-5da1-489b-9be1-933feaf17f34",
         "name": "Success Reply",
         "type": "n8n-nodes-base.telegram",
-        "position": [1920, 144],
-        "disabled": false
+        "typeVersion": 1.2,
+        "position": [
+          1920,
+          144
+        ],
+        "webhookId": "a8fd7c4e-73ff-4506-b18f-f9cf08b90579",
+        "credentials": {
+          "telegramApi": {
+            "id": "ofhXzaw3ObXDT5JY",
+            "name": "Multi_Bot0101_bot"
+          }
+        }
       },
       {
+        "parameters": {
+          "jsCode": "const visionResult = $json.content || $json.text || $json.response || $json.output;\nconst photoData = $(\"Process Photo\").first().json;\n\nreturn [{\n  type: 'photo',\n  data: visionResult,\n  source: 'vision',\n  user_id: photoData.user_id,\n  telegram_user_id: photoData.telegram_user_id,\n  owner: photoData.owner\n}];"
+        },
         "id": "4c26424a-a4da-40e2-8fba-0555f1356ddb",
         "name": "Parse Vision Result",
         "type": "n8n-nodes-base.code",
-        "position": [816, 672],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          816,
+          672
+        ]
       },
       {
+        "parameters": {
+          "resource": "image",
+          "operation": "analyze",
+          "modelId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4o-mini"
+          },
+          "text": "Look carefully at this product image for a barcode or EAN/UPC number. If you find a barcode, return ONLY the numeric code (no text, no explanation). If no barcode is visible or readable, return exactly: NO_BARCODE",
+          "inputType": "base64",
+          "options": {}
+        },
         "id": "e23b98c5-c49d-4d11-83e4-3ee2dab350c3",
         "name": "Extract Barcode",
         "type": "@n8n/n8n-nodes-langchain.openAi",
-        "position": [400, 288],
-        "disabled": false
+        "typeVersion": 1.8,
+        "position": [
+          400,
+          288
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "NPHTuT9Bime92Mku",
+            "name": "OpenAi account"
+          }
+        }
       },
       {
+        "parameters": {
+          "jsCode": "const visionResponse = $json.content || $json.text || '';\nconst photoData = $(\"Process Photo\").first().json;\n\nconst barcodeMatch = visionResponse.match(/\\d{8,14}/);\nconst hasBarcode = barcodeMatch && visionResponse !== 'NO_BARCODE';\n\nreturn [{\n  json: {\n    barcode: hasBarcode ? barcodeMatch[0] : null,\n    has_barcode: hasBarcode,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner,\n    vision_response: visionResponse\n  },\n  binary: $input.item.binary\n}];"
+        },
         "id": "7d0dc95a-b5cf-47e9-9945-b72fc691b490",
         "name": "Parse Barcode Result",
         "type": "n8n-nodes-base.code",
-        "position": [592, 320],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          592,
+          320
+        ]
       },
       {
+        "parameters": {
+          "url": "=https://world.openfoodfacts.org/api/v2/product/{{ $json.barcode }}.json",
+          "options": {}
+        },
         "id": "3eb4fa16-23f0-4e33-b6b9-509d315ba719",
         "name": "Get OpenFoodFacts",
         "type": "n8n-nodes-base.httpRequest",
-        "position": [496, 528],
-        "disabled": false
+        "typeVersion": 4.2,
+        "position": [
+          496,
+          528
+        ],
+        "continueOnFail": true
       },
       {
+        "parameters": {
+          "jsCode": "// Get OpenFoodFacts response\nconst offResponse = $input.first().json;\nconst photoData = $(\"Process Photo\").first().json;\n\n// Check if API call failed (404, timeout, etc.)\nif (offResponse.error || offResponse.status === 0) {\n  return [{\n    json: {\n      success: false,\n      source: 'openfoodfacts',\n      error: offResponse.error || 'Product not found in OpenFoodFacts',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\n// Check if product exists (status=1 means found)\nif (!offResponse.product || offResponse.status !== 1) {\n  return [{\n    json: {\n      success: false,\n      source: 'openfoodfacts',\n      error: 'Product not found in OpenFoodFacts database',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: offResponse.code || $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\n// Success: product found\nconst product = offResponse.product;\nconst productName = product.product_name || product.product_name_ru || product.product_name_en || 'Unknown Product';\nconst brand = product.brands || 'Unknown Brand';\n\nreturn [{\n  json: {\n    type: 'photo',\n    source: 'openfoodfacts',\n    success: true,\n    data: `${brand} - ${productName}`,\n    product_name: productName,\n    brand: brand,\n    barcode: product.code || offResponse.code,\n    calories: product.nutriments?.['energy-kcal_100g'] || 0,\n    protein: product.nutriments?.proteins_100g || 0,\n    carbs: product.nutriments?.carbohydrates_100g || 0,\n    fat: product.nutriments?.fat_100g || 0,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner,\n    raw_off_response: offResponse\n  },\n  binary: $input.item.binary\n}];"
+        },
         "id": "f4b72600-dcaf-41d1-bc46-039e2e0a0739",
         "name": "Parse OpenFoodFacts",
         "type": "n8n-nodes-base.code",
-        "position": [672, 512],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          672,
+          512
+        ]
       },
       {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4o-mini"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2,
+        "position": [
+          1376,
+          688
+        ],
         "id": "18d2242f-51eb-48c9-8d1c-1fef81ce9974",
         "name": "OpenAI Chat Model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "position": [1376, 688],
-        "disabled": false
+        "credentials": {
+          "openAiApi": {
+            "id": "NPHTuT9Bime92Mku",
+            "name": "OpenAi account"
+          }
+        }
       },
       {
+        "parameters": {
+          "toolDescription": "Save a food entry to the database.",
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/save_food_entry",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {
+                "name": "p_telegram_user_id"
+              },
+              {
+                "name": "p_food_item"
+              },
+              {
+                "name": "p_quantity"
+              },
+              {
+                "name": "p_unit"
+              },
+              {
+                "name": "p_calories"
+              },
+              {
+                "name": "p_protein"
+              },
+              {
+                "name": "p_carbs"
+              },
+              {
+                "name": "p_fats"
+              },
+              {
+                "name": "p_fiber",
+                "valueProvider": "modelOptional"
+              }
+            ]
+          },
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "p_telegram_user_id",
+                "description": "User's Telegram ID number",
+                "type": "number"
+              },
+              {
+                "name": "p_food_item",
+                "description": "Food name in Russian",
+                "type": "string"
+              },
+              {
+                "name": "p_quantity",
+                "description": "Quantity as number",
+                "type": "number"
+              },
+              {
+                "name": "p_unit",
+                "description": "Unit: grams, ml, or pcs",
+                "type": "string"
+              },
+              {
+                "name": "p_calories",
+                "description": "Calories as number",
+                "type": "number"
+              },
+              {
+                "name": "p_protein",
+                "description": "Protein in grams",
+                "type": "number"
+              },
+              {
+                "name": "p_carbs",
+                "description": "Carbs in grams",
+                "type": "number"
+              },
+              {
+                "name": "p_fats",
+                "description": "Fats in grams",
+                "type": "number"
+              },
+              {
+                "name": "p_fiber",
+                "description": "Fiber in grams (optional)",
+                "type": "number"
+              }
+            ]
+          }
+        },
         "id": "cccfae9d-4439-438c-9471-baf194b83445",
         "name": "Save Food Entry",
         "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
-        "position": [2064, 688],
-        "disabled": false
+        "typeVersion": 1.1,
+        "position": [
+          2064,
+          688
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "DYpIGQK8a652aosj",
+            "name": "Supabase account"
+          }
+        }
       },
       {
+        "parameters": {
+          "sessionIdType": "customKey",
+          "sessionKey": "={{ $('Check User').first().json.telegram_user_id }}",
+          "contextWindowLength": 10,
+          "tableName": "n8n_chat_histories"
+        },
         "id": "memory-buffer-node-001",
         "name": "Conversation Memory",
         "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
-        "position": [1520, 688],
-        "disabled": false
+        "typeVersion": 1.3,
+        "position": [
+          1520,
+          688
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "YfW5ar1A5pmUD0If",
+            "name": "Postgres account"
+          }
+        }
       },
       {
+        "parameters": {
+          "options": {
+            "systemMessage": "You are a helpful food tracking assistant for Russian-speaking users.\n\n## CRITICAL: Tool Parameters\n\nWhen calling ANY database tool (save_food_entry, search_today_entries, get_daily_summary, etc.), you MUST:\n\n1. Extract user_id from the [SYSTEM: user_id=...] prefix at the START of user input\n2. Use this number as the p_telegram_user_id parameter\n\n### Example:\nInput: \"[SYSTEM: user_id=682776858] что я ел сегодня?\"\n- Extract: 682776858\n- Call: search_today_entries(p_telegram_user_id=682776858, p_date=\"2025-12-04\")\n\nInput: \"[SYSTEM: user_id=123456] записать яблоко 150г\"\n- Extract: 123456  \n- Call: save_food_entry(p_telegram_user_id=123456, p_food_item=\"яблоко\", p_quantity=150, p_unit=\"grams\", ...)\n\n### Rules:\n- The user_id is ALWAYS a NUMBER (integer)\n- NEVER ask user for their ID - extract from [SYSTEM: ...] prefix\n- If no [SYSTEM: ...] prefix found, report error\n- Remove the [SYSTEM: ...] prefix when responding to user (they shouldn't see it)\n\n## Food Tracking Guidelines\n- Respond in Russian\n- Estimate nutrition values if not provided\n- Confirm saved entries with summary\n\n## Search Strategy - Cascade Approach\n\nWhen user asks about their food history (\"когда я ел X?\", \"я ел Y раньше?\"), use THIS CASCADE:\n\n### Step 1: Check Today First\n1. Call search_today_entries(p_telegram_user_id, p_date=today)\n2. If found -> respond with today's data\n3. If not found -> go to Step 2\n\n### Step 2: Search Recent History\n1. Call search_food_by_product(p_user_id, p_product_name, p_start_date=7_days_ago, p_end_date=today)\n2. If found -> respond with dates when user ate this product\n3. If not found -> go to Step 3\n\n### Step 3: Check Similar Entries\n1. Call search_similar_entries(p_user_id, p_food_item, p_limit=5)\n2. If found -> suggest similar items user has eaten\n3. If not found -> respond \"You haven't logged this food yet. Would you like to add it?\"\n\n### Examples:\n\n**User:** \"что я ел сегодня?\"\n**Action:** search_today_entries(682776858, \"2025-12-04\")\n**Response:** \"Сегодня вы съели: [list]\"\n\n**User:** \"когда я ел курицу?\"\n**Action 1:** search_today_entries(682776858, today) -> not found\n**Action 2:** search_food_by_product(682776858, \"курица\", 7_days_ago, today) -> found on 2025-11-28\n**Response:** \"Вы ели курицу 28 ноября (150г, 248 ккал)\"\n\n**User:** \"я ел яблоки раньше?\"\n**Action 1:** search_food_by_product(682776858, \"яблоко\") -> not found\n**Action 2:** search_similar_entries(682776858, \"яблоко\") -> found \"яблочный сок\"\n**Response:** \"Яблоки не найдены, но вы пили яблочный сок 3 декабря\"\n\n### Priority Rules:\n1. Today's data first (most relevant)\n2. Recent history second (past 7 days)\n3. Similar items third (help user discover alternatives)\n4. If all fail, offer to add new entry\n\nNEVER skip steps - cascade ensures best user experience!"
+          }
+        },
         "id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
         "name": "AI Agent",
         "type": "@n8n/n8n-nodes-langchain.agent",
-        "position": [1456, 352],
-        "disabled": false
+        "typeVersion": 2.2,
+        "position": [
+          1456,
+          352
+        ]
       },
       {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "openfoodfacts-success-check",
+                "leftValue": "={{ $json.success }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
         "id": "if-openfoodfacts-success-001",
         "name": "IF OpenFoodFacts Success",
         "type": "n8n-nodes-base.if",
-        "position": [1008, 496],
-        "disabled": false
+        "typeVersion": 2.2,
+        "position": [
+          1008,
+          496
+        ]
       },
       {
+        "parameters": {
+          "jsCode": "// L-068: Restore binary data lost through IF node\nconst downloadedPhoto = $(\"Download Photo\").first();\nconst currentData = $input.first().json;\n\nreturn [{\n  json: {\n    ...currentData,\n    barcode: currentData.barcode,\n    user_id: currentData.user_id,\n    telegram_user_id: currentData.telegram_user_id\n  },\n  binary: downloadedPhoto.binary\n}];"
+        },
         "id": "restore-binary-upc-001",
         "name": "Restore Binary for UPC",
         "type": "n8n-nodes-base.code",
-        "position": [1104, 960],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          1104,
+          960
+        ]
       },
       {
+        "parameters": {
+          "url": "=https://api.upcitemdb.com/prod/trial/lookup?upc={{ $json.barcode }}",
+          "options": {}
+        },
         "id": "get-upc-database-001",
         "name": "Get UPC Database",
         "type": "n8n-nodes-base.httpRequest",
-        "position": [1280, 960],
-        "disabled": false
+        "typeVersion": 4.2,
+        "position": [
+          1280,
+          960
+        ],
+        "continueOnFail": true
       },
       {
+        "parameters": {
+          "jsCode": "// Get UPC API response\nconst upcResponse = $input.first().json;\nconst photoData = $(\"Process Photo\").first().json;\n\nif (upcResponse.error || upcResponse.code === 'INVALID_UPC') {\n  return [{\n    json: {\n      success: false,\n      source: 'upc_database',\n      error: upcResponse.error || 'Product not found in UPC database',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\nif (upcResponse.code === 'RATE_LIMIT_EXCEEDED') {\n  return [{\n    json: {\n      success: false,\n      source: 'upc_database',\n      error: 'UPC Database rate limit exceeded (100/day)',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\nconst item = upcResponse.items?.[0];\nif (!item) {\n  return [{\n    json: {\n      success: false,\n      source: 'upc_database',\n      error: 'Empty response from UPC database',\n      user_id: photoData.user_id,\n      telegram_user_id: photoData.telegram_user_id,\n      owner: photoData.owner,\n      barcode: $(\"Parse Barcode Result\").first().json.barcode\n    },\n    binary: $input.item.binary\n  }];\n}\n\nconst rawBarcode = $(\"Parse Barcode Result\").first().json.barcode;\nconst upcBarcode = (rawBarcode.startsWith('0') && rawBarcode.length === 13) ? rawBarcode.substring(1) : rawBarcode;\n\nreturn [{\n  json: {\n    type: 'photo',\n    source: 'upc_database',\n    success: true,\n    data: `${item.brand || 'Unknown'} - ${item.title}`,\n    product_name: item.title,\n    brand: item.brand,\n    category: item.category,\n    barcode: upcBarcode,\n    user_id: photoData.user_id,\n    telegram_user_id: photoData.telegram_user_id,\n    owner: photoData.owner,\n    raw_upc_response: upcResponse\n  },\n  binary: $input.item.binary\n}];"
+        },
         "id": "parse-upc-response-001",
         "name": "Parse UPC Response",
         "type": "n8n-nodes-base.code",
-        "position": [1456, 960],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          1456,
+          960
+        ]
       },
       {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "upc-success-check",
+                "leftValue": "={{ $json.success }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
         "id": "if-upc-success-001",
         "name": "IF UPC Success",
         "type": "n8n-nodes-base.if",
-        "position": [1616, 976],
-        "disabled": false
+        "typeVersion": 2.2,
+        "position": [
+          1616,
+          976
+        ]
       },
       {
         "id": "save-user-message-001",
         "name": "Save User Message",
         "type": "n8n-nodes-base.httpRequest",
-        "position": [200, 0],
-        "disabled": false
+        "typeVersion": 4.2,
+        "position": [
+          200,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/save_conversation_message",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ p_user_id: $('Prepare Message Data').first().json.user.id, p_role: 'user', p_content: $('Telegram Trigger').first().json.message.text || $('Telegram Trigger').first().json.message.caption || 'photo/voice message' }) }}",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rDcjW0UFczbmWtVq",
+            "name": "Supabase Header Auth"
+          }
+        },
+        "onError": "continueRegularOutput"
       },
       {
         "id": "save-ai-response-001",
         "name": "Save AI Response",
         "type": "n8n-nodes-base.httpRequest",
-        "position": [1720, 352],
-        "disabled": false
+        "typeVersion": 4.2,
+        "position": [
+          1720,
+          352
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/save_conversation_message",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ p_user_id: $('Prepare Message Data').first().json.user.id, p_role: 'assistant', p_content: $('AI Agent').first().json.output || '' }) }}",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rDcjW0UFczbmWtVq",
+            "name": "Supabase Header Auth"
+          }
+        },
+        "onError": "continueRegularOutput"
       },
       {
         "id": "inject-context-001",
         "name": "Inject Context",
         "type": "n8n-nodes-base.code",
-        "position": [200, 0],
-        "disabled": false
+        "typeVersion": 2,
+        "position": [
+          200,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// L-NEW: Inject workflow context as SYSTEM prefix for AI Agent\n// This allows AI to extract telegram_user_id from its input text\nconst items = $input.all();\nconst item = items[0].json;\n\nconst telegram_user_id = item.telegram_user_id;\nconst user_message = item.data;\nconst user_id = item.user_id;\nconst owner = item.owner;\n\nif (!telegram_user_id) {\n  throw new Error('telegram_user_id not found in input');\n}\n\n// Format: [SYSTEM: user_id=682776858] user message\nconst chatInput = `[SYSTEM: user_id=${telegram_user_id}] ${user_message}`;\n\nreturn [{\n  json: {\n    chatInput: chatInput,\n    telegram_user_id: telegram_user_id,\n    user_id: user_id,\n    owner: owner,\n    original_message: user_message\n  }\n}];"
+        }
+      },
+      {
+        "id": "tool-search-food-product-001",
+        "name": "Search Food by Product",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          2064,
+          800
+        ],
+        "parameters": {
+          "toolDescription": "Search user's food entries by product name and optional date range. Returns matching entries with nutrition data.",
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/search_food_by_product",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {
+                "name": "p_user_id",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_product_name",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_start_date",
+                "valueProvider": "modelOptional"
+              },
+              {
+                "name": "p_end_date",
+                "valueProvider": "modelOptional"
+              }
+            ]
+          },
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "p_user_id",
+                "description": "User's Telegram ID extracted from [SYSTEM: user_id=...] prefix",
+                "type": "number"
+              },
+              {
+                "name": "p_product_name",
+                "description": "Food product name to search for (in Russian)",
+                "type": "string"
+              },
+              {
+                "name": "p_start_date",
+                "description": "Start date in YYYY-MM-DD format (optional, defaults to 30 days ago)",
+                "type": "string"
+              },
+              {
+                "name": "p_end_date",
+                "description": "End date in YYYY-MM-DD format (optional, defaults to today)",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "credentials": {
+          "supabaseApi": {
+            "id": "DYpIGQK8a652aosj",
+            "name": "Supabase account"
+          }
+        }
+      },
+      {
+        "id": "tool-search-similar-001",
+        "name": "Search Similar Entries",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          2064,
+          920
+        ],
+        "parameters": {
+          "toolDescription": "Find similar food entries from user's history to help with portion sizes and nutrition estimates.",
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/search_similar_entries",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {
+                "name": "p_user_id",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_food_item",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_limit",
+                "valueProvider": "modelOptional"
+              }
+            ]
+          },
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "p_user_id",
+                "description": "User's Telegram ID from [SYSTEM: user_id=...] prefix",
+                "type": "number"
+              },
+              {
+                "name": "p_food_item",
+                "description": "Food item name to find similar entries for",
+                "type": "string"
+              },
+              {
+                "name": "p_limit",
+                "description": "Maximum number of results to return (default 5)",
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "credentials": {
+          "supabaseApi": {
+            "id": "DYpIGQK8a652aosj",
+            "name": "Supabase account"
+          }
+        }
+      },
+      {
+        "id": "tool-search-today-001",
+        "name": "Search Today Entries",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          2064,
+          1040
+        ],
+        "parameters": {
+          "toolDescription": "Get all food entries for a specific date, typically today. Returns list of meals with nutrition breakdown.",
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/search_today_entries",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {
+                "name": "p_telegram_user_id",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_date",
+                "valueProvider": "modelOptional"
+              }
+            ]
+          },
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "p_telegram_user_id",
+                "description": "User's Telegram ID from [SYSTEM: user_id=...] prefix",
+                "type": "number"
+              },
+              {
+                "name": "p_date",
+                "description": "Date in YYYY-MM-DD format (defaults to today if not provided)",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "credentials": {
+          "supabaseApi": {
+            "id": "DYpIGQK8a652aosj",
+            "name": "Supabase account"
+          }
+        }
+      },
+      {
+        "id": "tool-daily-summary-001",
+        "name": "Get Daily Summary",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          2064,
+          1160
+        ],
+        "parameters": {
+          "toolDescription": "Calculate total calories, protein, carbs, and fats for a specific date. Returns nutrition summary.",
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/get_daily_summary",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {
+                "name": "p_telegram_user_id",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_date",
+                "valueProvider": "modelOptional"
+              }
+            ]
+          },
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "p_telegram_user_id",
+                "description": "User's Telegram ID from [SYSTEM: user_id=...] prefix",
+                "type": "number"
+              },
+              {
+                "name": "p_date",
+                "description": "Date in YYYY-MM-DD format (defaults to today)",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "credentials": {
+          "supabaseApi": {
+            "id": "DYpIGQK8a652aosj",
+            "name": "Supabase account"
+          }
+        }
+      },
+      {
+        "id": "tool-update-goal-001",
+        "name": "Update User Goal",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          2064,
+          1280
+        ],
+        "parameters": {
+          "toolDescription": "Update user's daily calorie and macro goals. Use when user wants to change their nutrition targets.",
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/update_user_goal",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {
+                "name": "p_telegram_user_id",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_goal_calories",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_goal_protein",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_goal_carbs",
+                "valueProvider": "modelRequired"
+              },
+              {
+                "name": "p_goal_fats",
+                "valueProvider": "modelRequired"
+              }
+            ]
+          },
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "p_telegram_user_id",
+                "description": "User's Telegram ID from [SYSTEM: user_id=...] prefix",
+                "type": "number"
+              },
+              {
+                "name": "p_goal_calories",
+                "description": "Target daily calories (number)",
+                "type": "number"
+              },
+              {
+                "name": "p_goal_protein",
+                "description": "Target daily protein in grams",
+                "type": "number"
+              },
+              {
+                "name": "p_goal_carbs",
+                "description": "Target daily carbs in grams",
+                "type": "number"
+              },
+              {
+                "name": "p_goal_fats",
+                "description": "Target daily fats in grams",
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "credentials": {
+          "supabaseApi": {
+            "id": "DYpIGQK8a652aosj",
+            "name": "Supabase account"
+          }
+        }
       }
     ],
     "connections": {
@@ -693,61 +1641,133 @@
             }
           ]
         ]
+      },
+      "Search Food by Product": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Search Similar Entries": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Search Today Entries": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Daily Summary": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update User Goal": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
-    "settings": {}
-  },
-
-  "key_features": [
-    "Code Node Injection Pattern (Inject Context node)",
-    "AI Agent with SYSTEM prefix context passing",
-    "6 HTTP Request tools (save_food_entry, search_today_entries, search_food_by_product, get_current_goal, update_user_goal, delete_food_entry)",
-    "Postgres Chat Memory (session_id based on telegram_user_id)",
-    "Multi-modal input: text, voice (Whisper), photo (Vision + Barcode)",
-    "Barcode recognition: OpenFoodFacts → UPC Database → Vision fallback",
-    "Conversation history saved to Supabase (messages table)",
-    "Telegram integration with typing indicators"
-  ],
-
-  "recent_changes": [
-    {
-      "version": 159,
-      "date": "2025-12-04",
-      "task": "Task 2.4 - Fix AI Agent context passing",
-      "changes": [
-        "Added 'Inject Context' Code node (inject-context-001) before AI Agent",
-        "Updated AI Agent text parameter to use chatInput from injected context",
-        "Updated System Prompt with SYSTEM prefix extraction instructions",
-        "Fixed tool parameter passing (p_telegram_user_id now works correctly)",
-        "Verified with execution #33666 - all 6 tools now accessible to AI Agent"
-      ],
-      "verification": "QA Phase 5 passed - execution #33666 showed successful context injection and tool parameter passing",
-      "previous_issue": "AI Agent couldn't access dynamic context ($json variables) due to $fromAI() scope limitation (L-090)"
-    }
-  ],
-
-  "anti_patterns_detected": [],
-
-  "learnings_applied": [
-    "L-074: Source of Truth (MCP verification) - Always verify workflow state via MCP, not cached files",
-    "L-089: AI Agent Input Must Include Context (Code Node Injection) - Use Code node to inject $json context into chatInput",
-    "L-090: $fromAI() Scope Limited to AI Input - AI nodes cannot access sibling node data via $json expressions",
-    "L-067: Smart Mode Selection - Used structure mode (37 nodes, under 50 threshold)"
-  ],
-
-  "known_issues": [],
-
-  "recommendations": [
-    "Test remaining AI Agent tools (search_food_by_product, update_user_goal, delete_food_entry) via Telegram",
-    "Monitor AI Agent token usage with SYSTEM prefix context overhead (~100-200 tokens per message)",
-    "Consider activating memory cleanup workflow if chat memory table grows large",
-    "Monitor UPC Database fallback rate to optimize barcode recognition flow"
-  ],
-
-  "system_notes": {
-    "ai_agent_context_pattern": "Text input path uses Inject Context node to pass dynamic data. Voice/Photo paths merge their context before AI Agent. This ensures all execution paths provide necessary context to AI Agent.",
-    "tool_parameters": "All 6 HTTP Request tools use p_telegram_user_id parameter injected via SYSTEM prefix. AI Agent extracts this from input and passes to tools correctly.",
-    "memory_strategy": "Postgres Chat Memory uses telegram_user_id as session_id. Each user gets isolated conversation history. No cross-user data leakage.",
-    "barcode_recognition": "3-stage fallback: OpenFoodFacts (fast, free) → UPC Database (paid, accurate) → Vision (AI, flexible). Optimizes for cost and accuracy."
+    "settings": {
+      "executionOrder": "v1",
+      "callerPolicy": "workflowsFromSameOwner",
+      "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "10038110-798d-4daa-8f93-db575f5d6079",
+    "versionCounter": 167,
+    "triggerCount": 1,
+    "shared": [
+      {
+        "updatedAt": "2025-11-06T19:26:48.330Z",
+        "createdAt": "2025-11-06T19:26:48.330Z",
+        "role": "workflow:owner",
+        "workflowId": "sw3Qs3Fe3JahEbbW",
+        "projectId": "a4we7RhtlkIVpqkR",
+        "project": {
+          "updatedAt": "2025-10-16T17:05:15.692Z",
+          "createdAt": "2025-10-16T17:03:54.633Z",
+          "id": "a4we7RhtlkIVpqkR",
+          "name": "Sergey Novikov <360aya25@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "projectRelations": [
+            {
+              "updatedAt": "2025-10-16T17:03:54.633Z",
+              "createdAt": "2025-10-16T17:03:54.633Z",
+              "userId": "ce467fe1-138e-46ea-871a-373796fc5618",
+              "projectId": "a4we7RhtlkIVpqkR",
+              "user": {
+                "updatedAt": "2025-12-03T23:14:08.000Z",
+                "createdAt": "2025-10-16T17:03:54.276Z",
+                "id": "ce467fe1-138e-46ea-871a-373796fc5618",
+                "email": "360aya25@gmail.com",
+                "firstName": "Sergey",
+                "lastName": "Novikov",
+                "personalizationAnswers": {
+                  "version": "v4",
+                  "personalization_survey_submitted_at": "2025-10-16T17:05:49.413Z",
+                  "personalization_survey_n8n_version": "1.115.3",
+                  "companySize": "<20",
+                  "companyType": "saas",
+                  "role": "business-owner",
+                  "reportedSource": "youtube"
+                },
+                "settings": {
+                  "userActivated": true,
+                  "firstSuccessfulWorkflowId": "dutoyHDShhg4TTWY",
+                  "userActivatedAt": 1760638131717,
+                  "easyAIWorkflowOnboarded": true,
+                  "npsSurvey": {
+                    "responded": true,
+                    "lastShownAt": 1760907138361
+                  }
+                },
+                "disabled": false,
+                "mfaEnabled": false,
+                "lastActiveAt": "2025-12-03",
+                "isPending": false
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "tags": []
   }
 }

@@ -1,0 +1,58 @@
+{
+  "snapshot_metadata": {
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "workflow_name": "FoodTracker",
+    "snapshot_version": 167,
+    "n8n_version_counter": 167,
+    "snapshot_date": "2025-12-04T21:00:04Z",
+    "snapshot_reason": "Added 5 HTTP Request Tools + Cascade Search Logic in System Prompt",
+    "node_count": 42,
+    "active": true,
+    "changes_summary": {
+      "tools_added": [
+        "Search Food by Product (tool-search-food-product-001)",
+        "Search Similar Entries (tool-search-similar-001)",
+        "Search Today Entries (tool-search-today-001)",
+        "Get Daily Summary (tool-daily-summary-001)",
+        "Update User Goal (tool-update-goal-001)"
+      ],
+      "system_prompt_updated": true,
+      "cascade_search_logic_added": true
+    }
+  },
+
+  "ai_tool_connections": {
+    "total": 6,
+    "tools": [
+      "Save Food Entry -> AI Agent (ai_tool)",
+      "Search Food by Product -> AI Agent (ai_tool)",
+      "Search Similar Entries -> AI Agent (ai_tool)",
+      "Search Today Entries -> AI Agent (ai_tool)",
+      "Get Daily Summary -> AI Agent (ai_tool)",
+      "Update User Goal -> AI Agent (ai_tool)"
+    ]
+  },
+
+  "workflow_structure": {
+    "total_nodes": 42,
+    "tool_nodes": 6,
+    "trigger_nodes": 1,
+    "ai_nodes": 3,
+    "code_nodes": 11,
+    "other_nodes": 21
+  },
+
+  "critical_configurations": {
+    "ai_agent": {
+      "node_id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
+      "input_field": "={{ $json.chatInput }}",
+      "system_prompt_length": "~2800 chars (with cascade logic)"
+    },
+    "inject_context": {
+      "node_id": "inject-context-001",
+      "pattern": "[SYSTEM: user_id=XXX] user_message",
+      "status": "working"
+    },
+    "credential_id": "DYpIGQK8a652aosj"
+  }
+}

@@ -5793,3 +5793,949 @@ return {
 ### Tags
 `researcher`, `credentials`, `critical`, `type-verification`, `configuration`, `compatibility`
 
+---
+
+## L-091: Deep Research Before Building
+
+**Category:** Process / Methodology
+**Severity:** 🔴 **CRITICAL** - Prevents hours of wasted work
+**Date:** 2025-12-04
+**Impact:** 10x time savings (5 hours → 30 minutes on Task 2.4)
+
+### Problem
+
+Jumping directly to building without research wastes hours on wrong approaches.
+
+**Real Example (Task 2.4 - Previous Session):**
+- No research phase → guessed at solution
+- 8 failed attempts over 5 hours
+- Emergency audit found issue in 5 minutes
+- Issue: Assumptions about $fromAI() behavior were wrong
+
+**Real Example (Task 2.4 - Current Session):**
+- 15 minutes deep research FIRST
+- Found root cause + correct pattern
+- 1 build attempt → all tests passed
+- Total time: 30 minutes
+
+### Pattern
+
+**When to apply:** Complex task with unknown technology OR debugging mystery issue
+
+**Symptoms:**
+- Unfamiliar n8n nodes/features
+- Previous attempts failed without clear reason
+- Technology/pattern not used before
+- Multiple possible approaches
+
+### Solution
+
+**Allocate 10-20 minutes for research phase BEFORE building:**
+
+```javascript
+// PHASE 1: Analyze Failure History (if debugging)
+1. Read handoff documents
+2. Read emergency audit files
+3. Identify root cause from execution logs
+4. List all failed approaches (what NOT to do)
+
+// PHASE 2: Web Research
+1. Search official n8n docs for exact node/feature
+2. Search n8n.io/workflows for working examples
+3. Search community forums for real configurations
+4. Verify with multiple sources (docs + examples)
+
+// PHASE 3: Knowledge Base
+1. Grep LEARNINGS-INDEX.md for keywords
+2. Read relevant L-XXX sections
+3. Check PATTERNS.md for similar workflows
+4. Apply proven solutions if found
+
+// PHASE 4: Create Build Guidance
+1. Document root cause (if debugging)
+2. Provide configuration examples with sources
+3. List gotchas and warnings
+4. Estimate complexity
+5. Get user approval before building
+```
+
+### Time Investment vs Savings
+
+| Approach | Research | Build | Testing | Total | Result |
+|----------|----------|-------|---------|-------|--------|
+| **No Research** | 0 min | 240 min | 60 min | 300 min | FAILED |
+| **Deep Research** | 15 min | 7 min | 8 min | 30 min | SUCCESS |
+
+**Time savings:** 270 minutes (90% reduction)
+
+### Critical Rules
+
+**❌ BLOCK if:**
+- Builder called without research_findings
+- Unknown technology/pattern with no web search
+- Debugging without execution analysis
+- No build_guidance provided
+
+**✅ ALLOW if:**
+- Research findings documented
+- Sources cited (docs/examples/learnings)
+- User approved approach
+- Complexity estimated
+
+### Evidence
+
+**Task 2.4 Comparison:**
+
+Previous session (no research):
+- v115→v145 (30 versions)
+- 8+ failed attempts
+- User frustrated after 5 hours
+- Root cause unknown until emergency audit
+
+Current session (15min research):
+- Web search found 4 sources
+- Code Node Injection pattern discovered
+- v159→v167 (8 versions)
+- All tests passed on first build attempt
+
+### Benefits
+
+- 🎯 **Correct approach** from start (no trial-and-error)
+- ⚡ **10x faster** completion (minutes vs hours)
+- 🛡️ **Prevents waste** (no repeated mistakes)
+- 📚 **Knowledge gain** (understands WHY, not just WHAT)
+- 😊 **User satisfaction** (confidence in solution)
+
+### Related
+
+- L-092: Web Search for Unknown Patterns
+- L-093: Execution Log Analysis MANDATORY
+- L-066: Solution Search Hierarchy
+
+### Tags
+`process`, `research`, `critical`, `time-saving`, `methodology`, `planning`
+
+---
+
+## L-092: Web Search for Unknown Patterns
+
+**Category:** Research / Best Practices
+**Severity:** HIGH - Prevents wrong implementations
+**Date:** 2025-12-04
+**Impact:** Found correct pattern in 15 minutes vs 5 hours of guessing
+
+### Problem
+
+Assumptions about unfamiliar technology behavior lead to wrong implementations.
+
+**Real Example (Task 2.4):**
+- Assumed $fromAI() could access workflow context
+- Assumed AI Agent input format was standard
+- Spent 5 hours trying variations of wrong approach
+- Web search in 15 minutes found: "AI input = only what you pass to text field"
+
+### Pattern
+
+**When to apply:**
+- Working with unfamiliar n8n nodes
+- Using new n8n features (AI Agent, LangChain)
+- Debugging behavior that doesn't match expectations
+- Need to verify configuration format
+
+### Solution
+
+**Structured web search approach:**
+
+```javascript
+// STEP 1: Official Documentation
+Search: "n8n [node-name] documentation 2025"
+Look for:
+- Parameter definitions
+- Configuration format
+- Examples
+- Limitations/gotchas
+
+// STEP 2: Working Examples
+Search: "n8n.io/workflows [functionality] [node-type]"
+Look for:
+- Popular templates (>100 views)
+- Real configurations
+- Proven patterns
+- Community feedback
+
+// STEP 3: Community Forums
+Search: "n8n community [specific-issue] [node-name]"
+Look for:
+- Known issues
+- Workarounds
+- Recent discussions
+- Version-specific behavior
+
+// STEP 4: Cross-Verification
+- Compare 3+ sources
+- Verify official docs match examples
+- Check for version differences
+- Test with smallest example first
+```
+
+### Real Web Searches (Task 2.4)
+
+**Search 1:** "n8n langchain AI Agent toolHttpRequest configuration $fromAI examples 2025"
+- Found: Official docs on $fromAI() scope
+- Key insight: "AI model uses hints to populate from INPUT"
+- Result: $fromAI() can't access workflow context!
+
+**Search 2:** "n8n AI Agent tool parameters modelRequired modelOptional valueProvider"
+- Found: HTTP Request Tool node documentation
+- Key insight: parametersBody format with placeholderDefinitions
+- Result: Exact configuration format needed
+
+**Search 3:** "n8n Code Node Injection context passing AI Agent telegram_user_id"
+- Found: Community workflow #2035 (Telegram AI bot)
+- Key insight: Code Node prepends [SYSTEM:...] prefix
+- Result: Working pattern to pass context to AI!
+
+**Search 4:** "n8n langchain tools best practices telegram bot"
+- Found: Multiple production examples
+- Key insight: All use Code Node for context injection
+- Result: Validated pattern from multiple sources
+
+### Evidence
+
+**4 web sources found in 15 minutes:**
+1. n8n Docs - $fromAI() function scope
+2. n8n Docs - HTTP Request Tool configuration
+3. n8n Community - Telegram AI bot workflow #2035
+4. n8n Community - LangChain best practices
+
+**Result:** Correct implementation on first attempt
+
+### Critical Rules
+
+**❌ DON'T:**
+- Assume behavior without verification
+- Use only 1 source
+- Trust outdated information
+- Skip official docs
+
+**✅ DO:**
+- Search official docs first
+- Verify with working examples
+- Cross-check 3+ sources
+- Check publication date (prefer 2024-2025)
+
+### Benefits
+
+- 🎯 **Verified patterns** (not assumptions)
+- 📚 **Multiple sources** (cross-validation)
+- ✅ **Proven solutions** (working examples)
+- ⚡ **Fast discovery** (15 min vs 5 hours)
+
+### Related
+
+- L-091: Deep Research Before Building
+- L-066: Solution Search Hierarchy
+- L-064: LEARNINGS Validation Protocol
+
+### Tags
+`research`, `web-search`, `best-practices`, `validation`, `n8n-docs`
+
+---
+
+## L-093: Execution Log Analysis MANDATORY
+
+**Category:** Debugging / Process
+**Severity:** 🔴 **CRITICAL** - Prevents blind guessing
+**Date:** 2025-12-04
+**Impact:** 5 hours wasted guessing vs 5 minutes finding root cause
+
+### Problem
+
+**Guessing without execution data = 8+ wasted attempts**
+
+**Real Example (Task 2.4 - Previous Session):**
+- Bot silent when user asked "what did I eat today?"
+- Made 8 attempts changing expressions/configurations
+- NEVER checked execution logs until emergency audit
+- Emergency audit checked execution #33645 → found issue in 5 minutes
+- Issue: `p_telegram_user_id: undefined` in HTTP request body
+
+### Pattern
+
+**Symptoms that require execution analysis:**
+- Bot silent (no response)
+- Tool failing (error messages)
+- Unexpected behavior (wrong output)
+- "Invalid URL" errors
+- HTTP request failures
+
+### Solution
+
+**Check execution logs IMMEDIATELY (attempt #1, not #8!):**
+
+```javascript
+// STEP 1: Get Last Execution
+const execution = n8n_executions({
+  action: "list",
+  workflowId: "workflow_id",
+  limit: 1
+});
+
+const executionId = execution.data[0].id;
+
+// STEP 2: Get Execution Details (Smart Mode)
+const details = n8n_executions({
+  action: "get",
+  id: executionId,
+  mode: "summary"  // Start with summary (safe for large workflows)
+});
+
+// STEP 3: Identify Problem Area
+const failedNode = details.stoppedAt || details.data.resultData.lastNodeExecuted;
+
+// STEP 4: Get Detailed Data (Problem Nodes Only)
+const nodeDetails = n8n_executions({
+  action: "get",
+  id: executionId,
+  mode: "filtered",
+  nodeNames: [failedNode],
+  itemsLimit: -1
+});
+
+// STEP 5: Analyze HTTP Request Bodies / Node Outputs
+// Check ACTUAL values, not expected values!
+const httpBody = nodeDetails.data[failedNode].json;
+// Example: { p_telegram_user_id: undefined } ← ROOT CAUSE!
+```
+
+### Real Example (Emergency Audit - Task 2.4)
+
+**Execution #33645 Analysis:**
+
+```javascript
+// Node: Search Today Entries
+// Error: "Invalid URL"
+
+// Execution log showed:
+{
+  "url": "https://...supabase.co/rest/v1/rpc/search_today_entries",
+  "parametersBody": {
+    "values": [
+      {"name": "p_telegram_user_id", "valueProvider": "modelRequired"}
+    ]
+  },
+  // ACTUAL HTTP REQUEST BODY:
+  "json": {
+    "p_telegram_user_id": undefined  // ← ROOT CAUSE!
+  }
+}
+
+// Why undefined?
+// AI Agent input: "={{ $json.data }}" (just text!)
+// AI received: "что я ел сегодня?" (no telegram_user_id!)
+// $fromAI('telegram_user_id') → undefined (not in AI's input!)
+```
+
+**5 minutes to find root cause from execution log**
+**vs 5 hours of guessing without checking logs**
+
+### Critical Timeline
+
+| Attempt | Previous Session (No Logs) | Correct Approach (With Logs) |
+|---------|---------------------------|------------------------------|
+| #1 | Change expressions (guess) | **Check execution #33645** |
+| #2 | Change tool config (guess) | **Find undefined value** |
+| #3 | Change AI Agent (guess) | **Identify root cause** |
+| #4 | Change System Prompt (guess) | **Implement Code Node Injection** |
+| #5 | Upgrade node version (guess) | **Test → Success ✅** |
+| #6 | Change parameters (guess) | - |
+| #7 | Try different format (guess) | - |
+| #8 | Emergency audit → found in logs! | - |
+
+**Time difference:** 5 minutes (logs first) vs 300 minutes (logs last)
+
+### Critical Rules
+
+**🚨 BEFORE making ANY fix:**
+
+1. ✅ Call `n8n_executions` for last failed execution
+2. ✅ Read actual HTTP request bodies
+3. ✅ Check actual parameter values (not structure!)
+4. ✅ Identify EXACT error (not assumed)
+5. ✅ Verify fix addresses root cause
+
+**❌ FORBIDDEN:**
+
+- Changing code without execution data
+- Saying "should work" without logs
+- Guessing parameter issues
+- Assuming validation = working
+
+### Benefits
+
+- 🎯 **Root cause** found immediately (not after 8 attempts)
+- ⚡ **5 minutes** vs 5 hours
+- ✅ **Correct fix** (addresses real issue, not symptoms)
+- 💯 **Confidence** (verified with data, not assumptions)
+
+### Related
+
+- L-074: Source of Truth = n8n API, Not Files
+- L-067: Execution Mode Selection for Large Workflows
+- L-091: Deep Research Before Building
+
+### Tags
+`debugging`, `execution-analysis`, `critical`, `mcp-tools`, `process`
+
+---
+
+## L-094: Progressive Escalation Enforcement
+
+**Category:** Orchestration / Process
+**Severity:** 🔴 **CRITICAL** - Prevents infinite loops
+**Date:** 2025-12-04
+**Impact:** User frustration prevented, systematic problem-solving
+
+### Problem
+
+**Agents stuck in loop, same issue repeating 3+ times, no progress**
+
+**Real Example (Task 2.4 - Previous Session):**
+- Cycle 1-2: Builder tried expression changes
+- Cycle 3-4: Builder tried config changes
+- Cycle 5-6: Builder tried version upgrade
+- Cycle 7-8: Builder still guessing → User frustrated → Emergency audit forced
+
+**What SHOULD have happened:**
+- Cycle 3: Escalate to Researcher (execution analysis)
+- Cycle 5: Escalate to Analyst (root cause)
+- Would have found issue at cycle 3 (not cycle 8!)
+
+### Pattern
+
+**When same issue repeats 3+ times without progress:**
+
+```
+Cycle 1-2: Builder attempts direct fixes (NORMAL)
+   ↓ Still failing?
+Cycle 3: ESCALATE → Researcher analyzes execution logs
+   ↓ Still failing?
+Cycle 4: Researcher provides alternative approach
+   ↓ Still failing?
+Cycle 5: ESCALATE → Analyst diagnoses root cause
+   ↓ Still failing?
+Cycle 6: Analyst identifies systemic issues
+   ↓ Still failing?
+Cycle 7: BLOCKED → Report to user with full history
+```
+
+### Solution
+
+**Orchestrator enforces automatic escalation:**
+
+```javascript
+// Check cycle count in run_state.json
+const cycleCount = run_state.cycle_count;
+const lastError = run_state.errors[run_state.errors.length - 1];
+const repeating = run_state.errors.filter(e =>
+  e.message === lastError.message
+).length >= 3;
+
+// GATE 2: Progressive Escalation
+if (cycleCount >= 7) {
+  // BLOCKED - Stop all work
+  return {
+    stage: "blocked",
+    reason: "7 cycles without resolution",
+    action: "Report to user with full history",
+    next_agent: "analyst",
+    task: "Post-mortem analysis + learnings"
+  };
+}
+
+if (cycleCount === 5 && repeating) {
+  // Escalate to Analyst
+  return Task({
+    subagent_type: "general-purpose",
+    prompt: "## ROLE: Analyst\nRoot cause analysis..."
+  });
+}
+
+if (cycleCount === 3 && repeating) {
+  // Escalate to Researcher
+  return Task({
+    subagent_type: "general-purpose",
+    prompt: "## ROLE: Researcher\nExecution log analysis..."
+  });
+}
+
+// Continue with Builder
+return Task({
+  subagent_type: "general-purpose",
+  model: "opus",
+  prompt: "## ROLE: Builder\nFix attempt..."
+});
+```
+
+### Escalation Matrix
+
+| Cycle | Agent | Action | Why |
+|-------|-------|--------|-----|
+| 1-2 | Builder | Direct fixes | Normal attempts, low-hanging fruit |
+| 3 | **→ Researcher** | **Execution analysis** | Need data, not guesses |
+| 4 | Researcher | Alternative approach | Try different solution path |
+| 5 | **→ Analyst** | **Root cause analysis** | Systemic issue investigation |
+| 6 | Analyst | Architecture review | May need redesign |
+| 7 | **→ BLOCKED** | **Report to user** | Human decision required |
+
+### Real Example (Current Session - Correct Escalation)
+
+**Task 2.4 Current Session:**
+
+```
+Cycle 0: Orchestrator → Researcher (research FIRST)
+         ↓ 15 minutes web search
+Cycle 1: Researcher → Builder (build_guidance ready)
+         ↓ 7 minutes build
+Cycle 2: Builder → QA (validation)
+         ↓ 3 minutes test
+COMPLETE: All tests passed ✅
+```
+
+**No escalation needed - worked on first try!**
+
+**Why?** Research phase prevented all guessing
+
+### Critical Rules
+
+**Orchestrator MUST enforce:**
+
+```javascript
+// ❌ FORBIDDEN:
+- Letting Builder loop 8+ times
+- Calling same agent repeatedly without escalation
+- Ignoring cycle count warnings
+- Skipping escalation "just one more try"
+
+// ✅ REQUIRED:
+- Auto-escalate at cycle 3 (Researcher)
+- Auto-escalate at cycle 5 (Analyst)
+- Auto-BLOCK at cycle 7
+- Report full history to user when blocked
+```
+
+### Benefits
+
+- 🛑 **Stops infinite loops** (max 7 cycles)
+- 📈 **Systematic approach** (data → alternatives → root cause)
+- 😊 **User satisfaction** (no frustration, transparent process)
+- 🎯 **Efficient resolution** (right expert at right time)
+
+### Related
+
+- L-091: Deep Research Before Building
+- L-093: Execution Log Analysis MANDATORY
+- orchestrator.md: Progressive Escalation Protocol
+
+### Tags
+`orchestration`, `escalation`, `critical`, `process`, `agent-coordination`
+
+---
+
+## L-095: Code Node Injection for AI Context
+
+**Category:** n8n Workflows / AI Agents / LangChain
+**Severity:** HIGH - Critical pattern for AI Agent context
+**Date:** 2025-12-04
+**Impact:** Enables AI Agent to access workflow context (telegram_user_id, session_id, metadata)
+
+### Problem
+
+**LangChain AI Agent needs workflow context, but $fromAI() can't access workflow variables**
+
+**Real Example (Task 2.4):**
+
+```javascript
+// Workflow context (from upstream nodes):
+$json = {
+  telegram_user_id: 682776858,
+  user_id: "uuid",
+  data: "что я ел сегодня?"
+}
+
+// AI Agent configuration (BROKEN):
+{
+  "text": "={{ $json.data }}"  // Passes ONLY text
+}
+
+// What AI receives:
+"что я ел сегодня?"  // No telegram_user_id!
+
+// Tool calls:
+$fromAI('telegram_user_id') → undefined ❌
+```
+
+**Result:** Tools fail with "Invalid URL" (undefined parameter values)
+
+### Pattern
+
+**When to apply:**
+- AI Agent needs user_id for database queries
+- AI Agent needs session_id for context
+- AI Agent needs metadata (telegram_user_id, chat_id)
+- Any workflow context that tools require
+
+### Solution: Code Node Injection
+
+**STEP 1: Add Code Node BEFORE AI Agent**
+
+```javascript
+// Code Node
+const telegram_user_id = $json.telegram_user_id;
+const user_id = $json.user_id;
+const userMessage = $json.data;
+
+// Inject context as [SYSTEM: ...] prefix
+const systemContext = `[SYSTEM: user_id=${telegram_user_id}, db_user_id=${user_id}]`;
+
+return {
+  data: systemContext + "\n\n" + userMessage
+};
+```
+
+**STEP 2: Connect Code Node → AI Agent**
+
+```javascript
+// AI Agent configuration:
+{
+  "text": "={{ $json.data }}"  // Now includes [SYSTEM: ...] prefix
+}
+```
+
+**STEP 3: Update AI Agent System Prompt**
+
+```markdown
+## Input Format
+
+You receive messages with a special [SYSTEM: ...] prefix containing context:
+
+[SYSTEM: user_id=682776858, db_user_id=uuid-here]
+
+User's actual message
+
+IMPORTANT:
+- Extract user_id from [SYSTEM: ...] prefix
+- Use user_id in ALL tool calls (search_today_entries, save_food_entry, etc.)
+- user_id is ALWAYS available in [SYSTEM: ...] prefix
+- Do NOT ask user for their ID - extract from prefix automatically
+```
+
+**STEP 4: Tools use $fromAI()**
+
+```javascript
+// HTTP Request Tool - parametersBody:
+{
+  "values": [
+    {
+      "name": "p_telegram_user_id",
+      "valueProvider": "modelRequired",
+      "description": "User's Telegram ID (extract from [SYSTEM: user_id=...] prefix)"
+    }
+  ]
+}
+
+// AI extracts from prefix → $fromAI('user_id') → 682776858 ✅
+```
+
+### Complete Example (FoodTracker v167)
+
+**Flow:**
+
+```
+Telegram Trigger
+    ↓ (telegram_user_id: 682776858)
+Prepare Message Data
+    ↓ ($json: {telegram_user_id, data})
+Code Node Injection  ← NEW!
+    ↓ ($json.data: "[SYSTEM: user_id=682776858]\n\nчто я ел сегодня?")
+AI Agent
+    ↓ (receives full context in text field)
+Tools (Search Today Entries)
+    ↓ ($fromAI('user_id') → 682776858)
+HTTP Request → Supabase
+    ↓ ({p_telegram_user_id: 682776858})
+SUCCESS ✅
+```
+
+### Why It Works
+
+**$fromAI() behavior:**
+```javascript
+// AI receives:
+"[SYSTEM: user_id=682776858]\n\nчто я ел сегодня?"
+
+// AI model parses:
+- Extract: user_id = 682776858 (from [SYSTEM: ...])
+- User query: "что я ел сегодня?"
+
+// Tool call:
+search_today_entries({
+  user_id: 682776858  // ← Extracted from [SYSTEM: ...]
+})
+
+// $fromAI('user_id') returns: 682776858 ✅
+```
+
+### Critical Rules
+
+**❌ DON'T:**
+- Pass only text to AI Agent (loses context)
+- Use JSON.stringify($json) (AI expects text string)
+- Put context in System Prompt (not accessible to tools)
+- Hardcode user_id in tool configurations
+
+**✅ DO:**
+- Use Code Node to inject [SYSTEM: ...] prefix
+- Teach AI to extract from prefix (in System Prompt)
+- Use $fromAI() in tools (AI extracts automatically)
+- Test with execution logs (verify parameter values)
+
+### Evidence
+
+**Task 2.4 Results:**
+- v159→v167: Code Node Injection implemented
+- Test 1: "Я вчера ел курицу?" → PASS ✅
+- Test 2: "Я ел ананас на прошлой неделе?" → PASS ✅
+- Test 3: Contextual question → PASS ✅
+- Execution logs: `p_telegram_user_id: 682776858` (correct!)
+
+**Source:** n8n Community Workflow #2035 (Telegram AI bot with LangChain)
+
+### Benefits
+
+- ✅ **Context passing** works with LangChain AI Agent
+- 🎯 **Clean pattern** (proven in production bots)
+- 🛡️ **Reliable** (execution logs verify parameters)
+- 📚 **Reusable** (applies to any AI Agent with tools)
+
+### Related
+
+- L-089: AI Agent Input Must Include Context (previous attempt - superseded)
+- L-090: $fromAI() Scope Limited to AI Input
+- L-093: Execution Log Analysis MANDATORY
+
+### Tags
+`n8n-workflows`, `ai-agent`, `langchain`, `context-passing`, `code-node`, `pattern`
+
+---
+
+## L-096: Validation ≠ Execution Success
+
+**Category:** Testing / QA Process
+**Severity:** 🔴 **CRITICAL** - Prevents false success claims
+**Date:** 2025-12-04
+**Impact:** Validation passed but Test 5 failed in previous session
+
+### Problem
+
+**Workflow validates successfully BUT doesn't work in production**
+
+**Why:** Validation checks structure, NOT functionality
+
+**Real Example (Task 2.4 - v145):**
+
+```javascript
+// QA Validation Result:
+{
+  "status": "PASS",
+  "errors": 0,
+  "warnings": 2,
+  "workflow_structure": "valid"
+}
+
+// Builder declared: "FIXED ✅"
+// User tested: Test 5 → FAILED ❌
+
+// Execution log showed:
+{
+  "p_telegram_user_id": undefined  // ← undefined passes validation!
+}
+
+// HTTP Request: "Invalid URL" error
+```
+
+**Validation CANNOT detect:**
+- undefined parameter values
+- Wrong credential IDs
+- Incorrect data flow
+- Logic errors in expressions
+
+### Pattern
+
+**Validation checks:**
+- ✅ Workflow structure (nodes, connections)
+- ✅ Expression syntax ({{ }} format)
+- ✅ Required fields present
+- ✅ Node type compatibility
+
+**Validation DOES NOT check:**
+- ❌ Parameter VALUES (undefined OK in validation!)
+- ❌ Credential validity (ID exists, but wrong type?)
+- ❌ Data flow logic (will data actually flow?)
+- ❌ Production behavior (does it work with real data?)
+
+### Solution: Phase 5 Real Testing MANDATORY
+
+**QA Process (UPDATED):**
+
+```javascript
+// STEP 1: Validate Workflow Structure
+const validation = validate_workflow({
+  workflow: workflowData
+});
+
+if (validation.errors.length > 0) {
+  return { status: "FAIL", stage: "validation" };
+}
+
+// STEP 2: Report to Orchestrator
+return {
+  status: "validation_passed",
+  warnings: validation.warnings,
+  next_action: "real_testing_required",  // ← CRITICAL!
+  message: "Structure valid. User testing REQUIRED for completion."
+};
+
+// STEP 3: Orchestrator Delegates to USER
+Task({
+  subagent_type: "general-purpose",
+  prompt: "Report to user: Validation passed. Real testing needed."
+});
+
+// STEP 4: User Tests with Real Data
+// User sends: "что я ел сегодня?"
+// Bot responds (or fails)
+
+// STEP 5: QA Verifies Execution Logs
+const execution = n8n_executions({
+  action: "list",
+  workflowId: "workflow_id",
+  limit: 1
+});
+
+const logs = n8n_executions({
+  action: "get",
+  id: execution.data[0].id,
+  mode: "filtered",
+  nodeNames: ["Search Today Entries"]
+});
+
+// Check ACTUAL parameter values:
+const httpBody = logs.data["Search Today Entries"].json;
+if (httpBody.p_telegram_user_id === undefined) {
+  return { status: "FAIL", reason: "undefined parameter in execution" };
+}
+
+// STEP 6: Mark Complete ONLY if Execution Proves Success
+return {
+  status: "COMPLETE",
+  evidence: "Execution logs show p_telegram_user_id: 682776858",
+  confidence: "100%"
+};
+```
+
+### Real Example (Current Session - Correct Process)
+
+**Task 2.4 v167:**
+
+```
+QA: "Validation passed, 2 warnings (non-critical)"
+    ↓
+Orchestrator: "User testing required"
+    ↓
+User: Tests 3 scenarios → All PASS ✅
+    ↓
+QA: Checks execution logs
+    ↓ HTTP body: {p_telegram_user_id: 682776858} ✅
+QA: "Execution logs prove success"
+    ↓
+COMPLETE ✅ (with evidence!)
+```
+
+### Critical Rules
+
+**QA MUST:**
+
+```javascript
+// ❌ FORBIDDEN:
+- Saying "fixed" after validation only
+- Trusting validation = working
+- Skipping execution log verification
+- Completing task without user testing
+
+// ✅ REQUIRED:
+- Validate structure first
+- Report to user for real testing
+- Verify execution logs after user test
+- Mark complete ONLY with execution proof
+```
+
+**Orchestrator MUST:**
+
+```javascript
+// After QA validation passes:
+if (qa_report.status === "validation_passed") {
+  // DO NOT mark complete yet!
+  // Delegate to user for testing:
+  return {
+    stage: "testing",
+    next_action: "user_real_test",
+    message: "Validation passed. User testing required."
+  };
+}
+
+// After user confirms tests passed:
+if (user_test_result === "all_passed") {
+  // QA verifies execution logs:
+  return Task({
+    subagent_type: "general-purpose",
+    prompt: "QA: Verify execution logs for last 3 tests"
+  });
+}
+
+// Only mark complete after execution verification:
+if (qa_execution_verification === "success") {
+  return { stage: "complete" };
+}
+```
+
+### Evidence
+
+**Previous Session (v145):**
+- Validation: PASS ✅
+- Declared: "Fixed" ✅
+- User test: FAIL ❌
+- Reality: p_telegram_user_id = undefined
+
+**Current Session (v167):**
+- Validation: PASS ✅
+- User test: 3 scenarios PASS ✅
+- Execution logs: Verified ✅
+- Reality: All parameters correct ✅
+
+### Benefits
+
+- 🛡️ **No false claims** ("should work" → "execution proves it works")
+- ✅ **Real evidence** (execution logs, not assumptions)
+- 💯 **100% confidence** (tested with real data)
+- 😊 **User trust** (no surprises in production)
+
+### Related
+
+- L-093: Execution Log Analysis MANDATORY
+- L-074: Source of Truth = n8n API, Not Files
+- qa.md: GATE 4 - Real Testing MANDATORY
+
+### Tags
+`testing`, `validation`, `execution`, `critical`, `qa-process`, `phase-5`
+
