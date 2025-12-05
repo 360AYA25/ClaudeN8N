@@ -2,6 +2,91 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.6.2] - 2025-12-05
+
+### 📋 Detailed Plan Presentation - Architect Enhancement
+
+**User-friendly workflow explanations for informed decision-making**
+
+**Problem:**
+- User receives technical research findings without clear explanation
+- Hard to understand what services/nodes do and how they work
+- Difficult to choose optimal option without detailed breakdown
+- No visibility into costs, complexity, trade-offs before building
+
+**Solution: Mandatory Detailed Plan Presentation in PHASE 3**
+
+Architect now MUST present each workflow option with:
+
+**9-Section Template (Russian output for user):**
+
+1. **🎯 ЧТО ДЕЛАЕТ** - Plain language explanation (2-3 sentences)
+2. **🔧 СЕРВИСЫ** - Which services, what they do, why needed
+3. **📦 НОДЫ** - Each node explained with examples:
+   - What it does
+   - What data it processes
+   - Real examples with sample data
+4. **🔗 КАК РАБОТАЕТ** - Step-by-step flow with arrows
+5. **💰 СТОИМОСТЬ** - Monthly costs breakdown by service
+6. **⚡ СЛОЖНОСТЬ** - Setup time, credentials needed, difficulty level
+7. **⚠️ ВАЖНО ЗНАТЬ** - Important limitations and considerations
+8. **✅ ПЛЮСЫ / ❌ МИНУСЫ** - Honest comparison
+9. **🔄 МОЖНО УПРОСТИТЬ** - Simpler alternatives if exist
+
+**Example Added:**
+- Full Telegram Bot + AI + Database workflow breakdown
+- 5 nodes explained in detail with real data examples
+- Step-by-step flow visualization
+- Cost analysis (~$3/month for 100K messages)
+
+**Rules:**
+- Instructions in English (for architect agent)
+- User-facing content in Russian (for Sergey)
+- Present 2-3 options this way
+- User must understand before choosing
+
+### Files Modified
+
+**Agent:**
+- `.claude/agents/architect.md` - Added "Detailed Plan Presentation (MANDATORY!)" section in PHASE 3 (lines 115-308)
+
+### Benefits
+
+- ✅ **User understands** what will be built before committing
+- ✅ **Informed decisions** with cost/complexity/trade-offs visible
+- ✅ **Simple language** - no technical jargon
+- ✅ **Visual flow** - step-by-step with arrows
+- ✅ **Real examples** - actual data samples
+- ✅ **Transparent costs** - no surprises
+- ✅ **Honest comparison** - pros AND cons
+
+### Impact
+
+**Before:** "We'll build workflow with Telegram, AI, Supabase" (technical, unclear)
+
+**After:**
+```
+📋 ВАРИАНТ 1: Telegram Bot с AI (fit_score: 85/100)
+
+🎯 ЧТО ДЕЛАЕТ:
+   Бот получает сообщения, ChatGPT генерирует ответы,
+   сохраняет историю в базу данных
+
+📦 НОДЫ:
+   [1] Telegram Trigger - ловит сообщения
+       └─ Пример: "Привет!" → {text: "Привет!", user_id: 123}
+   [2] OpenAI Chat - умный ответ от GPT-4
+       └─ Пример: "Привет!" → "Привет! Чем помочь?"
+   ...
+
+💰 СТОИМОСТЬ: ~$3/месяц при 100K сообщений
+⚡ СЛОЖНОСТЬ: 10-15 минут настройки
+```
+
+User sees EXACTLY what they're getting!
+
+---
+
 ## [3.6.1] - 2025-12-05
 
 ### 🚀 Option C Architecture - Token Optimization Migration
