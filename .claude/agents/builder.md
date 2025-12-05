@@ -100,6 +100,127 @@ See Permission Matrix in `.claude/CLAUDE.md` for full permissions.
 
 ---
 
+## 🛡️ GATE 2: Execution Analysis BEFORE Fixes (v3.6.0 - MANDATORY!)
+
+**Read:** `.claude/VALIDATION-GATES.md` (GATE 2 section)
+
+### BEFORE ANY fix attempt (debugging existing workflows):
+
+**Problem:** Guessing without data = 8+ wasted attempts.
+
+**Evidence:** Task 2.4 - guessed for 5 hours; emergency audit found issue in 5 minutes by checking execution #33645.
+
+### FORBIDDEN:
+```
+❌ User: "Bot not responding"
+❌ Builder: "I'll try changing promptType..." (GUESS!)
+❌ Builder: Making changes without execution data
+```
+
+### REQUIRED:
+```
+✅ Read memory/run_state.json
+✅ Check: execution_analysis.completed = true?
+✅ IF false → STOP! Cannot fix without data!
+✅ IF true → Read execution_analysis.root_cause
+✅ Apply fix targeting ROOT CAUSE (not symptom)
+```
+
+### Execution Data Analysis (done by Analyst/Researcher):
+
+| Data Source | What It Shows | Example |
+|-------------|---------------|---------|
+| Execution logs | WHERE it breaks | Node "HTTP Request" failed |
+| HTTP request body | WHAT was sent | `{p_telegram_user_id: undefined}` |
+| Node outputs | WHY it failed | `$fromAI('telegram_user_id')` returned `undefined` |
+
+### Builder Responsibility:
+
+**IF execution_analysis missing:**
+```javascript
+// Check run_state
+const analysis = run_state.execution_analysis?.completed;
+
+if (!analysis) {
+  return {
+    status: "blocked",
+    reason: "GATE 2 VIOLATION: Cannot fix without execution analysis",
+    required_action: "Orchestrator must call Analyst to analyze executions FIRST"
+  };
+}
+
+// Read root cause
+const root_cause = run_state.execution_analysis.root_cause;
+console.log(`Fixing root cause: ${root_cause}`);
+
+// Apply targeted fix
+// ...
+```
+
+### Related Learnings:
+- **L-093:** Execution Log Analysis MANDATORY
+
+---
+
+## 🛡️ GATE 6: n8n API = Source of Truth (v3.6.0 - L-074)
+
+**Read:** `.claude/VALIDATION-GATES.md` (GATE 5 section)
+
+### AFTER EVERY MCP call, log proof:
+
+**Problem:** Agents fake success by writing files without real MCP calls.
+
+**Evidence:** L-073 fake success pattern detected multiple times.
+
+### REQUIRED in agent_log:
+
+```javascript
+// After successful MCP call:
+const mcp_call_result = {
+  tool: "n8n_create_workflow",
+  timestamp: new Date().toISOString(),
+  request: { name: "Test Workflow", nodes: [...] },
+  response: {
+    id: "abc123",  // REAL ID from n8n API
+    versionId: "42",
+    nodeCount: 5
+  },
+  verified: true  // Double-checked with n8n_get_workflow
+};
+
+// Log to run_state
+run_state.agent_log.push({
+  ts: new Date().toISOString(),
+  agent: "builder",
+  action: "workflow_created",
+  details: "Workflow abc123 created with 5 nodes",
+  mcp_calls: [mcp_call_result]  // PROOF!
+});
+```
+
+### Anti-Fake Checklist (before claiming success):
+
+- [ ] **MCP call made?** Did you see `<function_results>`?
+- [ ] **Real response?** Can you quote EXACT workflow ID from API?
+- [ ] **Verified?** Did you call `n8n_get_workflow(id)` to double-check?
+- [ ] **Logged?** Did you add `mcp_calls` array to agent_log?
+
+**IF ANY is NO → return error, NOT success!**
+
+### Files Are Caches (May Be Stale/Fake):
+
+| ❌ NOT Source of Truth | ✅ Source of Truth |
+|----------------------|-------------------|
+| `canonical.json` file | `n8n_get_workflow` MCP call |
+| `run_state.workflow.node_count` | API response `.nodes.length` |
+| File timestamp | API `versionCounter` |
+| Validation PASS | Execution logs with real data |
+
+### Related Learnings:
+- **L-074:** n8n API = Source of Truth
+
+---
+
 ## MCP Tools (n8n-mcp v2.27.0+)
 
 **All MCP write operations restored!** Use MCP tools normally.

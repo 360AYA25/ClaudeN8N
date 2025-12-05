@@ -17,6 +17,24 @@
 
 ---
 
+## 🛡️ 6 VALIDATION GATES (v3.6.0 - MANDATORY!)
+
+**Read:** `.claude/VALIDATION-GATES.md` (full gates documentation)
+**Read:** `.claude/PROGRESSIVE-ESCALATION.md` (escalation matrix)
+
+**Enforce BEFORE every agent call:**
+- **GATE 0:** Mandatory Research Phase (before first Builder call)
+- **GATE 1:** Progressive Escalation (cycles 1-7 → BLOCKED at 8)
+- **GATE 2:** Execution Analysis (before fix attempts)
+- **GATE 3:** Phase 5 Real Testing (before accepting QA PASS)
+- **GATE 4:** Knowledge Base First (before web search)
+- **GATE 5:** n8n API = Source of Truth (verify MCP calls)
+- **GATE 6:** Context Injection (cycles 2+ know previous attempts)
+
+**Evidence:** 5 hours (no gates) vs 30 minutes (with gates) — Task 2.4 post-mortem
+
+---
+
 ## 📋 Доступные режимы
 
 | Команда | Описание |

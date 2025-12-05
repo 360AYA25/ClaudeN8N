@@ -34,13 +34,13 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 73 (Added L-079 to L-083)
+- **Total Entries:** 79 (Added L-079 to L-083, L-091 to L-096)
 - **Categories:** 13
 - **Node Types Covered:** 15+
 - **Error Types Cataloged:** 30+
-- **File Size:** 5,800+ lines (~180,000 tokens)
-- **Index Size:** ~850 tokens (99.5% reduction)
-- **Last Updated:** 2025-12-03
+- **File Size:** 6,740+ lines (~200,000 tokens)
+- **Index Size:** ~950 tokens (99.5% reduction)
+- **Last Updated:** 2025-12-04
 
 ---
 
@@ -139,6 +139,12 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-12-04 | 🔥 L-096: Validation ≠ Execution Success (CRITICAL) | 6532 | Testing / QA |
+| 2025-12-04 | L-095: Code Node Injection for AI Context | 6345 | n8n Workflows / AI Agent |
+| 2025-12-04 | 🛡️ L-094: Progressive Escalation Enforcement | 6192 | Orchestration / Process |
+| 2025-12-04 | 🔴 L-093: Execution Log Analysis MANDATORY (CRITICAL) | 6045 | Debugging / Process |
+| 2025-12-04 | ⭐ L-092: Web Search for Unknown Patterns | 5920 | Research / Methodology |
+| 2025-12-04 | 🔥 L-091: Deep Research Before Building (10x ROI) | 5798 | Process / Methodology |
 | 2025-12-03 | L-078: QA Complete Parameter Validation | 5182 | Methodology / QA |
 | 2025-12-03 | L-077: Template #2465 - Production Base for Telegram AI Bots | 5080 | n8n Workflows / Templates |
 | 2025-12-03 | L-076: Telegram Webhook Configuration Checklist | 4940 | n8n Workflows / Telegram |
@@ -148,23 +154,6 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 | 2025-11-28 | ⭐ L-065: Execution vs Configuration Data - Dual-Source Diagnosis | 3948 | Methodology / Debugging |
 | 2025-11-28 | ⭐ L-064: LEARNINGS Validation Protocol - Verify Before Apply | 3810 | Methodology / Debugging |
 | 2025-11-28 | 🔴 L-060: Code Node Deprecated $node["..."] Syntax Timeout (CRITICAL) | 3560 | Code Node / Debugging |
-| 2025-11-28 | 🔴 L-059: Execution Analysis mode="full" (superseded by L-067 for >10 nodes) | 293 | n8n Workflows / Debugging |
-| 2025-11-28 | L-055: MCP Zod v4 Bug - curl Workaround Guide | 2772 | Error Handling / MCP |
-| 2025-11-28 | L-054: QA L3 Escalation - False Positive Override | 2677 | Error Handling / QA |
-| 2025-11-28 | L-053: IF Node v2.2 Validator False Positive | 2616 | Error Handling / Validator |
-| 2025-11-27 | L-052: Task Tool Syntax - agent vs subagent_type | 295 | Claude Code |
-| 2025-11-27 | L-051: Chat Trigger vs Webhook Trigger | 172 | n8n Workflows |
-| 2025-11-26 | L-050: Builder Timeout on Large Workflows | 295 | n8n Workflows |
-| 2025-11-26 | FP-003: continueOnFail + onError Defense-in-Depth | 2051 | Error Handling |
-| 2025-11-26 | NC-003: Switch Node Multi-Way Routing | 2145 | n8n Workflows |
-| 2025-11-12 | Set v3.4 Expression Syntax ={{ | 285 | n8n Workflows |
-| 2025-11-11 | PM Validators Pre-Flight Checks | 172 | n8n Workflows |
-| 2025-11-09 | Memory node "No session ID found" | 1661 | AI Agents |
-| 2025-11-08 | AI Agent Parameter Mismatches | 400 | n8n Workflows |
-| 2025-11-08 | Partial Update Deletes Fields (CRITICAL!) | 1602 | n8n Workflows |
-| 2025-11-08 | RPC function signatures verification | 1394 | Supabase |
-| 2025-11-08 | AI Agent clarification behavior | 1639 | AI Agents |
-| 2025-11-01 | Unified Template for Subagents | 64 | Agent Standardization |
 
 ---
 
@@ -320,11 +309,11 @@ node scripts/generate-learnings-index.js
 
 ---
 
-**Last Updated:** 2025-12-03
-**Version:** 1.7.0
+**Last Updated:** 2025-12-04
+**Version:** 1.8.0
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent
-**Latest Additions:** L-078 (QA Complete Parameter Validation), L-077 (Template #2465), L-076 (Telegram Webhook Configuration Checklist)
+**Latest Additions:** L-091 to L-096 (Validation Gates v3.6.0 - Process Methodology from POST_MORTEM_TASK24.md)
 
 ### L-069: Agent Frontmatter Must Explicitly List MCP Tools
 - **Category:** Agent System

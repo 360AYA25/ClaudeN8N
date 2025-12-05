@@ -97,6 +97,165 @@ if (run_state.canonical_snapshot) {
 
 ---
 
+## 🛡️ Post-Mortem Trigger Conditions (v3.6.0)
+
+**Read:** `.claude/PROGRESSIVE-ESCALATION.md` (Cycle 8 - Post-Mortem)
+
+### When Analyst is Called for Post-Mortem:
+
+| Trigger | Condition | Purpose |
+|---------|-----------|---------|
+| **Cycle 6-7** | Progressive escalation | Root cause diagnosis |
+| **Cycle 8 (BLOCKED)** | 7 QA cycles exhausted | Full failure analysis + learnings |
+| **User request** | Manual post-mortem | Understand what went wrong |
+
+### Cycle 6-7: Root Cause Diagnosis
+
+**Goal:** Find SYSTEMIC issue (not surface symptom)
+
+**Process:**
+```
+1. Read all execution logs (last 10 runs)
+2. Identify WHERE it breaks (exact node)
+3. Identify WHY it breaks (root cause, not symptom)
+4. Check for anti-patterns (L-060, L-056, etc.)
+5. Propose structural fix (not parameter tweak)
+6. Return diagnosis to Orchestrator
+```
+
+**Output:**
+```json
+{
+  "execution_analysis": {
+    "completed": true,
+    "root_cause": "AI Agent doesn't receive telegram_user_id from workflow",
+    "breaking_node": "HTTP Request",
+    "error_pattern": "$fromAI('telegram_user_id') returns undefined → HTTP body has undefined value",
+    "anti_patterns_found": [],
+    "proposed_fix": "Code Node Injection pattern to pass workflow vars to AI",
+    "confidence": "high"
+  }
+}
+```
+
+### Cycle 8 (BLOCKED): Full Post-Mortem
+
+**Goal:** Create comprehensive failure report + extract learnings
+
+**Process:**
+```
+1. Read full session history (run_state.json)
+2. Analyze all 7 QA cycles
+3. Identify what was tried (from agent_log)
+4. Calculate time/cost wasted
+5. Find learnings (L-XXX candidates)
+6. Write POST_MORTEM report
+7. Update LEARNINGS.md (if new patterns found)
+```
+
+**Output:** `POST_MORTEM_{workflow_id}_{date}.md`
+
+### Post-Mortem Report Template:
+
+```markdown
+# Post-Mortem: {Workflow Name}
+
+**Date:** {YYYY-MM-DD}
+**Duration:** {X hours}
+**Cycles:** {N}
+**Cost:** ${X}
+
+## Executive Summary
+- Time: X hours vs Y minutes (comparison if fixed)
+- Root cause: Brief description
+- Fix: What worked
+
+## Timeline
+| Cycle | Agent | Action | Outcome |
+|-------|-------|--------|---------|
+| 1 | Builder | Tried X | Failed: ... |
+| ... | ... | ... | ... |
+
+## Root Cause Analysis
+**Technical:** What broke and why
+**Process:** Why it took so long
+
+## Learnings Created
+- L-XXX: Learning title
+- L-XXX: Learning title
+
+## Recommendations
+1. Process improvement
+2. Prevention measures
+```
+
+---
+
+## 🛡️ Learning Creation Protocol (v3.6.0)
+
+**When to create new learnings:**
+- ✅ Cycle 8 (BLOCKED) - always create learnings
+- ✅ After successful fix of unknown issue
+- ✅ When pattern not found in LEARNINGS.md
+- ❌ Known issue already documented
+
+### Learning Template (L-XXX):
+
+```markdown
+### L-XXX: {Title}
+
+**Pattern:** {When this issue occurs}
+
+**Problem:** {What goes wrong}
+
+**Solution:**
+1. {Step 1}
+2. {Step 2}
+3. {Step 3}
+
+**Evidence:** {Task/workflow where proven}
+
+**Category:** {n8n-workflows|debugging|process|validation}
+
+**Tags:** #{tag1} #{tag2} #{tag3}
+```
+
+### Learnings from Task 2.4 (Example):
+
+**L-091: Deep Research Before Building**
+- Category: process
+- Tags: #research #planning #time-saving
+
+**L-092: Web Search for Unknown Patterns**
+- Category: research
+- Tags: #web-search #best-practices #validation
+
+**L-093: Execution Log Analysis MANDATORY**
+- Category: debugging
+- Tags: #execution-analysis #debugging #mcp-tools
+
+**L-094: Progressive Escalation Enforcement**
+- Category: orchestration
+- Tags: #escalation #protocol #agent-coordination
+
+**L-095: Code Node Injection for AI Context**
+- Category: n8n-workflows
+- Tags: #ai-agent #context-passing #langchain #code-node
+
+**L-096: Validation ≠ Execution Success**
+- Category: testing
+- Tags: #validation #execution #testing #phase-5
+
+### Analyst Responsibilities:
+
+1. **Identify:** Extract pattern from failure/success
+2. **Format:** Use template above
+3. **Write:** Append to `/Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS.md`
+4. **Index:** Update `LEARNINGS-INDEX.md` with line numbers
+5. **Report:** Notify user of new learnings created
+
+---
+
 # Analyst (audit, post-mortem)
 
 ## STEP 0.5: Skill Invocation (MANDATORY!)

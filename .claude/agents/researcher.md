@@ -97,6 +97,124 @@ Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
 
 ---
 
+## 🛡️ GATE 4: Knowledge Base First (v3.6.0 - MANDATORY!)
+
+**Read:** `.claude/VALIDATION-GATES.md` (GATE 4 section)
+
+### BEFORE ANY web search OR external research:
+
+**Problem:** Similar issues solved before, but skipping LEARNINGS.md wastes time reinventing solutions.
+
+**Evidence:** Task 2.4 - L-089, L-090 existed but weren't checked → 5 hours wasted.
+
+### FORBIDDEN:
+```
+❌ Unknown issue → WebSearch immediately
+❌ Start with search_templates before LEARNINGS check
+```
+
+### REQUIRED Algorithm:
+```
+1. Extract keywords from issue (e.g., "AI Agent", "telegram_user_id", "$fromAI")
+2. Grep LEARNINGS-INDEX.md for keywords
+3. IF found matching L-XXX:
+   → Read those sections from LEARNINGS.md
+   → Apply proven solution
+   → Create research_findings.json
+   → DONE (time saved: 90%)
+4. IF NOT found:
+   → WebSearch (official docs + community)
+   → search_templates (working examples)
+   → Create build_guidance with sources
+   → After success: Create new learning L-XXX
+```
+
+### Example (Task 2.4 Success):
+```bash
+# Step 1: Extract keywords
+keywords=("AI Agent" "telegram_user_id" "$fromAI" "undefined")
+
+# Step 2: Grep index
+Grep pattern="AI Agent|telegram_user_id|\$fromAI" path="docs/learning/LEARNINGS-INDEX.md"
+# Found: L-089 (AI input scope), L-090 (context passing)
+
+# Step 3: Read learnings
+Read docs/learning/LEARNINGS.md (lines 2890-2950)
+
+# Step 4: Apply proven solution
+# L-089: AI Agent only sees input text, not workflow vars
+# Solution: Code Node Injection pattern
+
+# Step 5: Create research_findings.json
+Write memory/agent_results/research_findings.json
+{
+  "learnings_checked": true,
+  "learnings_found": ["L-089", "L-090"],
+  "solution": "Code Node Injection pattern",
+  "time_saved": "270 minutes (avoided 5-hour failure)"
+}
+```
+
+### Enforcement:
+
+**Orchestrator checks AFTER Researcher completes:**
+```bash
+learnings_checked=$(jq -r '.research_findings.learnings_checked // false' memory/agent_results/research_findings.json)
+
+if [ "$learnings_checked" != "true" ]; then
+  echo "🚨 GATE 4 VIOLATION: Research without LEARNINGS.md check!"
+  exit 1
+fi
+```
+
+---
+
+## 🛡️ GATE 5: Web Search Requirements (v3.6.0)
+
+**When LEARNINGS.md doesn't have solution:**
+
+### REQUIRED in build_guidance:
+
+1. **Sources (with URLs):** Official docs + community examples
+2. **Configuration examples:** Real working node configs (from templates)
+3. **Gotchas:** Known issues, warnings, limitations
+4. **Estimated complexity:** Simple/Medium/Complex
+
+### Example build_guidance.json:
+```json
+{
+  "root_cause": "AI Agent doesn't receive telegram_user_id",
+  "solution": "Code Node Injection pattern",
+  "sources": [
+    {
+      "url": "https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-langchain.agent/",
+      "title": "n8n Docs: AI Agent node",
+      "key_info": "$fromAI() scope limited to AI output"
+    },
+    {
+      "url": "https://n8n.io/workflows/2035",
+      "title": "Community: Telegram AI bot with context",
+      "key_info": "Code Node Injection pattern working example"
+    }
+  ],
+  "configuration_examples": [
+    {
+      "node": "Code",
+      "purpose": "Inject context before AI",
+      "code": "const systemContext = `[SYSTEM: user_id=${telegram_user_id}]`;\nreturn { data: systemContext + '\\n\\n' + userMessage };"
+    }
+  ],
+  "gotchas": [
+    "AI Agent input expects single string, not object",
+    "$fromAI() can't access workflow variables directly",
+    "System Prompt must teach AI to extract from [SYSTEM:...] prefix"
+  ],
+  "estimated_complexity": "Medium"
+}
+```
+
+---
+
 # Researcher (search)
 
 ## Task

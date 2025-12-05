@@ -54,6 +54,191 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ---
 
+## 🛡️ GATE 3: Phase 5 Real Testing (v3.6.0 - MANDATORY!)
+
+**Read:** `.claude/VALIDATION-GATES.md` (GATE 3 section)
+
+### Validation ≠ Execution Success
+
+**Problem:** Validation checks structure, not functionality (undefined values pass validation!).
+
+**Evidence:** Task 2.4 - v145 validated successfully but Test 5 failed. Only execution logs showed `p_telegram_user_id: undefined`.
+
+| Check Type | What It Proves | Example |
+|------------|----------------|---------|
+| **Validation** | Structure correct | Nodes connected, expressions valid syntax |
+| **Execution** | Functionality works | HTTP request contains `user_id=682776858` |
+
+### FORBIDDEN:
+```
+❌ QA: n8n_validate_workflow → PASS → status="PASS"
+❌ QA: "Validation passed → workflow works!"
+```
+
+### REQUIRED (5-Phase QA Process):
+
+```
+PHASE 1: Validation (structure check)
+├── Call: n8n_validate_workflow(workflow_id)
+├── Check: nodes connected, expressions valid syntax
+└── Result: Validation PASS/FAIL
+
+PHASE 2: Pre-Flight (node config verification)
+├── Check: All required fields filled
+├── Check: Credentials exist
+└── Result: Pre-flight PASS/FAIL
+
+IF validation OR pre-flight FAIL:
+  → status="FAIL"
+  → edit_scope=[broken nodes]
+  → Return to Builder
+
+PHASE 3: Activation (prepare for test)
+├── Call: n8n_update_partial_workflow(activate)
+├── Wait: 2 seconds for trigger registration
+└── Result: Workflow active
+
+PHASE 4: Trigger Test (real execution)
+├── IF webhook/chat → Call n8n_test_workflow
+├── ELSE → Request user to trigger manually
+└── Wait: execution completes
+
+PHASE 5: Execution Verification (MANDATORY!)
+├── Call: n8n_executions(workflow_id, limit=1)
+├── Read: Last execution data
+├── Check: All nodes executed successfully
+├── Verify: HTTP request bodies contain expected values
+├── Verify: No undefined parameters
+└── Result: REAL functionality proof!
+
+IF Phase 5 PASS:
+  → phase_5_executed=true
+  → execution_logs_verified=true
+  → status="PASS"
+
+IF Phase 5 FAIL:
+  → Analyze execution logs
+  → Identify failing node + reason
+  → edit_scope=[failing nodes]
+  → Return to Builder
+```
+
+### QA Report Schema (REQUIRED fields):
+
+```javascript
+{
+  "status": "PASS" | "FAIL",
+  "phase_5_executed": true,  // MUST be true for PASS!
+  "execution_logs_verified": true,  // MUST be true for PASS!
+  "last_execution": {
+    "id": "12345",
+    "status": "success",
+    "nodes_executed": ["Webhook", "Code", "AI Agent", "HTTP Request", "Respond to Webhook"],
+    "http_requests_verified": [
+      {
+        "node": "HTTP Request",
+        "url": "https://api.supabase.co/...",
+        "body": {
+          "p_telegram_user_id": 682776858,  // ✅ NOT undefined!
+          "p_search_query": "курица"
+        }
+      }
+    ]
+  },
+  "edit_scope": []  // Empty if PASS
+}
+```
+
+### Example (Task 2.4 Success):
+
+```javascript
+// Phase 1-2: Validation + Pre-flight
+const validation = await n8n_validate_workflow({ workflow_id });
+// Result: PASS (structure OK)
+
+// Phase 3: Activate
+await n8n_update_partial_workflow({
+  id: workflow_id,
+  operations: [{ type: "activateWorkflow" }]
+});
+
+// Phase 4: Trigger (chat webhook)
+const trigger_result = await n8n_test_workflow({
+  workflowId: workflow_id,
+  triggerType: "chat",
+  message: "что я ел сегодня?"
+});
+
+// Phase 5: Verify execution (CRITICAL!)
+const executions = await n8n_executions({
+  action: "list",
+  workflowId: workflow_id,
+  limit: 1
+});
+
+const last_exec = executions.data[0];
+
+// Check execution status
+if (last_exec.status !== "success") {
+  return {
+    status: "FAIL",
+    reason: `Execution failed: ${last_exec.error}`,
+    edit_scope: [last_exec.stoppedAt]
+  };
+}
+
+// Verify HTTP request body (Phase 5 deep check!)
+const http_node_data = last_exec.data.resultData.runData["HTTP Request"];
+const request_body = http_node_data[0].data.main[0].json.body;
+
+if (request_body.p_telegram_user_id === undefined) {
+  return {
+    status: "FAIL",
+    reason: "HTTP request missing p_telegram_user_id (undefined)",
+    root_cause: "$fromAI('telegram_user_id') returned undefined",
+    edit_scope: ["AI Agent", "Code"]
+  };
+}
+
+// Phase 5 PASS!
+return {
+  status: "PASS",
+  phase_5_executed: true,
+  execution_logs_verified: true,
+  last_execution: {
+    id: last_exec.id,
+    status: "success",
+    http_requests_verified: [{
+      node: "HTTP Request",
+      body: request_body  // ✅ Contains user_id!
+    }]
+  }
+};
+```
+
+### Orchestrator Enforcement:
+
+```bash
+# Before accepting QA PASS:
+qa_status=$(jq -r '.qa_report.status' memory/run_state.json)
+
+if [ "$qa_status" = "PASS" ]; then
+  phase_5=$(jq -r '.qa_report.phase_5_executed // false' memory/run_state.json)
+
+  if [ "$phase_5" != "true" ]; then
+    echo "🚨 GATE 3 VIOLATION: QA PASS without Phase 5!"
+    exit 1
+  fi
+
+  echo "✅ GATE 3 PASS: Phase 5 real testing completed"
+fi
+```
+
+### Related Learnings:
+- **L-096:** Validation ≠ Execution Success
+
+---
+
 ## MCP Tools (n8n-mcp v2.27.0+)
 
 **All MCP operations working!** Use MCP tools normally.
