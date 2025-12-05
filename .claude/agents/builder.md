@@ -119,7 +119,7 @@ See Permission Matrix in `.claude/CLAUDE.md` for full permissions.
 
 ### REQUIRED:
 ```
-✅ Read memory/run_state.json
+✅ Read memory/run_state_active.json
 ✅ Check: execution_analysis.completed = true?
 ✅ IF false → STOP! Cannot fix without data!
 ✅ IF true → Read execution_analysis.root_cause
@@ -253,8 +253,8 @@ run_state.agent_log.push({
 
 ```bash
 # Read project context from run_state
-project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state.json)
-project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state.json)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
+project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
 
 # Load project-specific architecture (if external project)
 if [ "$project_id" != "clauden8n" ]; then
@@ -320,13 +320,13 @@ Skill("n8n-code-python")         // For Python Code nodes
 ### Check Requirement
 
 ```bash
-stage=$(jq -r '.stage' memory/run_state.json)
-workflow_id=$(jq -r '.workflow_id' memory/run_state.json)
+stage=$(jq -r '.stage' memory/run_state_active.json)
+workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
 
 # If fixing existing workflow (not creating new)
 if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canonical.json" ]; then
   # This is a FIX - execution analysis REQUIRED!
-  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state.json)
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state_active.json)
 
   if [ "$execution_analysis" != "true" ]; then
     echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
@@ -336,7 +336,7 @@ if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canoni
   fi
 
   # Read execution diagnosis
-  diagnosis_file=$(jq -r '.execution_analysis.diagnosis_file' memory/run_state.json)
+  diagnosis_file=$(jq -r '.execution_analysis.diagnosis_file' memory/run_state_active.json)
   if [ -f "$diagnosis_file" ]; then
     echo "✅ Execution analysis found: $diagnosis_file"
     # Read diagnosis to understand root cause
@@ -1384,6 +1384,70 @@ async function blueGreenModify(workflow_id, changes) {
   ```bash
   jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '.agent_log += [{"ts": $ts, "agent": "builder", "action": "fix_applied", "details": "BRIEF_DESCRIPTION"}]' \
-     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
   ```
   See: `.claude/agents/shared/run-state-append.md`
+
+---
+
+## 📚 Index-First Reading Protocol (Option C v3.6.0)
+
+**BEFORE reading full files or creating nodes, ALWAYS check indexes first!**
+
+### Primary Index: builder_gotchas.md
+
+**Location:** `docs/learning/indexes/builder_gotchas.md`
+**Size:** ~1,000 tokens (vs 50,000+ in full LEARNINGS.md)
+**Savings:** 96%
+
+**Contains:**
+- Top critical gotchas (L-060, L-071, L-074, L-075, L-089, L-090, L-095)
+- Before/during/after build checklist
+- MCP proof requirements (GATE 5)
+- Anti-hallucination rules (GATE 6)
+- Node-specific configs (Set v3.4+, Switch v3.3+, Code patterns)
+
+**Usage:**
+1. **BEFORE creating ANY node:** Read builder_gotchas.md
+2. Check if node type listed (Code, Set, Switch, AI Agent, etc.)
+3. Review gotchas and required config
+4. Build node with correct parameters
+5. Log mcp_calls array (GATE 5 requirement!)
+
+### Secondary Index: LEARNINGS-INDEX.md
+
+**Location:** `docs/learning/LEARNINGS-INDEX.md`
+**Size:** ~2,500 tokens
+**Savings:** 95%
+
+**Usage:**
+1. If gotcha references L-XXX, read from LEARNINGS-INDEX.md
+2. Find line numbers in full LEARNINGS.md
+3. Read ONLY that section for details
+
+**Example Flow:**
+```
+Task: "Add Code node for data transformation"
+1. Read builder_gotchas.md (1,000 tokens)
+2. Find: L-060 (CRITICAL: deprecated syntax causes 300s timeout!)
+3. Check: Use $("Node Name").item.json, NOT $node["..."].json
+4. Build node with correct syntax
+5. Log: mcp_calls: [{tool: "n8n_update_partial_workflow", ...}]
+6. Return: workflow with mcp_calls proof
+DONE (avoided 4-cycle debugging loop!)
+```
+
+**Skills Available:**
+- `n8n-node-configuration` - Operation-aware setup, dependencies
+- `n8n-expression-syntax` - {{}} syntax validation
+- `n8n-code-javascript` - Code node patterns ($input, $helpers, DateTime)
+- `n8n-code-python` - Python standard library patterns
+
+**Critical Rules:**
+- ❌ NEVER create nodes without checking builder_gotchas.md first
+- ❌ NEVER use deprecated Code node syntax ($node["..."])
+- ❌ NEVER forget mcp_calls array (QA will reject!)
+- ✅ ALWAYS log every MCP tool call
+- ✅ ALWAYS validate hypothesis before building (GATE 6)
+
+**Rule:** Index first, avoid gotchas, log all MCP calls!

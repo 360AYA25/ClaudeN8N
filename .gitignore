@@ -43,3 +43,5 @@ venv/
 memory/*
 !memory/workflow_snapshots/
 *.code-workspace
+# Phase migration backups
+*.backup_phase*

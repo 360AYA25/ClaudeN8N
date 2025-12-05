@@ -79,8 +79,8 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ```bash
 # Read project context from run_state
-project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state.json)
-project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state.json)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
+project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
 
 # Load project-specific context (if external project)
 if [ "$project_id" != "clauden8n" ]; then
@@ -960,7 +960,7 @@ MUST set `ready_for_builder: true` when:
 MUST include `ripple_targets` for similar nodes when fixing
 
 ## Fix Search Protocol (on escalation)
-1. Read `memory/run_state.json` - get workflow
+1. Read `memory/run_state_active.json` - get workflow
 2. Find nodes with `_meta.status == "error"`
 3. **READ `_meta.fix_attempts`** - what was already tried
 4. **EXCLUDE** already tried solutions from search
@@ -979,6 +979,62 @@ MUST include `ripple_targets` for similar nodes when fixing
   ```bash
   jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '.agent_log += [{"ts": $ts, "agent": "researcher", "action": "search_complete", "details": "Found X templates, Y nodes"}]' \
-     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
   ```
   See: `.claude/agents/shared/run-state-append.md`
+
+---
+
+## 📚 Index-First Reading Protocol (Option C v3.6.0)
+
+**BEFORE reading full files, ALWAYS check indexes first!**
+
+### Primary Index: researcher_nodes.md
+
+**Location:** `docs/learning/indexes/researcher_nodes.md`
+**Size:** ~1,200 tokens (vs searching MCP + reading docs)
+**Savings:** 95%
+
+**Contains:**
+- Top 20 n8n nodes with common configs
+- Node type formats (n8n-nodes-base.*, @n8n/n8n-nodes-langchain.*)
+- Critical gotchas (L-060 Code syntax, L-056 Webhook path)
+- Search strategy (GATE 4: local → existing → templates → nodes)
+
+**Usage:**
+1. Read researcher_nodes.md first
+2. Find node by keyword
+3. Get nodeType, common configs, gotchas
+4. Use MCP get_node for detailed properties
+5. Search templates if real-world example needed
+
+### Secondary Index: LEARNINGS-INDEX.md
+
+**Location:** `docs/learning/LEARNINGS-INDEX.md`
+**Size:** ~2,500 tokens (vs 50,000+ in full LEARNINGS.md)
+**Savings:** 95%
+
+**Usage (GATE 4 Enforcement!):**
+1. **MANDATORY:** Check LEARNINGS-INDEX.md BEFORE web search
+2. Search by keyword (grep pattern)
+3. Find relevant L-XXX IDs
+4. Read ONLY those sections from LEARNINGS.md
+5. If not found → proceed to MCP tools → templates → web search
+
+**Example Flow:**
+```
+Task: "Find node for Telegram bot"
+1. Read researcher_nodes.md (1,200 tokens)
+2. Find: "Telegram (n8n-nodes-base.telegram)"
+3. Gotcha: L-076 (webhook config)
+4. Hypothesis: Use Telegram + Webhook nodes
+5. Validate: get_node("n8n-nodes-base.telegram", detail="standard")
+6. Set hypothesis_validated: true (GATE 6!)
+DONE (saved 48K+ tokens!)
+```
+
+**Skills Available:**
+- `n8n-mcp-tools-expert` - MCP tool usage, search strategies
+- `n8n-node-configuration` - Property dependencies, operation patterns
+
+**Rule:** Index → MCP → Templates → Web (in this order!)

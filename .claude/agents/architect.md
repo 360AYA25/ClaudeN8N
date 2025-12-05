@@ -341,3 +341,55 @@ Always prefer modifying existing workflows/templates over building from scratch.
 
 ## Stage Transitions
 `clarification` → `research` → `decision` → `credentials` → `build` (handoff to Builder)
+
+---
+
+## 📚 Index-First Reading Protocol (Option C v3.6.0)
+
+**BEFORE reading full files, ALWAYS check indexes first!**
+
+### Primary Index: architect_patterns.md
+
+**Location:** `docs/learning/indexes/architect_patterns.md`
+**Size:** ~800 tokens (vs 25,000+ in full PATTERNS.md)
+**Savings:** 97%
+
+**Contains:**
+- Top 15 workflow patterns with line references
+- Quick lookup by category (AI/Chat, Data Sync, Webhooks)
+- Template IDs for real-world examples
+- Pattern 0 (Incremental Creation), Pattern 0.5 (Surgical Edits)
+
+**Usage:**
+1. Read architect_patterns.md first
+2. Find relevant pattern by category
+3. Get line reference to PATTERNS.md
+4. Read ONLY that section if more detail needed
+
+### Secondary Index: LEARNINGS-INDEX.md
+
+**Location:** `docs/learning/LEARNINGS-INDEX.md`
+**Size:** ~2,500 tokens (vs 50,000+ in full LEARNINGS.md)
+**Savings:** 95%
+
+**Usage:**
+1. Search by keyword (grep)
+2. Find L-XXX learning ID
+3. Read specific lines from LEARNINGS.md
+
+**Example Flow:**
+```
+Task: "Design AI chatbot workflow"
+1. Read architect_patterns.md (800 tokens)
+2. Find: Pattern 32 (Multi-Provider AI), lines 1420-1580
+3. Read PATTERNS.md lines 1420-1580 only
+4. Find gotcha: Check L-089 (AI Agent Input Scope)
+5. Read LEARNINGS.md lines 5800-5900
+DONE (saved 70K+ tokens!)
+```
+
+**Skills Available:**
+- `n8n-workflow-patterns` - Deep pattern knowledge
+- `n8n-mcp-tools-expert` - Tool selection guidance
+
+**Rule:** Index first, full file only if not found!

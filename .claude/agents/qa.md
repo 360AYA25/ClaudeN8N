@@ -220,10 +220,10 @@ return {
 
 ```bash
 # Before accepting QA PASS:
-qa_status=$(jq -r '.qa_report.status' memory/run_state.json)
+qa_status=$(jq -r '.qa_report.status' memory/run_state_active.json)
 
 if [ "$qa_status" = "PASS" ]; then
-  phase_5=$(jq -r '.qa_report.phase_5_executed // false' memory/run_state.json)
+  phase_5=$(jq -r '.qa_report.phase_5_executed // false' memory/run_state_active.json)
 
   if [ "$phase_5" != "true" ]; then
     echo "🚨 GATE 3 VIOLATION: QA PASS without Phase 5!"
@@ -306,8 +306,8 @@ for (const connKey of Object.keys(workflow.connections)) {
 
 ```bash
 # Read project context from run_state
-project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state.json)
-project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state.json)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
+project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
 
 # Load project-specific context (if external project)
 if [ "$project_id" != "clauden8n" ]; then
@@ -532,7 +532,7 @@ if (node.typeVersion < nodeInfo.latestVersion) {
 # NEVER use mode="full" for workflows >10 nodes or with binary data!
 
 # STEP 1: Get summaries (find WHERE)
-before_exec_id=$(jq -r '.execution_summary.latest_execution_id' memory/run_state.json)
+before_exec_id=$(jq -r '.execution_summary.latest_execution_id' memory/run_state_active.json)
 before_summary=$(n8n_executions action="get" id=$before_exec_id mode="summary")
 
 # 2. Trigger test execution AFTER fix
@@ -1421,6 +1421,72 @@ mcp__n8n-mcp__n8n_update_partial_workflow({
   ```bash
   jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '.agent_log += [{"ts": $ts, "agent": "qa", "action": "validation_complete", "details": "X errors, Y warnings"}]' \
-     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
   ```
   See: `.claude/agents/shared/run-state-append.md`
+
+---
+
+## 📚 Index-First Reading Protocol (Option C v3.6.0)
+
+**BEFORE validation, ALWAYS check indexes first!**
+
+### Primary Index: qa_validation.md
+
+**Location:** `docs/learning/indexes/qa_validation.md`
+**Size:** ~700 tokens (vs 50,000+ in full LEARNINGS.md)
+**Savings:** 97%
+
+**Contains:**
+- GATE 3 enforcement (Phase 5 Real Testing - MANDATORY!)
+- Known false positives (L-053 IF node, L-054 L3 protocol)
+- Validation profiles (minimal/runtime/ai-friendly/strict)
+- 5-phase checklist (Structure → Config → Logic → Special → Testing)
+- edit_scope format (surgical fixes for Builder)
+- QA decision matrix (FAIL/WARN/IGNORE/BLOCK)
+
+**Usage:**
+1. **BEFORE validation:** Read qa_validation.md
+2. Check known false positives first
+3. Choose validation profile (default: ai-friendly)
+4. Run 5-phase validation
+5. **MANDATORY:** Execute Phase 5 real testing (GATE 3!)
+6. Set phase_5_executed: true in qa_report
+
+### Secondary Index: LEARNINGS-INDEX.md
+
+**Location:** `docs/learning/LEARNINGS-INDEX.md`
+**Size:** ~2,500 tokens
+**Savings:** 95%
+
+**Usage:**
+1. If error references L-XXX, check LEARNINGS-INDEX.md
+2. Determine if known false positive
+3. Read full learning if needed for context
+
+**Example Flow:**
+```
+Task: "Validate workflow with IF node v2.2"
+1. Read qa_validation.md (700 tokens)
+2. Find: L-053 (IF node v2.2 false positive - "combinator required")
+3. Run validation: get error about combinator
+4. Check known_false_positives: L-053 listed → IGNORE
+5. Phase 5: Trigger workflow execution (n8n_test_workflow)
+6. Verify: Execution completed, output correct
+7. Report: {status: "PASS", phase_5_executed: true, false_positives: ["L-053"]}
+DONE (avoided blocking Builder on false positive!)
+```
+
+**Skills Available:**
+- `n8n-validation-expert` - Error interpretation, false positive catalog
+- `n8n-mcp-tools-expert` - Validation tool usage, profile selection
+
+**Critical Rules (GATE 3):**
+- ❌ NEVER report PASS without phase_5_executed: true
+- ❌ NEVER trust Builder files without MCP verification (L-072)
+- ❌ NEVER block on known false positives (L-053, L-054)
+- ✅ ALWAYS execute real workflow test (GATE 3 requirement!)
+- ✅ ALWAYS verify via n8n_get_workflow (L-074: API = source of truth)
+- ✅ ALWAYS check Builder's mcp_calls array (GATE 5)
+
+**Rule:** Index → Validate → Test execution → Verify with MCP!

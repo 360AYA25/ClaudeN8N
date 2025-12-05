@@ -45,8 +45,8 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ```bash
 # Read project context from run_state
-project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state.json)
-project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state.json)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
+project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
 
 # Load project-specific context (if external project)
 if [ "$project_id" != "clauden8n" ]; then
@@ -542,7 +542,7 @@ When auto-triggered, Analyst MUST:
 ## Audit Protocol
 
 ### Step 1: Read ALL Context
-1. Read `memory/run_state.json` - full state
+1. Read `memory/run_state_active.json` - full state
 2. Read `memory/history.jsonl` - all history (if exists)
 3. Analyze `agent_log` - who did what, when
 4. Read saved diagnostics:
@@ -833,6 +833,75 @@ Progress:
   ```bash
   jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '.agent_log += [{"ts": $ts, "agent": "analyst", "action": "audit_complete", "details": "Root cause: DESCRIPTION"}]' \
-     memory/run_state.json > tmp.json && mv tmp.json memory/run_state.json
+     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
   ```
   See: `.claude/agents/shared/run-state-append.md`
+
+---
+
+## 📚 Index-First Reading Protocol (Option C v3.6.0)
+
+**BEFORE post-mortem analysis, ALWAYS check indexes first!**
+
+### Primary Index: analyst_learnings.md
+
+**Location:** `docs/learning/indexes/analyst_learnings.md`
+**Size:** ~900 tokens (vs 50,000+ in full LEARNINGS.md)
+**Savings:** 96%
+
+**Contains:**
+- Post-mortem analysis framework (4 steps: Evidence → Timeline → Pattern → Root Cause)
+- Learning extraction template (when to create L-XXX)
+- 5 circuit breaker triggers (knowledge gap, architecture limit, tool bug, token waste, user decision)
+- Token tracking patterns
+- Root cause categories (missing knowledge, tool limitation, validator bug, architecture limit, user conflict)
+- Critical learnings: L-072, L-074, L-080, L-060, L-053
+
+**Usage:**
+1. **BEFORE analysis:** Read analyst_learnings.md
+2. Follow 4-step framework
+3. Identify failure pattern (loop/ping-pong/degradation)
+4. Check circuit breaker triggers
+5. Calculate token waste
+6. Propose new learning if needed
+7. Generate post-mortem report
+
+### Secondary Index: LEARNINGS-INDEX.md
+
+**Location:** `docs/learning/LEARNINGS-INDEX.md`
+**Size:** ~2,500 tokens
+**Savings:** 95%
+
+**Usage:**
+1. Search for similar past failures
+2. Find relevant L-XXX learnings
+3. Determine if knowledge gap exists
+4. Check if new learning needed (avoid duplicates!)
+
+**Example Flow:**
+```
+Task: "Analyze blocked session (7 QA cycles, same error)"
+1. Read analyst_learnings.md (900 tokens)
+2. Framework: Gather evidence → Reconstruct timeline
+3. Pattern: Same error 3+ times = Knowledge gap
+4. Root cause: Builder unaware of L-060 Code syntax
+5. Token waste: 160K tokens (73%)
+6. Circuit breaker: Trigger 1 (knowledge gap detected)
+7. Propose: Add L-060 to builder_gotchas.md index
+8. Report: {root_cause: "knowledge_gap", prevention: "update index", tokens_wasted: 160000}
+DONE (prevented future failures!)
+```
+
+**Skills Available:**
+- `n8n-validation-expert` - Error pattern analysis
+- `n8n-workflow-patterns` - Architecture analysis
+
+**Critical Rules:**
+- ❌ NEVER write LEARNINGS.md without checking for duplicates first
+- ❌ NEVER create learning for one-time issue (must be recurring!)
+- ✅ ALWAYS calculate token waste (identify savings opportunity)
+- ✅ ALWAYS check if index update would prevent recurrence
+- ✅ ALWAYS verify root cause vs symptom
+- ✅ ALWAYS propose prevention strategy
+
+**Rule:** Index → Analyze → Extract learnings → Prevent recurrence!
