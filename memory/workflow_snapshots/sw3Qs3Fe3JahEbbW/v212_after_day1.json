@@ -1,0 +1,23 @@
+{
+  "snapshot_info": {
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "workflow_name": "FoodTracker",
+    "version": 212,
+    "versionId": "bcff1e77-b4f9-4b06-9042-a797c8804d9d",
+    "snapshot_date": "2025-12-05T18:45:00Z",
+    "snapshot_reason": "Task 2.6 Day 1 Complete - Formatting Rules + Telegram Keyboard",
+    "node_count": 49,
+    "ai_tools_count": 7,
+    "active": true,
+    "changes_applied": [
+      "Day 1.1: Updated AI Agent System Prompt with FORMATTING RULES section (~600 chars added)",
+      "Day 1.2: Added Telegram keyboard to Success Reply node (2 buttons: 📊 Дневной отчёт, 💧 Вода)"
+    ]
+  },
+  "verification": {
+    "system_prompt_has_formatting_rules": true,
+    "keyboard_configured": true,
+    "version_incremented": "208 -> 212"
+  },
+  "rollback_instructions": "If Day 2 fails, restore v212 or original v208_before_task26.json via n8n_update_full_workflow"
+}

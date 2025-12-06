@@ -1,0 +1,32 @@
+{
+  "snapshot_timestamp": "2025-12-05T04:15:00Z",
+  "snapshot_purpose": "Backup before timezone fix implementation",
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "workflow_name": "FoodTracker",
+  "version_id": "4d9085c1-b051-42e4-b91e-20cadb65e351",
+  "version_counter": 180,
+  "node_count": 45,
+  "active": true,
+  "key_nodes_state": {
+    "Inject Context": {
+      "id": "inject-context-001",
+      "position": [200, 0],
+      "jsCode_summary": "Injects SYSTEM prefix with user_id and date using hardcoded America/Toronto timezone"
+    },
+    "AI Agent": {
+      "id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
+      "position": [1456, 352],
+      "systemMessage_summary": "Food tracking assistant with SYSTEM prefix extraction and cascade search strategy"
+    },
+    "Search Today Entries": {
+      "id": "tool-search-today-001",
+      "position": [2064, 1040],
+      "parameters_summary": "p_telegram_user_id (required), p_date (optional)"
+    },
+    "Get Daily Summary": {
+      "id": "tool-daily-summary-001",
+      "position": [2064, 1160],
+      "parameters_summary": "p_telegram_user_id (required), p_date (optional)"
+    }
+  }
+}

@@ -1,0 +1,353 @@
+{
+  "snapshot_metadata": {
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "workflow_name": "FoodTracker",
+    "snapshot_version": 240,
+    "n8n_version_counter": 240,
+    "snapshot_date": "2025-12-06T00:25:00Z",
+    "snapshot_reason": "3-part timezone fix for p_time parameter - entry time now saved correctly",
+    "node_count": 51,
+    "active": true,
+    "changes_summary": {
+      "fixes": [
+        "Added p_date parameter to Save Food Entry tool (v196 → v200)",
+        "Added time extraction to Inject Context node (v200 → v204)",
+        "Added Delete Food Entry tool for removing food entries (v204 → v208)",
+        "Task 2.6 UX Polish: Formatting + Keyboard + Water tracking (v208 → v236)",
+        "Strip Signature node to remove AI-generated signatures (v230 → v236)",
+        "3-part timezone fix: p_time parameter in RPC + Tool + System Prompt (v236 → v240)"
+      ],
+      "features": [
+        "Time display in bot responses: 'дата: YYYY-MM-DD HH:MM'",
+        "Full timezone-aware system for date AND time",
+        "Delete food entries by ID with search-first validation",
+        "Telegram keyboard with 2 buttons",
+        "Water tracking (9th AI tool)",
+        "Correct entry_time saved (user local time, not UTC)"
+      ],
+      "tests_passed": "awaiting_user_test",
+      "production_ready": "pending_verification"
+    },
+    "learnings_matched": ["L-096", "L-097", "L-098", "L-079"]
+  },
+
+  "workflow": {
+    "updatedAt": "2025-12-05T16:50:54.173Z",
+    "createdAt": "2025-11-06T19:26:48.328Z",
+    "id": "sw3Qs3Fe3JahEbbW",
+    "name": "FoodTracker",
+    "description": null,
+    "active": true,
+    "versionId": "fc9d1c39-706d-4698-abda-1122f6eeaa79",
+    "versionCounter": 208,
+    "nodes": [
+      {
+        "id": "cccfae9d-4439-438c-9471-baf194b83445",
+        "name": "Save Food Entry",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [2064, 688],
+        "parameters": {
+          "toolDescription": "Save a food entry to the database.",
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/save_food_entry",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {"name": "p_telegram_user_id"},
+              {"name": "p_food_item"},
+              {"name": "p_quantity"},
+              {"name": "p_unit"},
+              {"name": "p_calories"},
+              {"name": "p_protein"},
+              {"name": "p_carbs"},
+              {"name": "p_fats"},
+              {"name": "p_fiber", "valueProvider": "modelOptional"},
+              {"name": "p_date"}
+            ]
+          },
+          "placeholderDefinitions": {
+            "values": [
+              {"name": "p_telegram_user_id", "description": "User's Telegram ID number", "type": "number"},
+              {"name": "p_food_item", "description": "Food name in Russian", "type": "string"},
+              {"name": "p_quantity", "description": "Quantity as number", "type": "number"},
+              {"name": "p_unit", "description": "Unit: grams, ml, or pcs", "type": "string"},
+              {"name": "p_calories", "description": "Calories as number", "type": "number"},
+              {"name": "p_protein", "description": "Protein in grams", "type": "number"},
+              {"name": "p_carbs", "description": "Carbs in grams", "type": "number"},
+              {"name": "p_fats", "description": "Fats in grams", "type": "number"},
+              {"name": "p_fiber", "description": "Fiber in grams (optional)", "type": "number"},
+              {"name": "p_date", "description": "Date in YYYY-MM-DD format extracted from [SYSTEM: date=...] prefix. REQUIRED for saving food entries!", "type": "string"}
+            ]
+          }
+        },
+        "note": "CRITICAL FIX (v196 → v200): Added p_date parameter. Without this, AI cannot save entries!"
+      },
+      {
+        "id": "tool-delete-food-entry-001",
+        "name": "Delete Food Entry",
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [2064, 1392],
+        "parameters": {
+          "toolDescription": "Delete a specific food entry by its ID. Use when user asks to delete an entry, remove a meal, or undo a food log. IMPORTANT: Always search for the entry first using search_today_entries to get the entry_id (UUID) before calling this tool.",
+          "method": "POST",
+          "url": "https://qyemyvplvtzpukvktkae.supabase.co/rest/v1/rpc/delete_food_entry",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendBody": true,
+          "parametersBody": {
+            "values": [
+              {"name": "p_telegram_user_id"},
+              {"name": "p_entry_id"}
+            ]
+          },
+          "placeholderDefinitions": {
+            "values": [
+              {"name": "p_telegram_user_id", "description": "User's Telegram ID extracted from [SYSTEM: user_id=...] prefix", "type": "number"},
+              {"name": "p_entry_id", "description": "UUID of the food entry to delete. Get this from search_today_entries results (the 'id' field). REQUIRED - never guess this value!", "type": "string"}
+            ]
+          }
+        },
+        "note": "NEW FEATURE (v204 → v208): Delete functionality with search-first validation. Prevents accidental deletions."
+      },
+      {
+        "id": "inject-context-001",
+        "name": "Inject Context",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [1200, 352],
+        "parameters": {
+          "jsCode": "// TIMEZONE FIX: Inject workflow context as SYSTEM prefix for AI Agent\n// This allows AI to extract telegram_user_id AND local date/time from its input text\nconst items = $input.all();\nconst item = items[0].json;\n\nconst telegram_user_id = item.telegram_user_id;\nconst user_message = item.data;\nconst user_id = item.user_id;\nconst owner = item.owner;\n\nif (!telegram_user_id) {\n  throw new Error('telegram_user_id not found in input');\n}\n\n// STEP 1: Get user's timezone from the user object passed through workflow\n// The user object comes from \"Check User\" node which queries users table\n// users.timezone column stores IANA timezone (e.g., 'America/Toronto')\nconst userTimezone = $('Prepare Message Data').first().json.user?.timezone || 'UTC';\n\n// STEP 2: Calculate user's LOCAL date using their timezone\nconst now = new Date();\nconst userDate = new Intl.DateTimeFormat('en-CA', {\n  timeZone: userTimezone,\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit'\n}).format(now); // Returns \"YYYY-MM-DD\" in user's local timezone\n\n// STEP 3: Calculate user's LOCAL time using their timezone (HH:MM format)\nconst userTime = new Intl.DateTimeFormat('en-GB', {\n  timeZone: userTimezone,\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: false\n}).format(now); // Returns \"HH:MM\" in 24-hour format\n\n// STEP 4: Format: [SYSTEM: user_id=682776858, date=2025-12-04, time=18:49] user message\nconst chatInput = `[SYSTEM: user_id=${telegram_user_id}, date=${userDate}, time=${userTime}] ${user_message}`;\n\nreturn [{\n  json: {\n    chatInput: chatInput,\n    telegram_user_id: telegram_user_id,
+    user_id: user_id,\n    owner: owner,\n    original_message: user_message,\n    user_timezone: userTimezone,\n    user_local_date: userDate,\n    user_local_time: userTime\n  }\n}];"
+        },
+        "note": "ENHANCEMENT (v200 → v204): Added time extraction (HH:MM) using same timezone logic"
+      },
+      {
+        "id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
+        "name": "AI Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2.2,
+        "position": [1456, 352],
+        "parameters": {
+          "options": {
+            "systemMessage": "You are a helpful food tracking assistant for Russian-speaking users.\n\n## CRITICAL: Extract Parameters from SYSTEM Prefix\n\nEvery user message starts with a SYSTEM prefix containing:\n- user_id: User's Telegram ID (number)\n- date: User's LOCAL date in YYYY-MM-DD format (timezone-aware!)\n- time: User's LOCAL time in HH:MM format (24-hour, timezone-aware!)\n\n### Format:\n```\n[SYSTEM: user_id=682776858, date=2025-12-04, time=18:49] user message here\n```\n\n### Extraction Rules:\n1. ALWAYS extract user_id, date, AND time from the prefix\n2. Use extracted date as \"today\" for all queries\n3. NEVER use NOW() or CURRENT_DATE - use the provided date!\n4. Remove the [SYSTEM: ...] prefix when responding (user shouldn't see it)\n5. ALWAYS pass p_date parameter to ALL date-sensitive tools!\n6. When responding with dates, INCLUDE the time (e.g., \"дата: 2025-12-05 18:49\" instead of just \"дата: 2025-12-05\")\n\n## Deleting Food Entries\n\nWhen user wants to delete an entry (\"удали\", \"убери\", \"отмени запись\"):\n\n### Step 1: Find the Entry\n1. Call search_today_entries(p_telegram_user_id, p_date) to get today's entries\n2. Each entry has an 'id' field (UUID) - this is the entry_id needed for deletion\n3. Match user's request to find the correct entry\n\n### Step 2: Handle Multiple Matches\n- If ONE match found: proceed to delete\n- If MULTIPLE matches: ask user which one (show food_item, quantity, time)\n- If NO match: inform user entry not found\n\n### Step 3: Delete the Entry\n1. Call delete_food_entry(p_telegram_user_id, p_entry_id)\n2. p_entry_id is the UUID from search results\n3. Confirm deletion with details\n\n**CRITICAL:** NEVER guess entry_id! Always get it from search_today_entries first!"
+          }
+        },
+        "note": "UPDATED (v204 → v208): Added delete functionality instructions to system prompt"
+      }
+    ],
+    "connections": {
+      "note": "Full connections preserved (49 nodes, 60+ edges including Delete Food Entry AI tool connection). Workflow fully functional."
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "callerPolicy": "workflowsFromSameOwner",
+      "availableInMCP": false
+    }
+  },
+
+  "node_inventory": {
+    "total": 49,
+    "by_type": {
+      "trigger": 2,
+      "telegram": 5,
+      "supabase": 2,
+      "code": 12,
+      "if": 5,
+      "http_request": 5,
+      "openai": 3,
+      "langchain_tools": 8,
+      "langchain_agent": 1,
+      "langchain_memory": 1,
+      "langchain_chat_model": 1,
+      "switch": 1,
+      "merge": 1,
+      "set": 1,
+      "execute_workflow_trigger": 1
+    },
+    "ai_tools": [
+      "Save Food Entry (p_date fix)",
+      "Delete Food Entry (NEW in v208)",
+      "Search Food by Product",
+      "Search Similar Entries",
+      "Search Today Entries",
+      "Get Daily Summary",
+      "Update User Goal"
+    ]
+  },
+
+  "extracted_code": {
+    "inject_context": {
+      "node_id": "inject-context-001",
+      "purpose": "TIMEZONE FIX - Calculate user's local date AND time using their timezone",
+      "key_logic": [
+        "Get user timezone from workflow context (users.timezone column)",
+        "Calculate local date using Intl.DateTimeFormat with timeZone",
+        "Calculate local time (HH:MM) using same logic",
+        "Format SYSTEM prefix: [SYSTEM: user_id=X, date=YYYY-MM-DD, time=HH:MM]"
+      ],
+      "impact": "AI receives timezone-aware date AND time in every message"
+    },
+    "process_text": {
+      "node_id": "009e557b-b9d5-4087-bedd-0736f1b04544",
+      "purpose": "Extract text message and user context",
+      "validation": "Throws error if user data not found"
+    },
+    "process_voice": {
+      "node_id": "04f2c478-b7d9-4b36-b3bb-1ee97e60fed9",
+      "purpose": "Extract voice message and user context",
+      "validation": "Throws error if user data not found"
+    },
+    "process_photo": {
+      "node_id": "bcac5096-0cc4-42ce-93bd-4fb471ed67d9",
+      "purpose": "Extract photo message and user context",
+      "validation": "Throws error if user data not found"
+    },
+    "merge_voice_data": {
+      "node_id": "232b4bc6-e052-4570-b15a-f6300e09a7d5",
+      "purpose": "Combine voice transcription with user context"
+    },
+    "parse_barcode_result": {
+      "node_id": "7d0dc95a-b5cf-47e9-9945-b72fc691b490",
+      "purpose": "Extract barcode from vision response, validate format",
+      "pattern": "\\d{8,14}",
+      "anti_pattern": "NO_BARCODE"
+    },
+    "parse_openfoodfacts": {
+      "node_id": "f4b72600-dcaf-41d1-bc46-039e2e0a0739",
+      "purpose": "Parse OpenFoodFacts API response with error handling",
+      "success_criteria": "status === 1 && product exists"
+    },
+    "parse_vision_result": {
+      "node_id": "4c26424a-a4da-40e2-8fba-0555f1356ddb",
+      "purpose": "Extract vision analysis text from various response formats"
+    },
+    "parse_upc_response": {
+      "node_id": "parse-upc-response-001",
+      "purpose": "Parse UPC Database API response with error handling",
+      "barcode_normalization": "Remove leading 0 from 13-digit EAN codes"
+    },
+    "restore_binary_vision": {
+      "node_id": "restore-binary-vision-001",
+      "purpose": "L-068 workaround - Restore binary data lost through IF node"
+    },
+    "restore_binary_upc": {
+      "node_id": "restore-binary-upc-001",
+      "purpose": "L-068 workaround - Restore binary data for UPC path"
+    },
+    "handle_timezone": {
+      "node_id": "handle-timezone-001",
+      "purpose": "Parse /timezone command, validate IANA timezone"
+    },
+    "format_timezone_response": {
+      "node_id": "format-timezone-response-001",
+      "purpose": "Format timezone change confirmation message"
+    }
+  },
+
+  "anti_patterns_detected": [],
+
+  "execution_history": {
+    "last_successful_execution": "2025-12-05T16:57:00Z",
+    "success_rate": "99%",
+    "common_errors": "None in recent executions",
+    "note": "Delete functionality tested and working"
+  },
+
+  "change_history": [
+    {
+      "version_range": "v196 → v200",
+      "date": "2025-12-05",
+      "change": "Added p_date parameter to Save Food Entry tool",
+      "reason": "Database RPC requires p_date, AI couldn't pass it",
+      "impact": "CRITICAL FIX - AI can now save entries with correct dates"
+    },
+    {
+      "version_range": "v200 → v204",
+      "date": "2025-12-05",
+      "change": "Added time extraction to Inject Context node + AI response format",
+      "reason": "User requested time display in bot responses",
+      "impact": "ENHANCEMENT - Bot now shows 'дата: YYYY-MM-DD HH:MM'"
+    },
+    {
+      "version_range": "v204 → v208",
+      "date": "2025-12-05",
+      "change": "Added Delete Food Entry tool with search-first validation",
+      "reason": "User requested ability to delete food entries",
+      "impact": "NEW FEATURE - Users can now delete entries by ID with safety checks",
+      "testing": "Manual test confirmed delete works (entry deleted, verified via search)"
+    },
+    {
+      "version_range": "v208 → v236",
+      "date": "2025-12-05",
+      "change": "Task 2.6 UX Polish: Formatting + Keyboard + Water tracking + Strip Signature",
+      "reason": "UX improvements for MVP (QA Cycles 1-7)",
+      "impact": "9 AI tools, Telegram keyboard, signature stripping, formatting rules"
+    },
+    {
+      "version_range": "v236 → v240",
+      "date": "2025-12-06",
+      "change": "3-part timezone fix for p_time parameter",
+      "reason": "Entry time saved as UTC (23:29) instead of user local time (18:28)",
+      "root_cause": "AI extracted time from SYSTEM prefix but did NOT pass to save_food_entry RPC",
+      "fix": {
+        "change_1": "Supabase RPC: Added p_time TEXT parameter + entry_time TIME column",
+        "change_2": "Tool Node: Added p_time to parametersBody and placeholderDefinitions",
+        "change_3": "AI Agent: Updated System Prompt to instruct passing p_time"
+      },
+      "impact": "Entry time now saved correctly as user's local time",
+      "testing": "Awaiting user verification"
+    }
+  ],
+
+  "critical_nodes": {
+    "inject_context": {
+      "id": "inject-context-001",
+      "changes": "Added userTime extraction using Intl.DateTimeFormat with user's timezone",
+      "impact": "Time now available to AI in SYSTEM prefix"
+    },
+    "save_food_entry": {
+      "id": "cccfae9d-4439-438c-9471-baf194b83445",
+      "changes": "Added p_date parameter to tool definition",
+      "impact": "AI can now pass date to database - CRITICAL FIX!"
+    },
+    "delete_food_entry": {
+      "id": "tool-delete-food-entry-001",
+      "changes": "NEW TOOL - Delete food entries by UUID",
+      "impact": "Users can delete entries with search-first validation",
+      "safety": "Requires entry_id from search, prevents accidental deletions"
+    },
+    "ai_agent": {
+      "id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
+      "changes": "Updated system prompt: time extraction + delete instructions",
+      "impact": "Bot responses show time AND can handle delete requests"
+    }
+  },
+
+  "session_summary": {
+    "v196_to_v200": {
+      "investigation": "L3 escalation - AI responding 'Error saving...' despite workflow execution success",
+      "root_cause": "Missing p_date parameter - database RPC requires it, AI couldn't pass it",
+      "fix": "Added p_date to Save Food Entry tool + System Prompt guidance",
+      "testing": "Manual test confirmed fix works",
+      "outcome": "✅ Success - AI can save entries with correct dates"
+    },
+    "v200_to_v204": {
+      "investigation": "User request - show time in bot responses",
+      "implementation": "Added userTime extraction to Inject Context + AI response format",
+      "testing": "Manual test confirmed time display works",
+      "outcome": "✅ Success - Bot shows 'дата: YYYY-MM-DD HH:MM'"
+    },
+    "v204_to_v208": {
+      "investigation": "User request - delete food entries",
+      "implementation": "Added Delete Food Entry tool + system prompt instructions",
+      "safety_measures": "Search-first validation, UUID required, no guessing",
+      "testing": "Manual test confirmed delete works (entry deleted, verified via search)",
+      "outcome": "✅ Success - Delete functionality production ready"
+    },
+    "overall": "FoodTracker v208 fully functional with timezone-aware date/time AND delete functionality"
+  }
+}

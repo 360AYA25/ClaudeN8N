@@ -1,0 +1,11 @@
+{
+  "snapshot_type": "pre_qa_cycle2_fixes",
+  "timestamp": "2025-12-05T19:00:00Z",
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "version_counter": 216,
+  "version_id": "52907a39-f853-4d12-9304-592e44048bb3",
+  "reason": "Snapshot before QA Cycle 2 fixes: (1) System Prompt КРИТИЧНО enforcement, (2) reply_markup object format",
+  "node_count": 50,
+  "ai_agent_node_id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
+  "success_reply_node_id": "42dcf96b-5da1-489b-9be1-933feaf17f34"
+}

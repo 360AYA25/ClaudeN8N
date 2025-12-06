@@ -1,0 +1,14 @@
+{
+  "snapshot_info": {
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "workflow_name": "FoodTracker",
+    "version": 208,
+    "versionId": "fc9d1c39-706d-4698-abda-1122f6eeaa79",
+    "snapshot_date": "2025-12-05T18:30:00Z",
+    "snapshot_reason": "Pre-Task 2.6 UX Polish (MVP) - 2-day implementation",
+    "node_count": 49,
+    "ai_tools_count": 7,
+    "active": true
+  },
+  "rollback_instructions": "If Task 2.6 fails, restore this snapshot via n8n_update_full_workflow"
+}

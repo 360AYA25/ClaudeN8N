@@ -1,0 +1,26 @@
+{
+  "snapshot_info": {
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "workflow_name": "FoodTracker",
+    "version": 226,
+    "created_at": "2025-12-05T19:45:23.684Z",
+    "description": "Added DATA RETRIEVAL RULES section to AI Agent system prompt to fix memory staleness issue",
+    "change_type": "fix",
+    "cycle": 5
+  },
+  "changes_applied": [
+    {
+      "node_name": "AI Agent",
+      "node_id": "cdfe74df-5815-4557-bf8f-f0213d9ca8ad",
+      "change_type": "update_parameter",
+      "parameter": "options.systemMessage",
+      "description": "Added DATA RETRIEVAL RULES section at top of system prompt"
+    }
+  ],
+  "fix_details": {
+    "issue": "AI returns cached data from Conversation Memory instead of calling tools",
+    "root_cause": "LLM uses conversation memory for data queries instead of always calling database tools",
+    "solution": "Added explicit instructions at top of system prompt to ALWAYS call tools for data queries, NEVER use memory for data",
+    "section_added": "## DATA RETRIEVAL RULES (CRITICAL - NEVER USE MEMORY FOR DATA!)"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "workflow_name": "FoodTracker",
+  "version_id": "c4f5fc58-a205-4143-bbc6-8e06656bfee3",
+  "version_counter": 204,
+  "snapshot_date": "2025-12-05T17:00:00Z",
+  "snapshot_reason": "Before adding Delete Food Entry tool",
+  "node_count": 50,
+  "active": true
+}

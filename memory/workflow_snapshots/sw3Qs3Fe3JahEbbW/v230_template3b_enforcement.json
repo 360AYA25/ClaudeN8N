@@ -1,0 +1,34 @@
+{
+  "snapshot_info": {
+    "workflow_id": "sw3Qs3Fe3JahEbbW",
+    "version": 230,
+    "timestamp": "2025-12-05T23:15:50.325Z",
+    "description": "Template #3b enforcement + NO SIGNATURES rule strengthening",
+    "changes": [
+      "Added CRITICAL Template #3b section at top of system prompt",
+      "Strengthened Template 3b with HIGHEST PRIORITY markers",
+      "Added FORBIDDEN/REQUIRED checklists for format enforcement",
+      "Added real example with exact format to copy",
+      "NO SIGNATURES rule already present - signature coming from elsewhere"
+    ]
+  },
+  "build_cycle": 6,
+  "fixes_applied": [
+    {
+      "issue": "Template #3b not being followed",
+      "fix": "Made Template #3b section much more prominent with emoji warnings and explicit format requirements",
+      "node": "AI Agent",
+      "parameter": "options.systemMessage"
+    }
+  ],
+  "signature_investigation": {
+    "system_prompt": "Already contains NO SIGNATURES rule - not the source",
+    "success_reply_node": "Uses ={{ $json.output }} - clean, just passes AI output",
+    "possible_sources": [
+      "AI model (gpt-4o-mini) ignoring instructions",
+      "Conversation Memory containing old responses with signatures",
+      "n8n Telegram credential global settings"
+    ],
+    "recommendation": "Clear conversation memory for user to test, or check n8n instance settings"
+  }
+}

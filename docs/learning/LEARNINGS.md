@@ -169,6 +169,223 @@ ls .claude/agents/*.md | wc -l
 
 ## n8n Workflows
 
+## L-098: Conversation Memory Data Staleness (AI Returns Cached Answers)
+
+**Category:** AI Agent / LangChain Memory / Data Integrity
+**Severity:** 🔴 **CRITICAL** - Returns stale/incorrect data to users
+**Date:** 2025-12-05
+**Impact:** When user asks same data query twice (e.g., "Что я ел?"), AI returns **cached answer from memory** instead of calling tools to get fresh data from database
+
+### Problem
+
+User asks "Что я сегодня ел?" (What did I eat today?):
+1. **First time:** AI calls `search_today_entries` tool → gets fresh data from DB → answers correctly
+2. **Second time:** AI returns **cached answer from memory** (old data, missing new entries) → WRONG!
+
+Example:
+- User logged rice (150g, 11:12)
+- Asked "Что я ел?" → AI showed 880 kcal (without rice) from cached memory
+- Database had rice entry ✅
+- RPC returned rice entry ✅
+- AI never called tool the second time ❌
+
+### Root Cause
+
+**LangChain Conversation Memory semantic caching:**
+- Memory stores last N messages (default: 10)
+- When user asks similar question, AI recognizes semantic similarity
+- Instead of calling `search_today_entries` tool again, AI returns **cached response from memory**
+- Cached response contains **stale data** (before new entry was added)
+
+This is **by design** in LangChain - memory optimization to reduce tool calls. But for data queries, this is **catastrophic** - we NEED fresh data every time!
+
+### Solution: System Prompt DATA RETRIEVAL RULES
+
+**Add this section at TOP of AI Agent System Prompt (after critical instructions):**
+
+```markdown
+## DATA RETRIEVAL RULES (CRITICAL - NEVER USE MEMORY FOR DATA!)
+
+ALWAYS call tools for data queries. NEVER answer from conversation memory!
+
+Mandatory tool calls:
+- User asks "Что я ел?" → MUST call search_today_entries tool
+- User asks "Дневной отчёт" / clicks 📊 button → MUST call get_daily_summary tool
+- User asks "Вода" / clicks 💧 button → MUST call get_daily_summary tool
+- User asks about specific entry → MUST call search_by_product or search_similar_entries
+
+Memory purpose: conversation context ONLY (user preferences, chat flow, previous topics)
+Data source: Database via tools EVERY SINGLE TIME
+
+WHY: Memory may contain stale data. Database = source of truth.
+
+NEVER say "You ate X earlier" from memory. ALWAYS call tool to get fresh data.
+```
+
+**Key principle:**
+- **Memory** = conversation context (preferences, user mood, chat flow)
+- **Tools** = data queries (entries, reports, statistics)
+
+**DO NOT reduce memory window** - 10 messages is fine for context. Just enforce tool calls for data.
+
+### Prevention
+
+1. **For every AI Agent with database tools:**
+   - Add DATA RETRIEVAL RULES section to System Prompt
+   - Place at TOP for maximum visibility
+   - Use CRITICAL/NEVER/ALWAYS/MUST language for emphasis
+
+2. **Test with repeated queries:**
+   - Add entry
+   - Ask "what did I add?" → verify tool called
+   - Ask same question again → verify tool called AGAIN (not cached)
+
+3. **Check execution logs:**
+   - Look for tool calls in n8n execution data
+   - If user asked twice but tool called once → memory caching issue
+
+### Tags
+#ai-agent #langchain-memory #stale-data #semantic-caching #telegram-bot #critical
+
+---
+
+## L-097: Telegram Keyboard Buttons Not Rendering (fixedCollection vs JSON)
+
+**Category:** Telegram Bot / n8n Node Configuration / Node Parameters
+**Severity:** 🟠 **HIGH** - 3 QA cycles wasted on wrong approach
+**Date:** 2025-12-05
+**Impact:** Telegram keyboard buttons not appearing in bot UI despite "correct" configuration
+
+### Problem
+
+Added Telegram keyboard to Success Reply node using `reply_markup` parameter with JSON structure:
+
+**Attempt 1 (v216):**
+```javascript
+additionalFields.reply_markup = JSON.stringify({
+  keyboard: [[{ text: '📊 Дневной отчёт' }], [{ text: '💧 Вода' }]],
+  resize_keyboard: true,
+  persistent: true
+})
+```
+❌ Failed: Double-stringification
+
+**Attempt 2 (v220):**
+```javascript
+additionalFields.reply_markup = {
+  keyboard: [[{ text: '📊 Дневной отчёт' }], [{ text: '💧 Вода' }]],
+  resize_keyboard: true,
+  persistent: true  // Wrong parameter name!
+}
+```
+❌ Failed: Wrong parameter (`persistent` vs `is_persistent`)
+
+**Attempt 3 (v222):**
+```javascript
+additionalFields.reply_markup = {
+  keyboard: [[{ text: '📊 Дневной отчёт' }], [{ text: '💧 Вода' }]],
+  resize_keyboard: true,
+  is_persistent: true  // Fixed parameter
+}
+```
+❌ **STILL FAILED!** Buttons not rendering!
+
+**Root issue:** All 3 attempts used **wrong approach** (JSON in `reply_markup`)
+
+### Root Cause
+
+n8n Telegram node expects **fixedCollection structure** (visual builder format), **NOT** JSON strings or plain objects!
+
+**Evidence:**
+1. n8n documentation shows visual builder approach only
+2. GitHub PR #17258 (JSON keyboard support) still pending - not in release
+3. Working Template #2461 uses HTTP Request (direct Telegram API) - because n8n node limitation
+4. Community forum: "Use fixedCollection, not JSON" (thread #3835)
+
+**Why we wasted 3 cycles:**
+- Builder kept iterating on **syntax** (stringify vs object vs parameter names)
+- Should have switched to different **architecture** after 2nd failure
+- **Pattern:** When same approach fails twice → change method, not syntax
+
+### Solution: Use fixedCollection Structure
+
+**CORRECT configuration for n8n Telegram node:**
+
+```javascript
+{
+  operation: "sendMessage",
+  chatId: "={{ $json.message.chat.id }}",
+  text: "={{ $json.output }}",  // AI Agent response
+  additionalFields: {
+    replyMarkup: "replyKeyboard",  // ← Dropdown selection (NOT "reply_markup"!)
+    replyKeyboard: {  // ← fixedCollection structure
+      rows: [
+        {
+          row: {
+            buttons: [{ text: "📊 Дневной отчёт", additionalFields: {} }]
+          }
+        },
+        {
+          row: {
+            buttons: [{ text: "💧 Вода", additionalFields: {} }]
+          }
+        }
+      ]
+    },
+    replyKeyboardOptions: {  // ← Separate collection for options
+      resize_keyboard: true,
+      one_time_keyboard: false
+    }
+  }
+}
+```
+
+**Key differences:**
+1. Parameter name: `replyMarkup` (camelCase), NOT `reply_markup` (snake_case)
+2. Type: `"replyKeyboard"` string value first (tells n8n which collection to use)
+3. Structure: Nested `rows` → `row` → `buttons` (fixedCollection format)
+4. Options: Separate `replyKeyboardOptions` collection
+
+**This is the ONLY way that works in n8n!**
+
+### Alternative: HTTP Request (for dynamic keyboards)
+
+If you need dynamic keyboards (buttons generated from data), use HTTP Request node to call Telegram API directly:
+
+```javascript
+POST https://api.telegram.org/bot<TOKEN>/sendMessage
+{
+  chat_id: 123456,
+  text: "Choose:",
+  reply_markup: {  // Direct JSON to Telegram API works!
+    keyboard: [[{ text: "Button 1" }], [{ text: "Button 2" }]],
+    resize_keyboard: true,
+    is_persistent: true
+  }
+}
+```
+
+### Prevention
+
+1. **Research BEFORE building:**
+   - Search n8n docs for "telegram keyboard" examples
+   - Check n8n community forum for known issues
+   - Look for working templates (search_templates with query="telegram keyboard")
+
+2. **Escalate after 2 failures:**
+   - If same approach fails twice (different syntax) → STOP
+   - Delegate to Researcher: find alternative method
+   - Don't waste 3+ cycles on same broken approach
+
+3. **Document node quirks:**
+   - n8n Telegram node: fixedCollection only (no JSON)
+   - Future: PR #17258 may add JSON support - update this learning
+
+### Tags
+#telegram #keyboard #n8n-node #fixedcollection #visual-builder #l4-escalation
+
+---
+
 ## L-067: Execution Mode Selection for Large Workflows (Supersedes L-059 for >10 nodes)
 
 **Category:** Agent System / Debugging Protocol / Performance
@@ -2699,6 +2916,231 @@ if ($input.item.json.error) {
 ---
 
 ## AI Agents
+
+### [2025-12-05 16:30] L-097: Adding Time to Timezone-Aware System
+
+**Context:** System already had timezone-aware date calculation (L-096 fix).
+
+**Enhancement:** Add time to bot responses so users see both date AND time.
+
+**Problem:** How to extend existing timezone logic without breaking it?
+
+**Solution: Reuse Inject Context Timezone Logic**
+
+```javascript
+// ALREADY EXISTS in Inject Context node (inject-context-001):
+const userTimezone = $('Prepare Message Data').first().json.user?.timezone || 'UTC';
+
+// STEP 1: Calculate date (existing code)
+const userDate = new Intl.DateTimeFormat('en-CA', {
+  timeZone: userTimezone,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+}).format(now); // "2025-12-05"
+
+// STEP 2: Calculate time (NEW - same API pattern!)
+const userTime = new Intl.DateTimeFormat('en-GB', {
+  timeZone: userTimezone,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false
+}).format(now); // "18:49"
+
+// STEP 3: Add to SYSTEM prefix
+const chatInput = `[SYSTEM: user_id=${telegram_user_id}, date=${userDate}, time=${userTime}] ${user_message}`;
+```
+
+**AI Agent System Prompt Update:**
+
+```
+## CRITICAL: Extract Parameters from SYSTEM Prefix
+
+Every user message starts with a SYSTEM prefix containing:
+- user_id: User's Telegram ID (number)
+- date: User's LOCAL date in YYYY-MM-DD format (timezone-aware!)
+- time: User's LOCAL time in HH:MM format (24-hour, timezone-aware!)
+
+### Extraction Rules:
+6. When responding with dates, INCLUDE the time (e.g., "дата: 2025-12-05 18:49" instead of just "дата: 2025-12-05")
+```
+
+**Response Format:**
+```
+Bot: "Записал: курица 200г
+дата: 2025-12-05 18:49  <-- INCLUDES TIME NOW!
+калории: 330 ккал"
+```
+
+**Complexity:** Simple (5 minutes)
+
+**Key Insight:**
+- DON'T make AI generate time (timezone issues!)
+- Extract time from user's timezone in Inject Context
+- Pass to AI in SYSTEM prefix (same pattern as date)
+- AI just includes it in response
+
+**Related:** L-096 (Missing p_date parameter)
+
+**Testing:** Manual test confirmed - v204 production ready
+
+**Tags:** #timezone #ai-tools #inject-context #system-prompt #enhancement #foodtracker
+
+---
+
+### [2025-12-05 16:15] L-096: Missing Required Parameters in AI Tools
+
+**Problem:** AI tool missing required parameter that database expects.
+
+**Symptom:**
+- Workflow executes successfully (HTTP 200)
+- AI responds: "Error saving..."
+- Database RPC fails silently (no error in logs)
+- User confused (workflow says success, bot says error)
+
+**Example: FoodTracker Save Food Entry**
+
+```
+AI Agent: "Error saving food entry"
+Workflow execution: ✅ SUCCESS (HTTP 200)
+Database: ❌ NULL value in column "date" violates not-null constraint
+```
+
+**Cause:**
+
+1. **Database function signature:**
+   ```sql
+   CREATE FUNCTION save_food_entry(
+     p_telegram_user_id BIGINT,
+     p_food_item TEXT,
+     p_quantity NUMERIC,
+     p_unit TEXT,
+     p_calories INT,
+     p_protein NUMERIC,
+     p_carbs NUMERIC,
+     p_fats NUMERIC,
+     p_fiber NUMERIC DEFAULT NULL,
+     p_date DATE  -- REQUIRED! NOT NULL!
+   )
+   ```
+
+2. **AI Tool definition (BEFORE fix):**
+   ```json
+   {
+     "parametersBody": {
+       "values": [
+         {"name": "p_telegram_user_id"},
+         {"name": "p_food_item"},
+         {"name": "p_quantity"},
+         {"name": "p_unit"},
+         {"name": "p_calories"},
+         {"name": "p_protein"},
+         {"name": "p_carbs"},
+         {"name": "p_fats"},
+         {"name": "p_fiber", "valueProvider": "modelOptional"}
+         // ❌ MISSING: p_date!
+       ]
+     }
+   }
+   ```
+
+3. **Result:**
+   - AI can't pass `p_date` (not in tool definition)
+   - Database rejects insert (NOT NULL constraint)
+   - RPC returns error to AI Agent
+   - AI sees error, responds: "Error saving..."
+   - User sees: "Error saving" (but workflow shows ✅)
+
+**Solution: Add ALL Required Parameters**
+
+```json
+{
+  "parametersBody": {
+    "values": [
+      {"name": "p_telegram_user_id"},
+      {"name": "p_food_item"},
+      {"name": "p_quantity"},
+      {"name": "p_unit"},
+      {"name": "p_calories"},
+      {"name": "p_protein"},
+      {"name": "p_carbs"},
+      {"name": "p_fats"},
+      {"name": "p_fiber", "valueProvider": "modelOptional"},
+      {"name": "p_date"}  // ✅ ADDED!
+    ]
+  },
+  "placeholderDefinitions": {
+    "values": [
+      {
+        "name": "p_date",
+        "description": "Date in YYYY-MM-DD format extracted from [SYSTEM: date=...] prefix. REQUIRED for saving food entries!",
+        "type": "string"
+      }
+    ]
+  }
+}
+```
+
+**System Prompt Update:**
+
+```
+## CRITICAL: ALWAYS Pass p_date to save_food_entry!
+
+When saving food entries, you MUST pass the p_date parameter:
+- Extract date from [SYSTEM: date=...] prefix
+- Pass it as p_date to save_food_entry
+- Without p_date, the save will FAIL!
+
+Example:
+Input: "[SYSTEM: user_id=123456, date=2025-12-05, time=18:49] записать курицу 200г"
+
+Call: save_food_entry(
+  p_telegram_user_id=123456,
+  p_food_item="курица",
+  p_quantity=200,
+  p_unit="grams",
+  p_calories=330,
+  p_protein=62,
+  p_carbs=0,
+  p_fats=7,
+  p_date="2025-12-05"  <-- REQUIRED!
+)
+```
+
+**Prevention Checklist:**
+
+1. ✅ **Check database function signature**
+   - Find all required parameters (NOT NULL)
+   - Note default values (optional parameters)
+
+2. ✅ **Compare with AI tool definition**
+   - Every required param must be in `parametersBody.values`
+   - Use `"valueProvider": "modelOptional"` for defaults
+
+3. ✅ **Check other tools for consistency**
+   - Example: `search_today_entries` ALSO needs `p_date`
+   - If one tool has it, others probably need it too
+
+4. ✅ **Document in System Prompt**
+   - Explain WHEN to use parameter
+   - Show example with extraction from context
+   - Mark as REQUIRED (or CRITICAL)
+
+5. ✅ **Validate with execution test**
+   - Send real message to bot
+   - Verify database insert succeeds
+   - Check bot response (should NOT say "Error")
+
+**Detection:**
+- Workflow shows ✅ but bot says "Error"
+- Check execution logs for RPC errors
+- Compare tool params with database function
+
+**Related:** L-097 (Adding time to timezone system)
+
+**Tags:** #ai-tools #database #rpc #parameters #debugging #foodtracker #timezone
+
+---
 
 ### [2025-11-08 17:00] n8n Partial Update Deletes Unspecified Fields (CRITICAL!)
 

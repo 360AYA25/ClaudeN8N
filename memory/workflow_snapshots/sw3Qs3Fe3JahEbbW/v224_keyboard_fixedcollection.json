@@ -1,0 +1,43 @@
+{
+  "snapshot_timestamp": "2025-12-05T19:28:00Z",
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "version_counter": 224,
+  "description": "Fixed Telegram keyboard using n8n fixedCollection structure instead of JSON string",
+  "change_summary": {
+    "node": "Success Reply",
+    "fix": "replyMarkup=replyKeyboard with fixedCollection rows structure",
+    "cycle": 4,
+    "root_cause": "JSON string in additionalFields.reply_markup doesn't work - n8n requires native fixedCollection"
+  },
+  "success_reply_config": {
+    "replyMarkup": "replyKeyboard",
+    "replyKeyboard": {
+      "rows": [
+        {
+          "row": {
+            "buttons": [
+              {
+                "text": "📊 Дневной отчёт",
+                "additionalFields": {}
+              }
+            ]
+          }
+        },
+        {
+          "row": {
+            "buttons": [
+              {
+                "text": "💧 Вода",
+                "additionalFields": {}
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "replyKeyboardOptions": {
+      "resize_keyboard": true,
+      "one_time_keyboard": false
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "snapshot_type": "pre_fix_backup",
+  "snapshot_timestamp": "2025-12-05T15:55:00Z",
+  "workflow_id": "sw3Qs3Fe3JahEbbW",
+  "workflow_name": "FoodTracker",
+  "version_id": "8f3eae52-73b3-4eb2-a1d8-8b02918fb7c2",
+  "version_counter": 196,
+  "node_count": 48,
+  "fix_description": "Adding p_date parameter to Save Food Entry tool",
+  "root_cause": "Missing p_date parameter in Save Food Entry AI tool causes all food saving to fail"
+}
