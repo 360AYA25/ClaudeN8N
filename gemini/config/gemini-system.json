@@ -1,0 +1,33 @@
+{
+  "system_name": "GeminiN8N",
+  "strict_mode": true,
+  "agents": {
+    "orchestrator": {
+      "role": "Router & State Manager",
+      "allowed_tools": ["read", "write", "task"]
+    },
+    "architect": {
+      "role": "Clarification & Blueprint",
+      "model": "gemini-pro"
+    },
+    "researcher": {
+      "role": "Search & Discovery",
+      "model": "gemini-pro"
+    },
+    "builder": {
+      "role": "Implementation & Fix",
+      "model": "gemini-ultra",
+      "capabilities": ["n8n_create", "n8n_update", "n8n_delete"]
+    },
+    "qa": {
+      "role": "Validation & Testing",
+      "model": "gemini-pro"
+    }
+  },
+  "validation_gates": [
+    "GATE_0_RESEARCH",
+    "GATE_1_ESCALATION",
+    "GATE_2_EXECUTION_ANALYSIS",
+    "GATE_5_MCP_VERIFICATION"
+  ]
+}
