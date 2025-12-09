@@ -2756,6 +2756,136 @@ return [{
 
 ## Telegram Bot
 
+### [2025-12-09 14:30] 🚨 BotFather Commands MUST Match n8n Workflow Routing
+
+**Problem:** Changed n8n workflow to route `/day` and `/week` instead of `/report` and `/stats`, but Telegram bot menu still shows old commands
+
+**Cause:** Two separate systems:
+1. **n8n workflow** - Switch node routing (what bot actually executes)
+2. **Telegram BotFather** - Command menu display (what user sees in UI)
+
+Changing workflow routing does NOT update BotFather menu automatically!
+
+**Solution:** When adding/removing/renaming Telegram bot commands:
+
+**Step 1: Update n8n workflow**
+- Modify Switch node routing
+- Update Simple Reply/Code nodes with command arrays
+- Test workflow execution
+
+**Step 2: Update BotFather in Telegram** ⚠️ **CRITICAL!**
+1. Open [@BotFather](https://t.me/BotFather)
+2. Send `/setcommands`
+3. Select your bot
+4. Paste NEW command list (format: `command - Description`)
+5. Verify menu updated in bot UI
+
+**Example:**
+```
+start - Приветствие и регистрация
+help - Справка по командам
+day - Дневной отчёт
+week - Статистика за неделю
+settings - Настройки
+```
+
+**Prevention Checklist:**
+- [ ] Modified Switch node routing in n8n
+- [ ] Updated command arrays in Code nodes
+- [ ] **Updated BotFather command menu via /setcommands**
+- [ ] Tested in Telegram that menu shows correct commands
+- [ ] Tested that old commands DON'T work (if removed)
+
+**Tags:** #telegram #botfather #commands #n8n #workflow #ux #critical
+
+---
+
+### [2025-12-09 15:30] 🤖 Automate BotFather via Telegram Bot API
+
+**Problem:** Manually updating BotFather commands is slow and error-prone
+
+**Solution:** Use Telegram Bot API to automate BotFather updates programmatically
+
+**Credentials Location:**
+- File: `/Users/sergey/Projects/ClaudeN8N/CREDENTIALS.env`
+- Variable: `TELEGRAM_BOT_TOKEN=7845235205:AAE...`
+- Format: `<bot_id>:<token>`
+
+**API Call:**
+```bash
+curl -X POST "https://api.telegram.org/bot<TOKEN>/setMyCommands" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "commands": [
+      {"command": "start", "description": "Приветствие"},
+      {"command": "help", "description": "Справка"}
+    ]
+  }'
+```
+
+**Response:** `{"ok":true,"result":true}`
+
+**Other useful methods:**
+- `getMyCommands` - Get current command list
+- `deleteMyCommands` - Remove all commands
+- `setMyName` - Change bot name
+- `setMyDescription` - Change bot description
+
+**When to use:** After modifying n8n workflow command routing
+
+**Tags:** #telegram #botfather #api #automation #credentials
+
+---
+
+### [2025-12-09 15:35] 🚨 n8n Telegram Signature Added by Node, Not AI
+
+**Problem:** Signature "This message was sent automatically with n8n" appears in ALL bot responses, even with NO SIGNATURE rules in AI prompt
+
+**Root Cause:** Signature NOT from AI Agent! It's added by **n8n Telegram Send node** via `appendAttribution` parameter (default = `true`)
+
+**Why Strip Signature Code failed:**
+1. Strip Signature regex runs BEFORE sending
+2. Telegram node adds signature AFTER, during API call
+3. Regex never finds anything
+
+**Solution:** Disable `appendAttribution` in Telegram nodes
+
+**How to fix:**
+```json
+{
+  "additionalFields": {
+    "appendAttribution": false
+  }
+}
+```
+
+**Via MCP:**
+```javascript
+n8n_update_partial_workflow({
+  operations: [{
+    type: "updateNode",
+    nodeName: "Success Reply",
+    updates: {
+      parameters: {
+        additionalFields: {
+          appendAttribution: false
+        }
+      }
+    }
+  }]
+})
+```
+
+**Affected:** ALL Telegram nodes with `operation: sendMessage`
+
+**NOT affected:** sendChatAction, file operations
+
+**Prevention:** Set `appendAttribution: false` when creating new Telegram Send nodes
+
+**Tags:** #n8n #telegram #signature #appendAttribution #bug
+
+---
+
 ### [2025-10-27 15:00] Credential IDs overwritten during workflow update
 
 **Problem:** After API update, workflow shows "Credential with ID 'lGhGjBvzywEUiLXa' does not exist"

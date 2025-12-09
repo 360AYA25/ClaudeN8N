@@ -17,15 +17,32 @@
 User request → /orch → 5-Agent System → Result
 ```
 
+### 🔒 ENFORCEMENT: PreToolUse Hook Active
+
+**Hook:** `.claude/hooks/enforce-orch.md`
+
+**What it does:**
+- **BLOCKS** all direct `mcp__n8n-mcp__*` tool calls
+- **ALLOWS** only when context shows "## ROLE: [Agent]" (subagent from /orch)
+- **Forces** you to use `/orch` - you physically CANNOT bypass it!
+
+**Block message:**
+```
+🚨 BLOCKED: Direct n8n MCP access not allowed!
+Rule: ALL n8n workflow tasks MUST use /orch
+Correct: /orch <your task>
+```
+
 ### При получении ЛЮБОГО запроса:
-1. **Автоматически запускай** `/orch` (SlashCommand)
+1. **Автоматически запускай** `/orch` (SlashCommand) - enforcement via hook!
 2. Orchestrator сам определит какого агента вызвать
-3. НИКОГДА не работай напрямую с n8n без /orch
+3. Hook БЛОКИРУЕТ прямые MCP вызовы к n8n - обход невозможен
 
 ### Исключения (когда НЕ использовать /orch):
 - Вопросы о системе ("как работает система?", "покажи агентов")
-- Редактирование документации проекта (CLAUDE.md, agents/*.md)
+- Редактирование документации проекта (CLAUDE.md, agents/*.md, hooks/*.md)
 - Git операции (commit, push)
+- Работа с файлами проекта (Read, Write, Edit - не n8n MCP!)
 
 ### Примеры:
 | User говорит | Действие |
@@ -35,6 +52,7 @@ User request → /orch → 5-Agent System → Result
 | "найди node для Telegram" | → `/orch найди node для Telegram` |
 | "что сломалось?" | → `/orch что сломалось?` |
 | "как работает builder?" | Ответь напрямую (документация) |
+| *Попытка вызвать n8n_get_workflow* | **🚨 BLOCKED by hook!** |
 
 ---
 

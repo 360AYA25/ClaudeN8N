@@ -1,0 +1,26 @@
+{
+  "name": "clauden8n",
+  "version": "1.0.0",
+  "description": "Claude Code knowledge base and toolkit for n8n workflow automation.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/360AYA25/ClaudeN8N.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/360AYA25/ClaudeN8N/issues"
+  },
+  "homepage": "https://github.com/360AYA25/ClaudeN8N#readme",
+  "dependencies": {
+    "n8n-mcp": "^2.28.8"
+  }
+}
