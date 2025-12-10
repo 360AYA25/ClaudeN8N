@@ -494,9 +494,163 @@ fi
 
 ---
 
+## Special Commands: Rollback System
+
+### COMMAND: /orch rollback
+
+**Purpose:** Restore workflow from auto-snapshot (created by Builder before destructive changes)
+
+**Syntax:**
+```bash
+/orch rollback                    # Rollback to last snapshot
+/orch rollback <timestamp>        # Rollback to specific snapshot
+/orch rollback list               # Show available snapshots
+```
+
+**Implementation:**
+
+```bash
+# Parse rollback command
+if [[ "$user_request" =~ ^/orch\ rollback ]]; then
+
+  # Get project context
+  if [ -f memory/run_state_active.json ]; then
+    project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
+    workflow_id=$(jq -r '.workflow_id // null' memory/run_state_active.json)
+  else
+    project_path="/Users/sergey/Projects/ClaudeN8N"
+    workflow_id=null
+  fi
+
+  snapshot_dir="${project_path}/.n8n/snapshots"
+
+  # Handle "list" subcommand
+  if [[ "$user_request" =~ rollback\ list ]]; then
+    echo "📋 Available snapshots in $snapshot_dir:"
+    echo ""
+    if [ -d "$snapshot_dir" ] && [ -n "$(ls -A $snapshot_dir 2>/dev/null)" ]; then
+      ls -1t "$snapshot_dir"/*.json | while read file; do
+        timestamp=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$file")
+        basename_file=$(basename "$file")
+        size=$(du -h "$file" | cut -f1)
+        echo "  $basename_file ($size, created: $timestamp)"
+      done
+    else
+      echo "  No snapshots found"
+    fi
+    exit 0
+  fi
+
+  # Get timestamp (latest if not specified)
+  timestamp=$(echo "$user_request" | awk '{print $3}')
+
+  if [ -z "$timestamp" ]; then
+    # Get latest snapshot
+    latest_snapshot=$(ls -t "$snapshot_dir"/*.json 2>/dev/null | head -1)
+
+    if [ -z "$latest_snapshot" ]; then
+      echo "❌ No snapshots found in $snapshot_dir"
+      echo "Snapshots are created automatically before destructive changes"
+      exit 1
+    fi
+
+    timestamp=$(basename "$latest_snapshot" | cut -d'-' -f1-6)
+  fi
+
+  # Find snapshot file
+  snapshot_file=$(find "$snapshot_dir" -name "${timestamp}*.json" 2>/dev/null | head -1)
+
+  if [ ! -f "$snapshot_file" ]; then
+    echo "❌ Snapshot not found: $timestamp"
+    echo "Available snapshots:"
+    ls -1 "$snapshot_dir"/*.json 2>/dev/null | xargs -n1 basename || echo "  No snapshots"
+    exit 1
+  fi
+
+  # Extract workflow_id from snapshot
+  if [ "$workflow_id" = "null" ]; then
+    workflow_id=$(jq -r '.id // .workflow_id // null' "$snapshot_file")
+
+    if [ "$workflow_id" = "null" ]; then
+      echo "❌ Cannot determine workflow_id from snapshot"
+      exit 1
+    fi
+  fi
+
+  # Confirm with user
+  echo "⚠️ This will restore workflow to snapshot:"
+  echo "   Workflow ID: $workflow_id"
+  echo "   Snapshot: $(basename $snapshot_file)"
+  echo "   Created: $(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$snapshot_file")"
+  echo "   Size: $(du -h "$snapshot_file" | cut -f1)"
+  echo ""
+  read -p "Confirm rollback? (yes/no): " confirm
+
+  if [ "$confirm" != "yes" ]; then
+    echo "❌ Rollback cancelled"
+    exit 0
+  fi
+
+  # Delegate to Builder for restore
+  Task({
+    subagent_type: "general-purpose",
+    model: "opus",
+    prompt: `## ROLE: Builder Agent
+
+Read: .claude/agents/builder.md
+
+## TASK: Restore workflow from snapshot
+
+Snapshot file: $snapshot_file
+Workflow ID: $workflow_id
+Project path: $project_path
+
+Steps:
+1. Read snapshot file
+2. Use mcp__n8n-mcp__n8n_update_full_workflow to restore
+3. Verify restore successful (n8n_get_workflow)
+4. Report to user with workflow stats (node count, connections)
+
+CRITICAL:
+- Use EXACT workflow JSON from snapshot
+- Verify with MCP call after restore
+- Report success with workflow details
+`
+  })
+
+  exit 0
+fi
+```
+
+**Example:**
+```bash
+# Rollback to latest snapshot
+/orch rollback
+
+# Rollback to specific snapshot
+/orch rollback 2025-12-10T14-30-00
+
+# List all snapshots
+/orch rollback list
+```
+
+---
+
 ## Session Start (with Validation!)
 
 When `/orch` is invoked:
+
+### Step 0: Load Gate Enforcement (🔒 NEW - CRITICAL!)
+
+```bash
+# 0.1 Source gate enforcement functions
+source .claude/agents/shared/gate-enforcement.sh
+
+# 0.2 This enables validation gates BEFORE every agent delegation
+# Reference: SYSTEM-SAFETY-OVERHAUL.md (prevents FAILURE-ANALYSIS disasters)
+
+echo "🔒 Gate enforcement loaded (v1.0.0)"
+```
 
 ### Step 1: Load and Validate run_state
 
@@ -618,6 +772,16 @@ jq --arg req "$USER_REQUEST" \
 ### Step 5: Start Architect
 
 ```bash
+# 5.1 Check validation gates BEFORE delegation
+check_all_gates "architect" "memory/run_state_active.json"
+
+if [ $? -ne 0 ]; then
+  echo "❌ Gate violation detected - cannot proceed"
+  echo "See error message above for required action"
+  exit 1
+fi
+
+# 5.2 Gates passed - proceed with delegation
 Task({ subagent_type: "general-purpose", prompt: "## ROLE: Architect\nRead: .claude/agents/architect.md\n\n## TASK: Clarify requirements with user" })
 ```
 
@@ -631,6 +795,50 @@ Task({ subagent_type: "general-purpose", prompt: "## ROLE: Architect\nRead: .cla
 | stage=incomplete | - | Different request | ASK USER! |
 | - | Outdated | Any | ASK USER! |
 | - | Missing | workflow_id exists | Create snapshot |
+
+---
+
+## 🔒 Agent Delegation Protocol (MANDATORY!)
+
+**BEFORE EVERY Task() call, Orchestrator MUST check gates:**
+
+```bash
+# Standard delegation pattern (use for ALL agent calls):
+
+# 1. Determine target agent
+target_agent="builder"  # or researcher, qa, architect, analyst
+
+# 2. Check validation gates
+check_all_gates "$target_agent" "memory/run_state_active.json"
+
+if [ $? -ne 0 ]; then
+  # Gate violation - STOP!
+  echo "❌ Cannot delegate to $target_agent - gate violation"
+  echo "See error message above for required action"
+  exit 1
+fi
+
+# 3. Gates passed - proceed with delegation
+Task({
+  subagent_type: "general-purpose",
+  model: "opus",  # only for builder
+  prompt: `## ROLE: ${agent} Agent
+
+  Read: .claude/agents/${agent}.md
+
+  ## TASK
+  ...`
+})
+```
+
+**Applies to:**
+- ✅ Architect (clarification)
+- ✅ Researcher (search, analysis)
+- ✅ Builder (create, modify workflows)
+- ✅ QA (validate, test)
+- ✅ Analyst (post-mortem, execution analysis)
+
+**NO EXCEPTIONS!** Gates prevent disasters like FAILURE-ANALYSIS-2025-12-10.md
 
 ---
 

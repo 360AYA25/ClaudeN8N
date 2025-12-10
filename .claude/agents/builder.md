@@ -391,6 +391,114 @@ Return error to Orchestrator:
 
 ---
 
+## PRE-BUILD: Snapshot Protocol (Auto-Rollback Safety)
+
+> **Purpose:** Automatic backup before destructive changes
+> **Reference:** SYSTEM-SAFETY-OVERHAUL.md (prevents FAILURE-ANALYSIS disasters)
+> **When:** BEFORE making ANY modifications to existing workflows
+
+### Step 1: Analyze Changes
+
+```javascript
+/**
+ * Classify operation as destructive or safe
+ */
+function isDestructive(changes) {
+  return (
+    changes.nodes_deleted > 0 ||
+    changes.nodes_modified > 3 ||
+    changes.connections_changed > 5 ||
+    changes.affects_critical_path === true
+  );
+}
+
+// Example:
+const changes = {
+  nodes_deleted: 1,        // Deleting "Success Reply"
+  nodes_modified: 2,       // Updating HTTP + reconnecting
+  connections_changed: 4,  // Rewiring flow
+  affects_critical_path: true  // Main message path affected
+};
+
+isDestructive(changes); // → true
+```
+
+### Step 2: Create Snapshot (if destructive)
+
+**BEFORE making changes:**
+
+```bash
+# 1. Analyze planned changes
+nodes_deleted=$(echo "$planned_changes" | jq -r '.nodes_deleted // 0')
+nodes_modified=$(echo "$planned_changes" | jq -r '.nodes_modified // 0')
+connections_changed=$(echo "$planned_changes" | jq -r '.connections_changed // 0')
+
+# 2. Check if destructive
+is_destructive=false
+
+if [ "$nodes_deleted" -gt 0 ] || [ "$nodes_modified" -gt 3 ] || [ "$connections_changed" -gt 5 ]; then
+  is_destructive=true
+fi
+
+# 3. Create snapshot if destructive
+if [ "$is_destructive" = "true" ]; then
+  echo "⚠️ Destructive operation detected!"
+  echo "   Nodes deleted: $nodes_deleted"
+  echo "   Nodes modified: $nodes_modified"
+  echo "   Connections changed: $connections_changed"
+
+  # Get current workflow
+  workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
+  project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
+
+  # Create snapshot via MCP
+  mcp__n8n-mcp__n8n_get_workflow --id "$workflow_id" --mode full > /tmp/snapshot_tmp.json
+
+  # Save to snapshots directory
+  timestamp=$(date -u +"%Y-%m-%dT%H-%M-%S")
+  operation=$(echo "$planned_changes" | jq -r '.operation // "modify"')
+  snapshot_file="${project_path}/.n8n/snapshots/${timestamp}-pre-${operation}.json"
+
+  mkdir -p "${project_path}/.n8n/snapshots"
+  mv /tmp/snapshot_tmp.json "$snapshot_file"
+
+  # Get workflow version
+  workflow_version=$(jq -r '.versionId // 1' "$snapshot_file")
+
+  echo "✅ Snapshot saved: $(basename $snapshot_file)"
+  echo "📌 To rollback: /orch rollback $timestamp"
+
+  # Update run_state with snapshot info
+  jq --arg ts "$timestamp" --arg op "$operation" --arg file "$snapshot_file" --arg ver "$workflow_version" \
+    '.snapshots += [{
+      timestamp: $ts,
+      operation: $op,
+      file: $file,
+      workflow_version: ($ver | tonumber)
+    }]' memory/run_state_active.json > /tmp/run_state_tmp.json
+  mv /tmp/run_state_tmp.json memory/run_state_active.json
+fi
+```
+
+### Step 3: Proceed with Changes
+
+After snapshot created (or skipped if not destructive), proceed with normal build process.
+
+### Examples
+
+**Destructive (snapshot created):**
+- Delete node
+- Modify 4+ nodes
+- Rewire 6+ connections
+- Change critical path (webhook → AI → response)
+
+**Not Destructive (no snapshot):**
+- Change button text (1 node, 0 connections)
+- Update 1-2 parameters
+- Add new optional node
+
+---
+
 ## Code Node Syntax Validation (MANDATORY!)
 
 **⚠️ CRITICAL: Check for deprecated syntax in ALL Code nodes!**
@@ -1258,6 +1366,230 @@ async function rollbackToSnapshot(stepNumber) {
   run_state.modification_progress.rollback_available = false;
 }
 ```
+
+---
+
+## 🚨 Automatic Change Queue (Priority 0 Safety)
+
+> **Purpose:** Test after EACH change, catch errors early
+> **Reference:** SYSTEM-SAFETY-OVERHAUL.md (prevents FAILURE-ANALYSIS batch-change disasters)
+> **When:** Multi-step modifications (delete + update + rewire)
+
+### Problem: Batch Changes = Late Discovery
+
+**OLD (BROKEN):**
+```javascript
+// Make all changes
+updateNode(node1);
+updateNode(node2);
+deleteNode(node3);
+
+// Test at end
+delegateToQA();  // ❌ If fails, don't know WHICH change broke it!
+```
+
+**Result:**
+- All 3 changes applied
+- Workflow broken
+- Don't know which change failed
+- Hard to rollback
+
+### Solution: Incremental Queue Processing
+
+**NEW (SAFE):**
+```javascript
+/**
+ * Change Queue with Automatic QA After Each Step
+ */
+class ChangeQueue {
+  constructor(workflow_id, project_path) {
+    this.workflow_id = workflow_id;
+    this.project_path = project_path;
+    this.changes = [];
+    this.applied = [];
+    this.failed = [];
+  }
+
+  /**
+   * Add change to queue
+   */
+  add(change) {
+    this.changes.push({
+      id: `change-${this.changes.length + 1}`,
+      type: change.type,        // "update" | "delete" | "create"
+      target: change.target,    // node ID or name
+      params: change.params,
+      status: "pending"
+    });
+  }
+
+  /**
+   * Process queue incrementally with auto-QA
+   */
+  async processQueue() {
+    for (const change of this.changes) {
+      console.log(`\n📝 Applying: ${change.id} (${change.type} ${change.target})`);
+
+      // 1. Create snapshot before this change
+      const snapshot = await this.createSnapshot(change.id);
+      change.snapshot = snapshot;
+
+      // 2. Apply change
+      const result = await this.applyChange(change);
+
+      if (!result.success) {
+        this.failed.push(change);
+        return {
+          status: "failed",
+          at_change: change.id,
+          error: result.error,
+          applied: this.applied.length,
+          remaining: this.changes.length - this.applied.length - 1
+        };
+      }
+
+      // 3. Save workflow to n8n
+      await this.saveWorkflow();
+
+      // 4. Automatic QA test
+      console.log(`🧪 Testing: ${change.id}...`);
+      const qa = await this.delegateToQA(change.id);
+
+      if (qa.status !== "PASS") {
+        // Rollback THIS change
+        console.log(`❌ QA FAILED: ${change.id}`);
+        console.log(`⏪ Rolling back to snapshot: ${snapshot.file}`);
+
+        await this.rollbackChange(change);
+        this.failed.push(change);
+
+        return {
+          status: "failed_qa",
+          at_change: change.id,
+          qa_errors: qa.errors,
+          applied_successfully: this.applied.map(c => c.id),
+          rolled_back: change.id
+        };
+      }
+
+      // 5. Change passed QA!
+      console.log(`✅ PASSED: ${change.id}`);
+      change.status = "applied";
+      this.applied.push(change);
+    }
+
+    // All changes succeeded
+    return {
+      status: "success",
+      applied: this.applied.length,
+      failed: this.failed.length,
+      changes: this.applied.map(c => c.id)
+    };
+  }
+
+  /**
+   * Create snapshot before change
+   */
+  async createSnapshot(change_id) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const snapshot_file = `${this.project_path}/.n8n/snapshots/${timestamp}-pre-${change_id}.json`;
+
+    // Get current workflow
+    const workflow = await mcp__n8n-mcp__n8n_get_workflow({
+      id: this.workflow_id,
+      mode: "full"
+    });
+
+    // Save snapshot
+    Write(snapshot_file, JSON.stringify(workflow, null, 2));
+
+    return {
+      file: snapshot_file,
+      timestamp: timestamp,
+      version: workflow.versionId
+    };
+  }
+
+  /**
+   * Rollback specific change using snapshot
+   */
+  async rollbackChange(change) {
+    if (!change.snapshot || !change.snapshot.file) {
+      throw new Error(`No snapshot available for ${change.id}`);
+    }
+
+    // Read snapshot
+    const snapshot_content = Read(change.snapshot.file);
+    const snapshot_workflow = JSON.parse(snapshot_content);
+
+    // Restore via MCP
+    await mcp__n8n-mcp__n8n_update_full_workflow({
+      id: this.workflow_id,
+      workflow: snapshot_workflow
+    });
+
+    console.log(`✅ Rolled back to: ${change.snapshot.file}`);
+  }
+
+  /**
+   * Delegate to QA for specific change
+   */
+  async delegateToQA(change_id) {
+    // Delegate to QA agent with focus on this change
+    const qa_result = await Task({
+      subagent_type: "general-purpose",
+      prompt: `## ROLE: QA Agent
+
+Read: .claude/agents/qa.md
+
+## TASK: Validate single change
+
+Workflow ID: ${this.workflow_id}
+Change applied: ${change_id}
+Focus: Verify workflow still works after this change
+
+Steps:
+1. Validate workflow structure (mcp__n8n-mcp__n8n_validate_workflow)
+2. Check for errors/warnings
+3. Return PASS/FAIL
+
+CRITICAL: Fast validation - check structure only, no execution needed at this stage
+`
+    });
+
+    return qa_result;
+  }
+}
+
+// Usage Example:
+const queue = new ChangeQueue(workflow_id, project_path);
+
+queue.add({ type: "update", target: "Send Keyboard (HTTP)", params: { text: "New button text" } });
+queue.add({ type: "delete", target: "Success Reply" });
+queue.add({ type: "update", target: "AI Agent", params: { model: "gpt-4o" } });
+
+const result = await queue.processQueue();
+// → Applies changes one-by-one
+// → Tests after EACH change
+// → Rolls back on failure
+// → Continues only if QA passes
+```
+
+### Benefits
+
+| Old Approach | New Approach |
+|--------------|--------------|
+| Batch all changes → test | Change → test → change → test |
+| Failure = don't know which broke | Failure = know exact change |
+| Rollback = revert everything | Rollback = revert one change |
+| 6 hours debugging (FAILURE-ANALYSIS) | 5 minutes (catch at first failure) |
+
+### When to Use
+
+- ✅ Multiple node modifications
+- ✅ Delete + rewire operations
+- ✅ Risky changes (critical path)
+- ❌ Single parameter update (overkill)
 
 ---
 

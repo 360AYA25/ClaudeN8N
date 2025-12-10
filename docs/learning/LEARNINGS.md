@@ -51,11 +51,11 @@
 | [Telegram Bot](#telegram-bot) | 1130 | 2 | Webhooks, message handling |
 | [Git & GitHub](#git--github) | 1190 | 3 | Monorepo, PRs, workflow, pull/rebase |
 | [Error Handling](#error-handling) | 1250 | 3 | continueOnFail, 404, validation |
-| [AI Agents](#ai-agents) | 1340 | 3 | Parameters, tools, prompts, memory |
+| [AI Agents](#ai-agents) | 3048 | 7 | Parameters, tools, prompts, memory, schema design, flat vs nested |
 | [HTTP Requests](#http-requests) | 1440 | 2 | Error handling, credentials, status codes |
 | [MCP Server](#mcp-server) | 1500 | 1 | Migration, stdio, WebSocket |
 
-**Total:** 44 entries across 10 categories
+**Total:** 48 entries across 10 categories
 
 ---
 
@@ -168,6 +168,311 @@ ls .claude/agents/*.md | wc -l
 ---
 
 ## n8n Workflows
+
+## L-102: Multiple Changes Cascade - When "Simple Fix" Becomes 6-Hour Debug Marathon
+
+**Category:** Debugging / Architecture / Change Management
+**Severity:** 🔴 **CRITICAL** - Lost 6 hours on keyboard button changes
+**Date:** 2025-12-10
+**Impact:** Simple button text change cascaded into multiple breaking changes, rollbacks, and bot stuck in loop
+
+### Timeline of Changes (What Happened)
+
+**Change 1: Button Text Update (SUCCESS)**
+- **Goal:** Change keyboard button from "📊 Дневной отчёт + 💧 Вода" to single "🍽️ Добавить блюдо"
+- **Method:** Updated jsonBody in "Send Keyboard (HTTP)" node
+- **Result:** ✅ SUCCESS - Button changed, worked correctly
+
+**Change 2: Fix Intermittent Keyboard (FAILED)**
+- **Problem:** User reported button "works through the time" (appears inconsistently)
+- **Root Cause Found:** DUPLICATE keyboard logic causing race condition:
+  - "Success Reply" (Telegram node) tried to send keyboard (failed due to L-100 n8n bug)
+  - "Send Keyboard (HTTP)" sent keyboard as separate message (worked)
+  - Both executed in parallel → intermittent behavior
+- **Solution Attempted:** Merge AI response + keyboard into single HTTP Request
+- **Changes:**
+  - Deleted "Success Reply" node
+  - Updated "Send Keyboard (HTTP)" to send both AI text + keyboard
+- **Result:** ❌ FAILED - Bot stopped responding entirely
+
+**Change 3: Emergency Fix - Bot Silent (PARTIAL SUCCESS)**
+- **Problem:** Bot completely silent after merge
+- **Root Cause:** Workflow stopped at "Log Message" node (duplicate key constraint error)
+- **Solution:** Enabled `continueOnFail: true` on "Log Message"
+- **Result:** ⚠️ PARTIAL - Bot started responding but with merged architecture (not what user wanted)
+
+**Change 4: User-Demanded Rollback (SUCCESS)**
+- **User Feedback:** "Вернуть Telegram node обратно"
+- **Action:** Restored original two-message architecture:
+  - Recreated "Success Reply" (Telegram node) for AI responses
+  - Reverted "Send Keyboard (HTTP)" to keyboard-only
+- **Result:** ✅ Rollback successful
+
+**Current Problem: Bot Stuck in Loop**
+- **Symptom:** Bot gets stuck on "🍽️ Добавить блюдо" command
+- **Behavior:** After clicking button, bot loops asking for dish name, ignores /day and /settings commands
+- **Likely Cause:** AI Agent or Memory node stuck in "add dish" context, doesn't recognize command switches
+
+### Root Causes (Why This Happened)
+
+1. **Incomplete Initial Analysis**
+   - Changed button text WITHOUT analyzing full keyboard architecture
+   - Didn't discover duplicate keyboard logic until user reported intermittent behavior
+
+2. **Over-Engineering Fix**
+   - Race condition could have been fixed by simply removing keyboard from "Success Reply"
+   - Instead tried to merge entire architecture → created bigger problem
+
+3. **Missing Execution Analysis**
+   - Didn't check execution logs BEFORE making merge changes
+   - Would have discovered "Log Message" duplicate key error earlier
+
+4. **No Rollback Plan**
+   - Made destructive changes (deleted nodes) without backup
+   - Had to reconstruct "Success Reply" node from scratch
+
+### Correct Approach (What Should Have Happened)
+
+**Phase 1: Full Diagnosis FIRST**
+```
+1. Get workflow structure (57 nodes)
+2. Find ALL Telegram response nodes
+3. Map execution flow
+4. Check execution logs for errors
+5. Create snapshot before ANY changes
+```
+
+**Phase 2: Minimal Fix**
+```
+Option A: Remove keyboard from Success Reply (1 node change)
+  - Keeps both nodes
+  - Eliminates race condition
+  - Minimal risk
+
+Option B: Full merge (RISKY - requires backup!)
+  - Delete Success Reply
+  - Update Send Keyboard (HTTP)
+  - Test in separate branch first
+```
+
+**Phase 3: Incremental Validation**
+```
+1. Make one change
+2. Test bot immediately
+3. If works → next change
+4. If breaks → rollback instantly
+```
+
+### Solutions & Prevention
+
+**For Current "Stuck Loop" Problem:**
+1. Check AI Agent system prompt - does it handle commands like /day?
+2. Check Memory node - is context persisting between commands?
+3. Add command detection logic BEFORE AI Agent (Switch/IF node)
+4. Clear memory when user sends slash command
+
+**For Future Changes:**
+1. ✅ **ALWAYS create snapshot** before destructive changes
+2. ✅ **Analyze execution logs** before fixing (GATE 2)
+3. ✅ **Map full architecture** before modifying shared nodes
+4. ✅ **Prefer minimal changes** over architectural refactors
+5. ✅ **Test after EACH change**, not after batch
+6. ✅ **Keep rollback plan ready** - version history, snapshots
+7. ✅ **Separate concerns:**
+   - Button text change → Update only text
+   - Architecture fix → Separate session with approval
+
+### Key Learnings
+
+**L-102.1:** Simple UI change ≠ Simple architecture
+- Changing button text touched 3 different systems (Telegram node, HTTP node, connections)
+- Always map full architecture BEFORE modifying shared components
+
+**L-102.2:** Race conditions need minimal fixes
+- "Success Reply keyboard fails sometimes" → Just disable it (1 change)
+- Don't merge entire architecture to fix race condition
+
+**L-102.3:** User frustration signals = STOP and rollback
+- After 2-3 failed attempts → rollback immediately
+- Don't keep trying variations, restore working state first
+
+**L-102.4:** Execution logs > Configuration validation
+- "Log Message" duplicate key error existed BEFORE our changes
+- Would have been discovered if we checked logs first (GATE 2)
+
+**L-102.5:** Test bot AFTER EACH CHANGE
+- Made 3 changes, tested once at the end
+- Should have tested: change 1 → test → change 2 → test → change 3 → test
+
+### Tags
+#debugging #cascade-failure #rollback #architecture #telegram-bot #race-condition #change-management #user-frustration #6-hour-marathon
+
+---
+
+## L-101: HTTP Request Node Credential Expression Not Resolved (404 Error)
+
+**Category:** n8n HTTP Request / Credentials / Expression Evaluation
+**Severity:** 🔴 **CRITICAL** - HTTP Request fails silently with 404
+**Date:** 2025-12-10
+**Impact:** `{{ $credentials.credentialType.field }}` expression in URL not resolved → 404 error from API
+
+### Problem
+
+HTTP Request node configured with `authentication: "predefinedCredentialType"` and credential expression in URL:
+
+```javascript
+{
+  "url": "=https://api.telegram.org/bot{{ $credentials.telegramApi.accessToken }}/sendMessage",
+  "authentication": "predefinedCredentialType",
+  "nodeCredentialType": "telegramApi"
+}
+```
+
+**Result:** URL sent to API is:
+```
+https://api.telegram.org/bot/sendMessage  ← TOKEN MISSING!
+```
+
+Expression `{{ $credentials.telegramApi.accessToken }}` **NOT resolved** even with `=` prefix!
+
+API returns **404 Not Found** because token is missing.
+
+### Root Cause
+
+HTTP Request node v4.2 with `authentication: "predefinedCredentialType"` **does NOT resolve** `{{ $credentials... }}` expressions in URL field.
+
+Credential expressions work in:
+- Body parameters ✅
+- Headers ✅
+- Query parameters ✅
+
+But **NOT in URL field** when using predefinedCredentialType authentication!
+
+### Solution: Hardcode credential in URL (or use Generic Credential)
+
+**Option 1: Hardcode (temporary testing)**
+```javascript
+{
+  "url": "https://api.telegram.org/bot7845235205:AAE.../sendMessage",
+  "authentication": "none"
+}
+```
+
+**Option 2: Use Generic Credential Type**
+```javascript
+{
+  "url": "={{$credentials.httpHeaderAuth.token}}/sendMessage",
+  "authentication": "genericCredentialType",
+  "genericAuthType": "httpHeaderAuth"
+}
+```
+
+**Option 3: Pass token as body parameter** (if API supports)
+
+### Prevention
+
+1. **Avoid `{{ $credentials }}` in URL field** - use body/headers/query params instead
+2. **Test credential resolution** - check execution logs for actual URL sent
+3. **Use Generic Credential Type** - more reliable for dynamic URLs
+4. **Hardcode for testing** - verify API works before adding credential complexity
+
+### Tags
+#http-request #credentials #expression #telegram-bot #api-call #n8n-bug
+
+---
+
+## L-100: n8n Telegram Node Doesn't Support Reply Keyboard (Use HTTP Request Instead)
+
+**Category:** Telegram Bot / n8n Node Limitation / Reply Keyboard
+**Severity:** 🔴 **CRITICAL** - 9 attempts wasted (5+ hours)
+**Date:** 2025-12-10
+**Impact:** Reply Keyboard buttons never appear in Telegram bot despite "correct" node configuration
+
+### Problem
+
+Telegram node configured with Reply Keyboard using `replyMarkup` and `replyKeyboard` parameters:
+
+```javascript
+{
+  "operation": "sendMessage",
+  "replyMarkup": "replyKeyboard",
+  "replyKeyboard": {
+    "rows": [
+      [{"text": "📊 Дневной отчёт"}, {"text": "💧 Вода"}]
+    ]
+  },
+  "replyKeyboardOptions": {
+    "resize_keyboard": true
+  }
+}
+```
+
+**Validation:** ✅ PASS (node configuration correct)
+**Execution:** ✅ SUCCESS (message sent)
+**Result:** ❌ **Buttons DON'T APPEAR in bot!**
+
+Telegram API response does **NOT contain** `reply_markup` field → keyboard not sent to Telegram!
+
+### Root Cause
+
+**n8n Telegram node does NOT support Reply Keyboard** - this is a known limitation/bug!
+
+- **Inline Keyboards:** ✅ Work (buttons with callback_data)
+- **Reply Keyboards:** ❌ **DON'T WORK** (buttons that replace keyboard)
+
+Evidence:
+- [n8n Community: Reply Keyboard not working](https://community.n8n.io/t/telegram-node-force-reply-reply-keyboard/10260) - user couldn't solve with native node
+- [GitHub PR #17258](https://github.com/n8n-io/n8n/pull/17258) - adds JSON keyboard support, **NOT MERGED** (as of 2025-12-10)
+
+PR adds feature to provide keyboard as raw JSON, but it's **not yet available** in any released n8n version.
+
+### Solution: Replace Telegram Node with HTTP Request Node
+
+**Delete:** n8n Telegram node
+**Create:** HTTP Request node with direct Telegram Bot API call
+
+```javascript
+{
+  "method": "POST",
+  "url": "https://api.telegram.org/bot<BOT_TOKEN>/sendMessage",
+  "authentication": "none",
+  "sendBody": true,
+  "specifyBody": "json",
+  "jsonBody": "={{ JSON.stringify({
+    chat_id: $node[\"Telegram Trigger\"].json.message.chat.id,
+    text: 'Выбери действие:',
+    reply_markup: {
+      keyboard: [[{ text: '📊 Дневной отчёт' }, { text: '💧 Вода' }]],
+      resize_keyboard: true,
+      one_time_keyboard: false
+    }
+  }) }}"
+}
+```
+
+**Result:** Buttons appear correctly in Telegram bot! ✅
+
+### Prevention
+
+1. **For Reply Keyboards:** Always use HTTP Request node (not Telegram node)
+2. **For Inline Keyboards:** Telegram node works fine
+3. **Check n8n version** - if PR #17258 merged, JSON keyboard support may be available
+4. **Test early** - send test keyboard message before building full workflow
+
+### When to Use Which
+
+| Feature | n8n Telegram Node | HTTP Request Node |
+|---------|-------------------|-------------------|
+| Send text message | ✅ Use | Alternative |
+| Inline Keyboard (callback_data) | ✅ Use | Alternative |
+| Reply Keyboard (persistent buttons) | ❌ **DON'T USE!** | ✅ **USE THIS!** |
+| File upload | ✅ Use | Complex |
+| Edit message | ✅ Use | Alternative |
+
+### Tags
+#telegram-bot #reply-keyboard #n8n-bug #http-request #workaround #telegram-api
+
+---
 
 ## L-098: Conversation Memory Data Staleness (AI Returns Cached Answers)
 
@@ -3046,6 +3351,257 @@ if ($input.item.json.error) {
 ---
 
 ## AI Agents
+
+### [2025-12-10 13:00] L-078: Proof - Tool 1 (Flat) vs Tool 10 (Nested)
+
+**Experiment:** Compare two tools in same workflow.
+
+**Tool 1 (save_food_entry):**
+- Schema: FLAT (11 top-level params)
+- Result: ✅ **Works 100%** (296+ successful calls, 0 failures)
+
+**Tool 10 (add_user_meal):**
+- Schema: NESTED (2 params, 1 object with 9 nested fields)
+- Result: ❌ **Fails 100%** ("Received tool input did not match expected schema")
+
+**Same Conditions:**
+- Same workflow (sw3Qs3Fe3JahEbbW)
+- Same AI Agent node
+- Same OpenAI model (gpt-4o-mini)
+- Same system prompt style
+- Same user (telegram_user_id: 682776858)
+
+**Conclusion:**
+
+The ONLY difference is schema structure (flat vs nested).
+
+This proves L-075, L-076, L-077 conclusively.
+
+**Related:**
+- L-075: Root cause
+- L-076: Flat mandate
+- L-077: Description ≠ Schema
+
+**Tags:** #proof #experiment #tool-comparison #validation #foodtracker
+
+---
+
+### [2025-12-10 13:00] L-077: Description Field ≠ Schema
+
+**Problem:** Developers assume AI reads description and generates correct structure.
+
+**Reality:** AI uses schema FIRST, description SECOND.
+
+**What Happens:**
+
+1. **OpenAI receives:**
+   ```json
+   {
+     "name": "add_meal",
+     "parameters": {
+       "type": "object",
+       "properties": {
+         "meal_data": {
+           "type": "object",
+           "description": "JSONB with meal_name (string), slang_names (array)"
+         }
+       }
+     }
+   }
+   ```
+
+2. **AI decision tree:**
+   - Schema says: `meal_data: {type: 'object'}` (no nested properties)
+   - Description says: "slang_names: ARRAY of strings"
+   - **AI simplifies:** string is easier than array
+   - **AI generates:** `"slang_names": "яйца, глазунья"` ← string!
+
+3. **Validation:** Expected array → received string → FAIL
+
+**Key Insight:**
+
+> Description text is a HINT, not a SCHEMA. AI prioritizes type definitions over text explanations.
+
+**Solution:**
+
+- Make types explicit in schema (flat params)
+- Don't rely on description for complex structures
+- Use Code node to enforce structure
+
+**Related:**
+- L-075: Nested schema failure
+- L-076: Flat schema mandate
+
+**Tags:** #ai-agent #schema-vs-description #tool-design #validation
+
+---
+
+### [2025-12-10 13:00] L-076: ALWAYS Use FLAT Parameter Structure
+
+**Rule:** n8n AI Agent tools MUST use flat (top-level) parameters only.
+
+**Why:**
+1. OpenAI function calling performs better with flat schemas
+2. n8n toolHttpRequest cannot expose nested properties schema
+3. AI cannot reliably parse nested structure from description text
+4. Flat schemas eliminate ambiguity → 100% success rate
+
+**Pattern:**
+
+```javascript
+// ✅ CORRECT: Flat schema
+{
+  params: [
+    {name: "user_id", type: "number"},
+    {name: "meal_name", type: "string"},
+    {name: "calories", type: "number"}
+  ]
+}
+
+// ❌ WRONG: Nested schema
+{
+  params: [
+    {name: "user_id", type: "number"},
+    {name: "meal_data", type: "object"}
+  ]
+}
+```
+
+**If You Need Nested Data:**
+
+1. Accept flat params from AI
+2. Add Code node AFTER tool call
+3. Build nested structure in Code
+4. Send to API/RPC
+
+**Related:**
+- L-075: Root cause analysis
+- L-078: Proof (Tool 1 works, Tool 10 fails)
+
+**Tags:** #ai-agent #tool-design #best-practice #mandatory
+
+---
+
+### [2025-12-10 13:00] L-075: n8n toolHttpRequest Nested Schema Incompatibility
+
+**Problem:** AI Agent tool with nested schema (type="object") fails validation.
+
+**Symptom:**
+- AI Agent generates tool call
+- n8n returns: "Received tool input did not match expected schema"
+- Bot crashes before responding (silent failure)
+
+**Example: FoodTracker Tool 10 (add_user_meal)**
+
+Tool definition:
+```json
+{
+  "placeholderDefinitions": {
+    "values": [
+      {"name": "p_user_id", "type": "number"},
+      {"name": "p_meal_data", "type": "object"}
+    ]
+  }
+}
+```
+
+**Cause:**
+
+1. **n8n toolHttpRequest schema limitations:**
+   - type="object" sends incomplete schema to OpenAI
+   - Nested properties NOT exposed to OpenAI API
+   - AI reads description text and GUESSES structure
+
+2. **OpenAI function calling behavior:**
+   - Receives schema: `p_meal_data: {type: 'object'}` (no properties!)
+   - Reads description: "slang_names: ARRAY of strings"
+   - Simplifies to string type (easier for model)
+   - Generates: `{"slang_names": "яйца, глазунья"}` ← STRING!
+
+3. **Validation failure:**
+   - Expected: array
+   - Received: string
+   - Error: "Received tool input did not match expected schema"
+
+**Solution: Use FLAT Schema (Like Tool 1)**
+
+BEFORE (nested, 2 params):
+```json
+{
+  "placeholderDefinitions": {
+    "values": [
+      {"name": "p_user_id", "type": "number"},
+      {"name": "p_meal_data", "type": "object"}
+    ]
+  }
+}
+```
+
+AFTER (flat, 10 params):
+```json
+{
+  "placeholderDefinitions": {
+    "values": [
+      {"name": "p_user_id", "type": "number"},
+      {"name": "p_meal_name", "type": "string"},
+      {"name": "p_slang_names", "type": "string"},
+      {"name": "p_calories_per_100g", "type": "number"},
+      {"name": "p_protein_per_100g", "type": "number"},
+      {"name": "p_carbs_per_100g", "type": "number"},
+      {"name": "p_fat_per_100g", "type": "number"},
+      {"name": "p_fiber_per_100g", "type": "number"},
+      {"name": "p_default_portion_g", "type": "number"},
+      {"name": "p_portion_name", "type": "string"}
+    ]
+  }
+}
+```
+
+Plus Code node to convert flat → JSONB:
+```javascript
+const mealData = {
+  meal_name: $json.p_meal_name,
+  slang_names: $json.p_slang_names.split(',').map(s => s.trim()),
+  calories_per_100g: $json.p_calories_per_100g,
+  protein_per_100g: $json.p_protein_per_100g,
+  carbs_per_100g: $json.p_carbs_per_100g,
+  fat_per_100g: $json.p_fat_per_100g,
+  fiber_per_100g: $json.p_fiber_per_100g || null,
+  default_portion_g: $json.p_default_portion_g || 100,
+  portion_name: $json.p_portion_name || null
+};
+```
+
+**Evidence:**
+
+| Tool | Schema | AI Calls | Result |
+|------|--------|----------|--------|
+| Tool 1 (save_food_entry) | FLAT (11 params) | ✅ Correct format | ✅ Works 100% |
+| Tool 10 (add_user_meal) | NESTED (2 params) | ❌ Wrong format | ❌ Schema validation fails |
+
+**Prevention:**
+
+✅ **ALWAYS use FLAT parameter structure** for n8n AI Agent tools
+✅ **Never use type="object"** for complex nested structures
+✅ **Convert flat → nested in Code node** (after AI call)
+✅ **Copy pattern from working tools** (e.g., Tool 1)
+
+**OpenAI Best Practices (2025):**
+> "Err on the side of making the arguments flat. Deeply layered argument trees impact performance or reliability."
+
+**n8n Community Evidence:**
+- Multiple reports: "Received tool input did not match expected schema"
+- Common pattern: nested objects fail, flat params work
+- Workaround: Always flatten, then convert
+
+**Related:**
+- L-076: Flat schema mandate
+- L-077: Description ≠ Schema
+- L-078: Proof (Tool 1 vs Tool 10)
+
+**Tags:** #ai-agent #tool-schema #openai #function-calling #nested-objects #validation #critical #foodtracker
+
+---
 
 ### [2025-12-05 16:30] L-097: Adding Time to Timezone-Aware System
 
@@ -7311,3 +7867,69 @@ if (qa_execution_verification === "success") {
 ### Tags
 `testing`, `validation`, `execution`, `critical`, `qa-process`, `phase-5`
 
+
+### [2025-12-10 14:35] L-099: Telegram Reply Keyboard Configuration (n8n)
+
+**Problem:** Telegram bot buttons not appearing despite node executing successfully.
+
+**Root Cause:**
+- n8n Telegram node `reply_markup.value` requires RAW array structure
+- NOT expression (`=` prefix)
+- NOT JSON string (with `\"` escaping)
+- NOT nested object with `.keyboard` property
+
+**Incorrect patterns (ALL FAIL):**
+```json
+// Pattern 1: Nested object ❌
+"value": {
+  "keyboard": "=[[ ... ]]",
+  "resize_keyboard": true
+}
+
+// Pattern 2: Expression with escaped JSON ❌
+"value": "=[[{\"text\": \"Button\"}]]"
+
+// Pattern 3: Plain string ❌
+"value": "[[{\"text\": \"Button\"}]]"
+```
+
+**CORRECT pattern (WORKS):**
+```json
+{
+  "reply_markup": {
+    "messageType": "keyboard",
+    "value": [[{"text": "Button 1"}], [{"text": "Button 2"}]]
+  }
+}
+```
+
+**Key points:**
+1. `value` is RAW JavaScript array (not string, not expression)
+2. Structure: `[[row1_buttons], [row2_buttons]]`
+3. Each button: `{"text": "label"}`
+4. NO `=` prefix
+5. NO escaped quotes `\"`
+
+**Symptom:**
+- Node executes successfully
+- Message sent
+- BUT no keyboard buttons appear in Telegram client
+
+**How to verify:**
+Check execution data: if `reply_markup` present but buttons don't show → config format wrong.
+
+**Applies to:**
+- n8n-nodes-base.telegram v1.2+
+- All Telegram keyboard operations (reply_markup, inline_keyboard)
+
+**Time cost of this mistake:** 2 hours, 3 QA cycles, user frustration.
+
+**Prevention:**
+When creating Telegram keyboard:
+1. Read node schema via `get_node(nodeType: "n8n-nodes-base.telegram")`
+2. Check `reply_markup` field type in schema
+3. Use RAW array, not expression
+
+**Severity:** CRITICAL (blocks user features, wastes hours)
+**Category:** node-configuration
+**Tags:** telegram, keyboard, reply_markup, n8n

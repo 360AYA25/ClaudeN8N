@@ -1,0 +1,238 @@
+#!/bin/bash
+# Validation Gate Enforcement Functions
+# Version: 1.0.0 (2025-12-10)
+# Purpose: Code-based enforcement of validation gates (prevents FAILURE-ANALYSIS disasters)
+# Usage: source .claude/agents/shared/gate-enforcement.sh
+
+###############################################################################
+# GATE 0: Research Phase Required
+# Rule: Before first Builder call in session, Research must complete
+###############################################################################
+function check_gate_0() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  local cycle_count=$(jq -r '.cycle_count // 0' "$run_state")
+
+  # Only check on first Builder call
+  if [ "$target_agent" = "builder" ] && [ "$cycle_count" -eq 0 ]; then
+    local research_findings=$(jq -r '.research_findings // null' "$run_state")
+
+    if [ "$research_findings" = "null" ]; then
+      echo "🚨 GATE 0 VIOLATION: Research required before first Builder call" >&2
+      echo "" >&2
+      echo "Before calling Builder, delegate to Researcher first" >&2
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
+###############################################################################
+# GATE 2: Execution Analysis Required
+# Rule: Cannot fix workflow without analyzing execution logs
+###############################################################################
+function check_gate_2() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  local stage=$(jq -r '.stage // "unknown"' "$run_state")
+  local cycle_count=$(jq -r '.cycle_count // 0' "$run_state")
+
+  # Check if this is a fix/debug task
+  local is_fix_task=false
+
+  if [ "$stage" = "build" ] && [ "$cycle_count" -gt 0 ]; then
+    is_fix_task=true
+  fi
+
+  # If fixing broken workflow, execution analysis REQUIRED
+  if [ "$is_fix_task" = true ] && [ "$target_agent" = "builder" ]; then
+    local analysis_completed=$(jq -r '.execution_analysis.completed // false' "$run_state")
+
+    if [ "$analysis_completed" != "true" ]; then
+      echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis" >&2
+      echo "" >&2
+      echo "CRITICAL: You MUST analyze execution logs before attempting fix!" >&2
+      echo "" >&2
+      echo "Delegate to Analyst FIRST to analyze executions" >&2
+      echo "" >&2
+      echo "Reference: FAILURE-ANALYSIS-2025-12-10.md (GATE 2 violation caused 6-hour disaster)" >&2
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
+###############################################################################
+# GATE 3: Phase 5 Real Testing
+# Rule: QA cannot report PASS without execution test
+###############################################################################
+function check_gate_3() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  # Only check when QA returns result
+  if [ "$target_agent" = "qa" ]; then
+    local workflow_id=$(jq -r '.workflow_id' "$run_state")
+    local project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' "$run_state")
+    local qa_report_file="${project_path}/.n8n/agent_results/qa_report.json"
+
+    # Check legacy location too
+    if [ ! -f "$qa_report_file" ]; then
+      qa_report_file="memory/agent_results/${workflow_id}/qa_report.json"
+    fi
+
+    if [ -f "$qa_report_file" ]; then
+      local qa_status=$(jq -r '.status // "unknown"' "$qa_report_file")
+      local phase_5=$(jq -r '.phase_5_executed // false' "$qa_report_file")
+
+      if [ "$qa_status" = "PASS" ] && [ "$phase_5" != "true" ]; then
+        echo "🚨 GATE 3 VIOLATION: Cannot report PASS without Phase 5 execution test" >&2
+        echo "" >&2
+        echo "QA MUST test real execution, not just config validation!" >&2
+        echo "" >&2
+        echo "Reference: FAILURE-ANALYSIS-2025-12-10.md (QA missed 'Log Message' error)" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  return 0
+}
+
+###############################################################################
+# GATE 4: Knowledge Base Check
+# Rule: Researcher must check LEARNINGS before web search
+###############################################################################
+function check_gate_4() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  # Check if Researcher is about to do web search
+  if [ "$target_agent" = "researcher" ]; then
+    local project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' "$run_state")
+    local workflow_id=$(jq -r '.workflow_id' "$run_state")
+    local research_findings_file="${project_path}/.n8n/agent_results/research_findings.json"
+
+    # Check legacy location too
+    if [ ! -f "$research_findings_file" ]; then
+      research_findings_file="memory/agent_results/${workflow_id}/research_findings.json"
+    fi
+
+    if [ -f "$research_findings_file" ]; then
+      local learnings_checked=$(jq -r '.learnings_checked // false' "$research_findings_file")
+      local web_search_planned=$(jq -r '.web_search_planned // false' "$research_findings_file")
+
+      if [ "$web_search_planned" = "true" ] && [ "$learnings_checked" != "true" ]; then
+        echo "🚨 GATE 4 VIOLATION: Check LEARNINGS-INDEX.md before web search" >&2
+        echo "" >&2
+        echo "Local knowledge > Web search (faster + proven solutions)" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  return 0
+}
+
+###############################################################################
+# GATE 5: MCP Verification
+# Rule: Builder must log actual MCP responses (anti-hallucination)
+###############################################################################
+function check_gate_5() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  # Check when Builder returns result
+  if [ "$target_agent" = "builder" ]; then
+    local project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' "$run_state")
+    local workflow_id=$(jq -r '.workflow_id' "$run_state")
+    local build_result_file="${project_path}/.n8n/agent_results/build_result.json"
+
+    # Check legacy location too
+    if [ ! -f "$build_result_file" ]; then
+      build_result_file="memory/agent_results/${workflow_id}/build_result.json"
+    fi
+
+    if [ -f "$build_result_file" ]; then
+      local build_status=$(jq -r '.status // "unknown"' "$build_result_file")
+      local mcp_calls=$(jq -r '.mcp_calls // []' "$build_result_file")
+      local mcp_count=$(jq -r '.mcp_calls | length' "$build_result_file")
+
+      if [ "$build_status" = "success" ] && [ "$mcp_count" -eq 0 ]; then
+        echo "🚨 GATE 5 VIOLATION: Builder must log mcp_calls array" >&2
+        echo "" >&2
+        echo "Anti-hallucination measure: Builder MUST log actual MCP tool responses" >&2
+        echo "" >&2
+        echo "Reference: L-075 (Anti-hallucination protocol)" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  return 0
+}
+
+###############################################################################
+# GATE 6: Hypothesis Validation
+# Rule: Researcher must validate hypothesis via MCP
+###############################################################################
+function check_gate_6() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  # Check when Researcher returns findings
+  if [ "$target_agent" = "researcher" ]; then
+    local project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' "$run_state")
+    local workflow_id=$(jq -r '.workflow_id' "$run_state")
+    local research_findings_file="${project_path}/.n8n/agent_results/research_findings.json"
+
+    # Check legacy location too
+    if [ ! -f "$research_findings_file" ]; then
+      research_findings_file="memory/agent_results/${workflow_id}/research_findings.json"
+    fi
+
+    if [ -f "$research_findings_file" ]; then
+      local findings_status=$(jq -r '.status // "unknown"' "$research_findings_file")
+      local hypothesis_validated=$(jq -r '.hypothesis_validated // false' "$research_findings_file")
+
+      if [ "$findings_status" = "complete" ] && [ "$hypothesis_validated" != "true" ]; then
+        echo "🚨 GATE 6 VIOLATION: Hypothesis not validated" >&2
+        echo "" >&2
+        echo "Researcher MUST validate solution via MCP before proposing" >&2
+        echo "" >&2
+        echo "Never propose untested solutions!" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  return 0
+}
+
+###############################################################################
+# Main Enforcement Function
+# Checks all gates in order
+###############################################################################
+function check_all_gates() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  echo "🔒 Checking validation gates for: $target_agent" >&2
+
+  # Check all gates in order
+  check_gate_0 "$target_agent" "$run_state" || return 1
+  check_gate_2 "$target_agent" "$run_state" || return 1
+  check_gate_3 "$target_agent" "$run_state" || return 1
+  check_gate_4 "$target_agent" "$run_state" || return 1
+  check_gate_5 "$target_agent" "$run_state" || return 1
+  check_gate_6 "$target_agent" "$run_state" || return 1
+
+  echo "✅ All validation gates passed" >&2
+  return 0
+}
+
+# End of gate-enforcement.sh
