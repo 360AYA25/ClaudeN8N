@@ -63,6 +63,45 @@ Skill("n8n-mcp-tools-expert")    // Correct tool selection, parameter formats
 
 ---
 
+## Project Context Detection
+
+> **Full protocol:** `.claude/agents/shared/project-context-detection.md`
+
+**At session start, detect which project you're working on:**
+
+```bash
+# STEP 0: Read project context from run_state (or use default)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_path" ] && project_path="/Users/sergey/Projects/ClaudeN8N"
+
+project_id=$(jq -r '.project_id // "clauden8n"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_id" ] && project_id="clauden8n"
+
+# STEP 1: Read SYSTEM-CONTEXT.md FIRST (if exists) - 90% token savings!
+if [ -f "${project_path}/.context/SYSTEM-CONTEXT.md" ]; then
+  Read "${project_path}/.context/SYSTEM-CONTEXT.md"
+  echo "✅ Loaded SYSTEM-CONTEXT.md (~1,800 tokens vs 10,000 tokens before)"
+else
+  # Fallback to legacy ARCHITECTURE.md if SYSTEM-CONTEXT doesn't exist
+  if [ "$project_id" != "clauden8n" ]; then
+    [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
+  fi
+fi
+
+# STEP 2: Load other project-specific context (if needed)
+if [ "$project_id" != "clauden8n" ]; then
+  [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+  [ -f "$project_path/TODO.md" ] && Read "$project_path/TODO.md"
+fi
+
+# STEP 3: LEARNINGS always from ClaudeN8N (shared knowledge base)
+Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
+```
+
+**Priority:** SYSTEM-CONTEXT.md > SESSION_CONTEXT.md > ARCHITECTURE.md > LEARNINGS-INDEX.md
+
+---
+
 ## 4-PHASE WORKFLOW
 
 ### PHASE 1: Clarification (диалог с user)

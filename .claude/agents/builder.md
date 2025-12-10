@@ -119,7 +119,7 @@ See Permission Matrix in `.claude/CLAUDE.md` for full permissions.
 
 ### REQUIRED:
 ```
-✅ Read memory/run_state_active.json
+✅ Read ${project_path}/.n8n/run_state.json
 ✅ Check: execution_analysis.completed = true?
 ✅ IF false → STOP! Cannot fix without data!
 ✅ IF true → Read execution_analysis.root_cause
@@ -252,27 +252,47 @@ run_state.agent_log.push({
 **At session start, detect which project you're working on:**
 
 ```bash
-# Read project context from run_state
-project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
-project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
+# STEP 0: Read project context from run_state (or use default)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_path" ] && project_path="/Users/sergey/Projects/ClaudeN8N"
 
-# Load project-specific architecture (if external project)
-if [ "$project_id" != "clauden8n" ]; then
-  [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
-  [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+project_id=$(jq -r '.project_id // "clauden8n"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_id" ] && project_id="clauden8n"
+
+# STEP 1: Read SYSTEM-CONTEXT.md FIRST (if exists) - 90% token savings!
+if [ -f "${project_path}/.context/SYSTEM-CONTEXT.md" ]; then
+  Read "${project_path}/.context/SYSTEM-CONTEXT.md"
+  echo "✅ Loaded SYSTEM-CONTEXT.md (~1,800 tokens vs 10,000 tokens before)"
+else
+  # Fallback to legacy ARCHITECTURE.md if SYSTEM-CONTEXT doesn't exist
+  if [ "$project_id" != "clauden8n" ]; then
+    [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
+  fi
 fi
 
-# Workflow backups (if external project has workflows/ directory)
+# STEP 2: Load other project-specific context (if needed)
+if [ "$project_id" != "clauden8n" ]; then
+  [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+  [ -f "$project_path/TODO.md" ] && Read "$project_path/TODO.md"
+fi
+
+# STEP 3: Read build_guidance (critical gotchas for this specific workflow)
+workflow_id=$(jq -r '.workflow_id // null' ${project_path}/.n8n/run_state.json 2>/dev/null)
+if [ -n "$workflow_id" ] && [ -f "${project_path}/.n8n/agent_results/${workflow_id}/build_guidance.json" ]; then
+  Read "${project_path}/.n8n/agent_results/${workflow_id}/build_guidance.json"
+fi
+
+# STEP 4: LEARNINGS always from ClaudeN8N (shared knowledge base)
+Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
+
+# STEP 5: Workflow backups (if external project has workflows/ directory)
 if [ "$project_id" != "clauden8n" ] && [ -d "$project_path/workflows" ]; then
   backup_path="$project_path/workflows/backup_$(date +%s).json"
   # Save snapshot before destructive changes
 fi
-
-# LEARNINGS always from ClaudeN8N (shared knowledge base)
-Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
 ```
 
-**Priority:** Project-specific ARCHITECTURE.md > build_guidance > ClaudeN8N LEARNINGS.md
+**Priority:** SYSTEM-CONTEXT.md > build_guidance > SESSION_CONTEXT.md > ARCHITECTURE.md > LEARNINGS-INDEX.md
 
 ---
 
@@ -320,13 +340,13 @@ Skill("n8n-code-python")         // For Python Code nodes
 ### Check Requirement
 
 ```bash
-stage=$(jq -r '.stage' memory/run_state_active.json)
-workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
+stage=$(jq -r '.stage' ${project_path}/.n8n/run_state.json)
+workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
 
 # If fixing existing workflow (not creating new)
-if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canonical.json" ]; then
+if [ "$stage" = "build" ] && [ -f "${project_path}/.n8n/snapshots/$workflow_id/canonical.json" ]; then
   # This is a FIX - execution analysis REQUIRED!
-  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state_active.json)
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' ${project_path}/.n8n/run_state.json)
 
   if [ "$execution_analysis" != "true" ]; then
     echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
@@ -336,7 +356,7 @@ if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canoni
   fi
 
   # Read execution diagnosis
-  diagnosis_file=$(jq -r '.execution_analysis.diagnosis_file' memory/run_state_active.json)
+  diagnosis_file=$(jq -r '.execution_analysis.diagnosis_file' ${project_path}/.n8n/run_state.json)
   if [ -f "$diagnosis_file" ]; then
     echo "✅ Execution analysis found: $diagnosis_file"
     # Read diagnosis to understand root cause
@@ -358,7 +378,7 @@ fi
       "root_cause": "Prepare Message Data passes only text, not full context",
       "failed_executions": 5
     },
-    "diagnosis_file": "memory/agent_results/{workflow_id}/execution_analysis.json"
+    "diagnosis_file": "${project_path}/.n8n/agent_results/{workflow_id}/execution_analysis.json"
   }
 }
 ```
@@ -448,8 +468,8 @@ if [ "$is_destructive" = "true" ]; then
   echo "   Connections changed: $connections_changed"
 
   # Get current workflow
-  workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
-  project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
+  workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
+  project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json)
 
   # Create snapshot via MCP
   mcp__n8n-mcp__n8n_get_workflow --id "$workflow_id" --mode full > /tmp/snapshot_tmp.json
@@ -475,8 +495,8 @@ if [ "$is_destructive" = "true" ]; then
       operation: $op,
       file: $file,
       workflow_version: ($ver | tonumber)
-    }]' memory/run_state_active.json > /tmp/run_state_tmp.json
-  mv /tmp/run_state_tmp.json memory/run_state_active.json
+    }]' ${project_path}/.n8n/run_state.json > /tmp/run_state_tmp.json
+  mv /tmp/run_state_tmp.json ${project_path}/.n8n/run_state.json
 fi
 ```
 
@@ -642,10 +662,10 @@ if (!verification || !verification.id) {
 }
 
 // Step 5: Write result file
-write_file(`memory/agent_results/workflow_${run_id}.json`, verification);
+write_file(`${project_path}/.n8n/agent_results/workflow_${run_id}.json`, verification);
 
 // Step 6: Verify file written
-if (!file_exists(`memory/agent_results/workflow_${run_id}.json`)) {
+if (!file_exists(`${project_path}/.n8n/agent_results/workflow_${run_id}.json`)) {
   throw new Error("FAILED: Result file NOT written");
 }
 
@@ -811,7 +831,7 @@ run_state.build_verification = {
 };
 
 // STEP 9: Write full workflow to file
-write_file(`memory/agent_results/workflow_${run_state.id}.json`, after);
+write_file(`${project_path}/.n8n/agent_results/workflow_${run_state.id}.json`, after);
 
 // STEP 10: Update run_state.workflow with summary
 run_state.workflow = {
@@ -821,7 +841,7 @@ run_state.workflow = {
   version_id: after.versionId,
   version_counter: after.versionId,
   updated_at: after.updatedAt,
-  full_result_file: `memory/agent_results/workflow_${run_state.id}.json`
+  full_result_file: `${project_path}/.n8n/agent_results/workflow_${run_state.id}.json`
 };
 
 // ONLY NOW: Report success to Orchestrator
@@ -1225,7 +1245,7 @@ function verify_params_aligned(block_nodes) {
 
 ### Step 1: Write FULL workflow to file
 ```
-memory/agent_results/workflow_{run_id}.json
+${project_path}/.n8n/agent_results/workflow_{run_id}.json
 ```
 
 ### Step 2: Return SUMMARY to run_state.workflow
@@ -1237,7 +1257,7 @@ memory/agent_results/workflow_{run_id}.json
   "graph_hash": "abc123",
   "validation_passed": true,
   "created_or_updated": "created",
-  "full_result_file": "memory/agent_results/workflow_{run_id}.json"
+  "full_result_file": "${project_path}/.n8n/agent_results/workflow_{run_id}.json"
 }
 ```
 
@@ -1716,7 +1736,7 @@ async function blueGreenModify(workflow_id, changes) {
   ```bash
   jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '.agent_log += [{"ts": $ts, "agent": "builder", "action": "fix_applied", "details": "BRIEF_DESCRIPTION"}]' \
-     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+     ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
   ```
   See: `.claude/agents/shared/run-state-append.md`
 

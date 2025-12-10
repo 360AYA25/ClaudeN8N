@@ -44,19 +44,208 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 **At session start, detect which project you're working on:**
 
 ```bash
-# Read project context from run_state
-project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
-project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
+# STEP 0: Read project context from run_state (or use default)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_path" ] && project_path="/Users/sergey/Projects/ClaudeN8N"
 
-# Load project-specific context (if external project)
+project_id=$(jq -r '.project_id // "clauden8n"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_id" ] && project_id="clauden8n"
+
+# STEP 1: Read SYSTEM-CONTEXT.md FIRST (if exists) - 90% token savings!
+if [ -f "${project_path}/.context/SYSTEM-CONTEXT.md" ]; then
+  Read "${project_path}/.context/SYSTEM-CONTEXT.md"
+  echo "✅ Loaded SYSTEM-CONTEXT.md (~1,800 tokens vs 10,000 tokens before)"
+else
+  # Fallback to legacy ARCHITECTURE.md if SYSTEM-CONTEXT doesn't exist
+  if [ "$project_id" != "clauden8n" ]; then
+    [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
+  fi
+fi
+
+# STEP 2: Load other project-specific context (if needed)
 if [ "$project_id" != "clauden8n" ]; then
   [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+  [ -f "$project_path/TODO.md" ] && Read "$project_path/TODO.md"
 fi
+
+# STEP 3: LEARNINGS always from ClaudeN8N (shared knowledge base)
+Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
 ```
+
+**Priority:** SYSTEM-CONTEXT.md > SESSION_CONTEXT.md > ARCHITECTURE.md > LEARNINGS-INDEX.md
 
 **LEARNINGS storage:**
 - Global patterns → `/Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS.md`
 - Project-specific notes → `$project_path/docs/learning/` (optional)
+
+---
+
+## ROLE 2: Context Manager (🗂️ NEW - Distributed Architecture!)
+
+**Purpose:** Auto-update SYSTEM-CONTEXT.md to keep agents synchronized with latest workflow state.
+
+**Triggers:**
+- Post-session (when stage: "complete")
+- Manual: `/orch refresh context`
+- Context staleness detected (workflow version > context version)
+
+### 📋 Protocol (6 Steps)
+
+**Step 1: Read sources configuration**
+```bash
+project_path=$(jq -r '.project_path' ${project_path}/.n8n/run_state.json)
+workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
+
+# Read project metadata
+if [ -f "${project_path}/.context/sources.json" ]; then
+  Read "${project_path}/.context/sources.json"
+else
+  echo "⚠️ No sources.json - using defaults"
+fi
+```
+
+**Step 2: Extract data from source files**
+- **Workflow:** Read `${project_path}/.n8n/canonical.json` (version, nodes count, structure)
+- **Architecture:** Read `${project_path}/ARCHITECTURE.md` (if exists) - key sections only
+- **Session state:** Read `${project_path}/SESSION_CONTEXT.md` (if PM-managed project)
+- **Tasks:** Read `${project_path}/TODO.md` (filter: in_progress, next_up, blocked)
+- **Learnings:** Last 10 from LEARNINGS.md + project-specific patterns
+- **Database:** Schema summary from `${project_path}/docs/database/schema.sql` (if exists)
+
+**Step 3: Generate SYSTEM-CONTEXT.md**
+```bash
+# Template location
+template_path=".claude/templates/project-structure/.context/SYSTEM-CONTEXT-TEMPLATE.md"
+
+# Fill template with extracted data
+# Use jq/sed to replace placeholders:
+# - [PROJECT_NAME]
+# - [TIMESTAMP]
+# - [CONTEXT_VERSION]
+# - [WORKFLOW_VERSION]
+# - [NODE_COUNT]
+# - [WORKFLOW_STATUS]
+# - [ACTIVE_TASKS]
+# - [RECENT_LEARNINGS]
+# - etc.
+
+# Write to project .context/
+Write "${project_path}/.context/SYSTEM-CONTEXT.md" <generated_content>
+```
+
+**Step 4: Update metadata**
+```bash
+# Increment context version
+context_version=$(jq -r '.version // 0' "${project_path}/.context/context-version.json")
+new_version=$((context_version + 1))
+
+# Write version metadata
+cat > "${project_path}/.context/context-version.json" <<EOF
+{
+  "version": $new_version,
+  "last_updated": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "workflow_version": $(jq -r '.versionId' "${project_path}/.n8n/canonical.json"),
+  "changes": ["workflow_updated", "context_refreshed"]
+}
+EOF
+```
+
+**Step 5: Log changes**
+```bash
+# Append to changes log
+log_file="${project_path}/.context/changes-log.json"
+if [ ! -f "$log_file" ]; then
+  echo '{"updates":[]}' > "$log_file"
+fi
+
+jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+   --arg ver "$new_version" \
+   --arg wf_ver "$(jq -r '.versionId' ${project_path}/.n8n/canonical.json)" \
+   '.updates += [{
+     version: ($ver | tonumber),
+     date: $ts,
+     workflow_version: ($wf_ver | tonumber),
+     trigger: "post_session",
+     updated_by: "Analyst"
+   }]' "$log_file" > tmp.json && mv tmp.json "$log_file"
+```
+
+**Step 6: Commit to git (if repo)**
+```bash
+cd "${project_path}"
+
+if [ -d .git ]; then
+  git add .context/SYSTEM-CONTEXT.md .context/*.json
+  git commit -m "chore: auto-update context v${new_version}
+
+- Workflow v${workflow_version}
+- Context refreshed by Analyst Agent
+
+🤖 Generated with Claude Code
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+  echo "✅ Context committed to git"
+else
+  echo "ℹ️ No git repo - skip commit"
+fi
+```
+
+### ✅ Validation Rules
+
+**Pre-update checks:**
+- ✅ `sources.json` exists and valid JSON (or use defaults)
+- ✅ All critical source files readable (workflow, architecture)
+- ✅ Canonical snapshot accessible
+
+**Post-update checks:**
+- ✅ SYSTEM-CONTEXT.md exists and < 3,000 tokens
+- ✅ Context version incremented correctly
+- ✅ All mandatory sections present (see template)
+- ✅ Git commit successful (if repo exists)
+
+**Mandatory sections in SYSTEM-CONTEXT.md:**
+1. Project Overview
+2. Workflow Status
+3. Node Inventory
+4. Active Tasks (from TODO.md)
+5. Recent Learnings
+6. Common Gotchas
+7. Refresh Command
+8. Source Files (with last updated dates)
+
+### 🚨 Error Handling
+
+| Error | Action |
+|-------|--------|
+| Source file not found | Use placeholder (e.g., "Architecture: Not documented") |
+| Workflow version unavailable | Use "unknown" |
+| Template missing | Use hardcoded minimal template |
+| Git commit fails | Log warning, continue (don't block) |
+| Token limit exceeded | Truncate sections (learnings → 5 instead of 10) |
+
+### 📊 Success Metrics
+
+**Token efficiency:**
+- SYSTEM-CONTEXT.md: 1,500-2,500 tokens (target: ~1,800)
+- vs ARCHITECTURE.md: 8,000-12,000 tokens
+- **Savings: 82% per agent read**
+
+**Freshness:**
+- Context version === workflow version (or within 1)
+- Last updated < 24 hours for active projects
+- Auto-refresh on workflow changes
+
+### 🎯 When to Refresh
+
+**Auto-triggers (Orchestrator detects):**
+- Session complete (stage: "complete")
+- Workflow version changed (versionId incremented)
+- Context version < workflow version (staleness detected)
+
+**Manual triggers:**
+- User runs `/orch refresh context`
+- After major workflow changes (migration, refactor)
+- Before starting new session on existing workflow
 
 ---
 
@@ -542,7 +731,7 @@ When auto-triggered, Analyst MUST:
 ## Audit Protocol
 
 ### Step 1: Read ALL Context
-1. Read `memory/run_state_active.json` - full state
+1. Read `${project_path}/.n8n/run_state.json` - full state
 2. Read `memory/history.jsonl` - all history (if exists)
 3. Analyze `agent_log` - who did what, when
 4. Read saved diagnostics:
@@ -833,7 +1022,7 @@ Progress:
   ```bash
   jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '.agent_log += [{"ts": $ts, "agent": "analyst", "action": "audit_complete", "details": "Root cause: DESCRIPTION"}]' \
-     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+     ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
   ```
   See: `.claude/agents/shared/run-state-append.md`
 

@@ -137,7 +137,7 @@ You are the Builder agent. Read and follow your instructions from:
 /Users/sergey/Projects/ClaudeN8N/.claude/agents/builder.md
 
 ## CONTEXT
-Read current state from: memory/run_state_active.json
+Read current state from: ${project_path}/.n8n/run_state.json
 
 ## TASK
 Create the workflow per blueprint...`
@@ -173,8 +173,8 @@ Task({ agent: "builder", prompt: "..." })
 ### Context Passing
 
 1. **In prompt**: Pass ONLY summary (not full JSON!)
-2. **Agent reads**: `memory/run_state_active.json` for details
-3. **Agent writes**: Results to run_state + `memory/agent_results/`
+2. **Agent reads**: `${project_path}/.n8n/run_state.json` for details
+3. **Agent writes**: Results to run_state + `${project_path}/.n8n/agent_results/`
 4. **Return**: Summary only (~500 tokens max)
 
 ### 🛑 MANDATORY Validation Gates
@@ -261,7 +261,7 @@ Each `Task({ subagent_type: "general-purpose", ... })` = **NEW PROCESS**:
 
 ### Algorithm
 
-1. Read `memory/run_state_active.json` or initialize new
+1. Read `${project_path}/.n8n/run_state.json` or initialize new
 2. Check stage, delegate to agent:
    - `clarification` → architect
    - `research` → researcher
@@ -302,35 +302,35 @@ jq --argjson result "$AGENT_RESULT" \
     .workflow = $result.workflow // .workflow |
     .qa_report = $result.qa_report // .qa_report |
     .edit_scope = $result.edit_scope // .edit_scope' \
-   memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+   ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 ```
 
 ### Stage transitions (Orchestrator decides):
 
 ```bash
 # After Architect (clarification → research)
-jq '.stage = "research"' memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+jq '.stage = "research"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 
 # After Researcher (research → decision)
-jq '.stage = "decision"' memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+jq '.stage = "decision"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 
 # After Architect decision (decision → implementation)
-jq '.stage = "implementation"' memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+jq '.stage = "implementation"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 
 # After Researcher implementation (implementation → build)
-jq '.stage = "build"' memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+jq '.stage = "build"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 
 # After Builder (build → validate)
-jq '.stage = "validate"' memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+jq '.stage = "validate"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 
 # After QA success (validate → test → complete)
-jq '.stage = "complete"' memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+jq '.stage = "complete"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 
 # After QA fail (stay in validate, increment cycle)
-jq '.cycle_count += 1 | .stage = "build"' memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+jq '.cycle_count += 1 | .stage = "build"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 
 # After 7 QA fails (→ blocked)
-jq '.stage = "blocked"' memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+jq '.stage = "blocked"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 ```
 
 ### Merge Rules (applied by Orchestrator):
@@ -364,26 +364,26 @@ jq '.stage = "blocked"' memory/run_state_active.json > tmp.json && mv tmp.json m
 
 ```bash
 # Check agent_log for MCP calls
-latest_builder=$(jq '[.agent_log[] | select(.agent=="builder")] | last' memory/run_state_active.json)
+latest_builder=$(jq '[.agent_log[] | select(.agent=="builder")] | last' ${project_path}/.n8n/run_state.json)
 mcp_calls=$(echo "$latest_builder" | jq -r '.mcp_calls // []')
 
 # BLOCK if no MCP calls!
 if [ "$mcp_calls" == "[]" ] || [ "$mcp_calls" == "null" ]; then
   echo "❌ L-073 FRAUD DETECTED: Builder reported success without MCP calls!"
   jq '.stage = "blocked" | .block_reason = "L-073: No MCP calls in agent_log"' \
-     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+     ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
   # DO NOT proceed to QA!
   exit 1
 fi
 
 # Double-check: verify workflow exists via MCP
-workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
+workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
 real_check=$(mcp__n8n-mcp__n8n_get_workflow id="$workflow_id" mode="minimal")
 
 if [ -z "$real_check" ] || echo "$real_check" | jq -e '.error' > /dev/null; then
   echo "❌ L-073: Workflow $workflow_id does NOT exist in n8n!"
   jq '.stage = "blocked" | .block_reason = "L-073: Workflow not found in n8n"' \
-     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+     ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
   exit 1
 fi
 
@@ -470,9 +470,9 @@ if [[ "$user_request" =~ --project=([a-z-]+) ]]; then
   esac
 else
   # Check if run_state has project context from previous session
-  if [ -f memory/run_state_active.json ]; then
-    project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
-    project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
+  if [ -f ${project_path}/.n8n/run_state.json ]; then
+    project_id=$(jq -r '.project_id // "clauden8n"' ${project_path}/.n8n/run_state.json)
+    project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json)
   else
     # Default to ClaudeN8N
     project_id="clauden8n"
@@ -514,9 +514,9 @@ fi
 if [[ "$user_request" =~ ^/orch\ rollback ]]; then
 
   # Get project context
-  if [ -f memory/run_state_active.json ]; then
-    project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
-    workflow_id=$(jq -r '.workflow_id // null' memory/run_state_active.json)
+  if [ -f ${project_path}/.n8n/run_state.json ]; then
+    project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json)
+    workflow_id=$(jq -r '.workflow_id // null' ${project_path}/.n8n/run_state.json)
   else
     project_path="/Users/sergey/Projects/ClaudeN8N"
     workflow_id=null
@@ -660,29 +660,29 @@ echo "🧠 Frustration detection loaded (v1.0.0)"
 
 ```bash
 # 0.5.1 Initialize session_start if new session
-if [ ! -f memory/run_state_active.json ] || [ "$(jq -r '.session_start // null' memory/run_state_active.json)" = "null" ]; then
+if [ ! -f ${project_path}/.n8n/run_state.json ] || [ "$(jq -r '.session_start // null' ${project_path}/.n8n/run_state.json)" = "null" ]; then
   # Create/update run_state with session_start
   session_start=$(date +%s)
 
-  if [ -f memory/run_state_active.json ]; then
+  if [ -f ${project_path}/.n8n/run_state.json ]; then
     jq --arg ts "$session_start" '.session_start = ($ts | tonumber)' \
-       memory/run_state_active.json > /tmp/run_state_tmp.json && \
-       mv /tmp/run_state_tmp.json memory/run_state_active.json
+       ${project_path}/.n8n/run_state.json > /tmp/run_state_tmp.json && \
+       mv /tmp/run_state_tmp.json ${project_path}/.n8n/run_state.json
   else
     # Create minimal run_state for frustration detection
-    echo '{"session_start": '"$session_start"', "frustration_signals": {"profanity": 0, "complaints": 0, "repeated_requests": 0, "session_duration": 0}}' > memory/run_state_active.json
+    echo '{"session_start": '"$session_start"', "frustration_signals": {"profanity": 0, "complaints": 0, "repeated_requests": 0, "session_duration": 0}}' > ${project_path}/.n8n/run_state.json
   fi
 fi
 
 # 0.5.2 Update last_request for repeated request detection
-if [ -f memory/run_state_active.json ]; then
+if [ -f ${project_path}/.n8n/run_state.json ]; then
   jq --arg req "$user_request" '.last_request = $req' \
-     memory/run_state_active.json > /tmp/run_state_tmp.json && \
-     mv /tmp/run_state_tmp.json memory/run_state_active.json
+     ${project_path}/.n8n/run_state.json > /tmp/run_state_tmp.json && \
+     mv /tmp/run_state_tmp.json ${project_path}/.n8n/run_state.json
 fi
 
 # 0.5.3 Check frustration level
-frustration_action=$(check_frustration "$user_request" memory/run_state_active.json)
+frustration_action=$(check_frustration "$user_request" ${project_path}/.n8n/run_state.json)
 
 # 0.5.4 Handle frustration levels
 case "$frustration_action" in
@@ -694,13 +694,13 @@ case "$frustration_action" in
     echo ""
 
     # Show frustration signals
-    signals=$(jq -r '.frustration_signals' memory/run_state_active.json)
+    signals=$(jq -r '.frustration_signals' ${project_path}/.n8n/run_state.json)
     echo "Signals detected:"
     echo "$signals" | jq '.'
     echo ""
 
     # Execute auto-rollback
-    snapshot_path=$(execute_auto_rollback memory/run_state_active.json)
+    snapshot_path=$(execute_auto_rollback ${project_path}/.n8n/run_state.json)
 
     if [ $? -eq 0 ]; then
       echo "✅ Auto-rollback completed: $snapshot_path"
@@ -723,7 +723,7 @@ case "$frustration_action" in
     echo ""
 
     # Show frustration signals
-    signals=$(jq -r '.frustration_signals' memory/run_state_active.json)
+    signals=$(jq -r '.frustration_signals' ${project_path}/.n8n/run_state.json)
     echo "Signals detected:"
     echo "$signals" | jq '.'
     echo ""
@@ -756,14 +756,64 @@ case "$frustration_action" in
 esac
 ```
 
+### Step 0.75: Project Path Detection (🗂️ NEW - DISTRIBUTED ARCHITECTURE!)
+
+```bash
+# 0.75.1 Detect project_path from run_state or user input
+if [ -f ${project_path}/.n8n/run_state.json ]; then
+  project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json)
+  workflow_id=$(jq -r '.workflow_id // null' ${project_path}/.n8n/run_state.json)
+else
+  # Default to ClaudeN8N project
+  project_path="/Users/sergey/Projects/ClaudeN8N"
+  workflow_id=null
+fi
+
+# 0.75.2 If workflow_id provided in user_request, extract it
+if [[ "$user_request" =~ workflow_id=([a-zA-Z0-9_-]+) ]]; then
+  workflow_id="${BASH_REMATCH[1]}"
+fi
+
+# 0.75.3 If workflow_id known, detect project_path from workflow location
+# (For future: can lookup workflow → project mapping)
+
+echo "📁 Project: $project_path"
+echo "📋 Workflow: ${workflow_id:-none}"
+echo ""
+
+# 0.75.4 Context Freshness Check (if SYSTEM-CONTEXT.md exists)
+if [ -n "$workflow_id" ] && [ -f "${project_path}/.context/SYSTEM-CONTEXT.md" ]; then
+  # Get workflow version from n8n API
+  real_workflow=$(mcp__n8n-mcp__n8n_get_workflow id="$workflow_id" mode="minimal")
+  workflow_version=$(echo "$real_workflow" | jq -r '.versionId // .versionCounter')
+
+  # Get context version from SYSTEM-CONTEXT.md
+  context_version=$(grep -m1 "Workflow Version:" "${project_path}/.context/SYSTEM-CONTEXT.md" | awk '{print $3}')
+
+  if [ -n "$context_version" ] && [ "$workflow_version" != "$context_version" ]; then
+    echo "⚠️ CONTEXT OUTDATED!"
+    echo "   Workflow version: $workflow_version"
+    echo "   Context version: $context_version"
+    echo ""
+    echo "Recommendation: Refresh context before continuing"
+    echo "Command: /orch snapshot refresh $workflow_id"
+    echo ""
+  fi
+fi
+
+# 0.75.5 Export project_path for use in all subsequent steps
+export PROJECT_PATH="$project_path"
+export WORKFLOW_ID="$workflow_id"
+```
+
 ### Step 1: Load and Validate run_state
 
 ```bash
 # 1.1 Read existing run_state
-if [ -f memory/run_state_active.json ]; then
-  old_stage=$(jq -r '.stage' memory/run_state_active.json)
-  old_request=$(jq -r '.user_request' memory/run_state_active.json)
-  old_workflow=$(jq -r '.workflow_id' memory/run_state_active.json)
+if [ -f ${project_path}/.n8n/run_state.json ]; then
+  old_stage=$(jq -r '.stage' ${project_path}/.n8n/run_state.json)
+  old_request=$(jq -r '.user_request' ${project_path}/.n8n/run_state.json)
+  old_workflow=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
 
   # 1.2 Check if stale session (not completed, different request)
   if [ "$old_stage" != "complete" ] && [ "$old_stage" != "blocked" ]; then
@@ -785,7 +835,7 @@ fi
 ```bash
 # 2.1 If workflow_id exists, compare with n8n
 if [ -n "$workflow_id" ]; then
-  canonical_file="memory/workflow_snapshots/${workflow_id}/canonical.json"
+  canonical_file="${project_path}/.n8n/canonical.json"
 
   if [ -f "$canonical_file" ]; then
     # Get version from canonical
@@ -819,10 +869,10 @@ fi
 # 3.1 If user chose [N]ew - archive and create fresh
 archive_stale_session() {
   timestamp=$(date +%Y%m%d_%H%M%S)
-  mkdir -p memory/archive
+  mkdir -p ${project_path}/.n8n/archives
 
   # Archive run_state
-  mv memory/run_state_active.json "memory/archive/run_state_${timestamp}.json"
+  mv ${project_path}/.n8n/run_state.json "${project_path}/.n8n/archives/run_state_${timestamp}.json"
 
   # Create fresh run_state
   jq -n '{
@@ -832,15 +882,15 @@ archive_stale_session() {
     agent_log: [],
     worklog: [],
     usage: { tokens_used: 0, agent_calls: 0, qa_cycles: 0, cost_usd: 0 }
-  }' > memory/run_state_active.json
+  }' > ${project_path}/.n8n/run_state.json
 
-  echo "📦 Archived stale session to memory/archive/"
+  echo "📦 Archived stale session to ${project_path}/.n8n/archives/"
 }
 
 # 3.2 If user chose [R]efresh - update canonical
 refresh_canonical_snapshot() {
   workflow_id="$1"
-  snapshot_dir="memory/workflow_snapshots/${workflow_id}"
+  snapshot_dir="${project_path}/.n8n/snapshots/${workflow_id}"
 
   # Archive old canonical to history
   if [ -f "${snapshot_dir}/canonical.json" ]; then
@@ -870,14 +920,14 @@ jq --arg req "$USER_REQUEST" \
     .project_path = $path |
     .stage = "clarification" |
     .cycle_count = 0' \
-   memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+   ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
 ```
 
 ### Step 5: Start Architect
 
 ```bash
 # 5.1 Check validation gates BEFORE delegation
-check_all_gates "architect" "memory/run_state_active.json"
+check_all_gates "architect" "${project_path}/.n8n/run_state.json"
 
 if [ $? -ne 0 ]; then
   echo "❌ Gate violation detected - cannot proceed"
@@ -913,7 +963,7 @@ Task({ subagent_type: "general-purpose", prompt: "## ROLE: Architect\nRead: .cla
 target_agent="builder"  # or researcher, qa, architect, analyst
 
 # 2. Check validation gates
-check_all_gates "$target_agent" "memory/run_state_active.json"
+check_all_gates "$target_agent" "${project_path}/.n8n/run_state.json"
 
 if [ $? -ne 0 ]; then
   # Gate violation - STOP!
@@ -953,7 +1003,7 @@ Single Source of Truth для каждого workflow. Детальный ана
 
 ### Directory Structure
 ```
-memory/workflow_snapshots/
+${project_path}/.n8n/snapshots/
 ├── {workflow_id}/
 │   ├── canonical.json       # Current snapshot (~10K tokens)
 │   └── history/
@@ -965,7 +1015,7 @@ memory/workflow_snapshots/
 
 ```javascript
 if (workflow_id) {
-  const snapshot_dir = `memory/workflow_snapshots/${workflow_id}`;
+  const snapshot_dir = `${project_path}/.n8n/snapshots/${workflow_id}`;
   const canonical_file = `${snapshot_dir}/canonical.json`;
 
   if (file_exists(canonical_file)) {
@@ -1115,8 +1165,8 @@ final_validate → complete | blocked
 
 ```bash
 # Read current cycle
-cycle=$(jq -r '.cycle_count // 0' memory/run_state_active.json)
-stage=$(jq -r '.stage' memory/run_state_active.json)
+cycle=$(jq -r '.cycle_count // 0' ${project_path}/.n8n/run_state.json)
+stage=$(jq -r '.stage' ${project_path}/.n8n/run_state.json)
 
 # GATE 1 CHECK: Progressive Escalation
 if [ "$stage" = "validate" ] || [ "$stage" = "build" ]; then
@@ -1128,7 +1178,7 @@ if [ "$stage" = "validate" ] || [ "$stage" = "build" ]; then
   # Cycle 4-5: MUST call Researcher FIRST!
   if [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
     # Check if Researcher was already called this cycle
-    researcher_called=$(jq -r '[.agent_log[] | select(.agent=="researcher" and .cycle_context=='$cycle')] | length > 0' memory/run_state_active.json 2>/dev/null || echo "false")
+    researcher_called=$(jq -r '[.agent_log[] | select(.agent=="researcher" and .cycle_context=='$cycle')] | length > 0' ${project_path}/.n8n/run_state.json 2>/dev/null || echo "false")
 
     if [ "$researcher_called" != "true" ]; then
       echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Researcher FIRST (alternative approach)!"
@@ -1140,7 +1190,7 @@ if [ "$stage" = "validate" ] || [ "$stage" = "build" ]; then
 
   # Cycle 6-7: MUST call Analyst FIRST!
   if [ "$cycle" -ge 6 ] && [ "$cycle" -le 7 ]; then
-    analyst_called=$(jq -r '[.agent_log[] | select(.agent=="analyst" and .cycle_context=='$cycle')] | length > 0' memory/run_state_active.json 2>/dev/null || echo "false")
+    analyst_called=$(jq -r '[.agent_log[] | select(.agent=="analyst" and .cycle_context=='$cycle')] | length > 0' ${project_path}/.n8n/run_state.json 2>/dev/null || echo "false")
 
     if [ "$analyst_called" != "true" ]; then
       echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Analyst FIRST (root cause diagnosis)!"
@@ -1164,12 +1214,12 @@ fi
 
 ```bash
 # GATE 2 CHECK: Execution Analysis Required
-workflow_id=$(jq -r '.workflow_id // ""' memory/run_state_active.json)
+workflow_id=$(jq -r '.workflow_id // ""' ${project_path}/.n8n/run_state.json)
 
 # Check if fixing existing workflow (not creating new)
-if [ "$stage" = "build" ] && [ -n "$workflow_id" ] && [ -f "memory/workflow_snapshots/$workflow_id/canonical.json" ]; then
+if [ "$stage" = "build" ] && [ -n "$workflow_id" ] && [ -f "${project_path}/.n8n/snapshots/$workflow_id/canonical.json" ]; then
   # This is a FIX to existing workflow
-  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state_active.json)
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' ${project_path}/.n8n/run_state.json)
 
   if [ "$execution_analysis" != "true" ]; then
     echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
@@ -1188,7 +1238,7 @@ fi
 ```bash
 # GATE 4 CHECK: Fix Attempts History
 if [ "$cycle" -ge 2 ]; then
-  fix_attempts=$(jq -r '.fix_attempts // []' memory/run_state_active.json)
+  fix_attempts=$(jq -r '.fix_attempts // []' ${project_path}/.n8n/run_state.json)
 
   if [ "$fix_attempts" = "[]" ]; then
     echo "🚨 GATE 4 VIOLATION: Cycle $cycle requires fix_attempts history!"
@@ -1207,7 +1257,7 @@ fi
 # GATE 5 CHECK: MCP Call Verification (after Builder completes)
 # This check runs AFTER Builder Task returns
 
-build_result_file="memory/agent_results/${workflow_id}/build_result.json"
+build_result_file="${project_path}/.n8n/agent_results/${workflow_id}/build_result.json"
 
 if [ -f "$build_result_file" ]; then
   builder_status=$(jq -r '.build_result.status // ""' "$build_result_file")
@@ -1240,7 +1290,7 @@ fi
 
 ```bash
 # GATE 6 CHECK: Hypothesis Validation (after Researcher completes)
-research_file="memory/agent_results/${workflow_id}/research_findings.json"
+research_file="${project_path}/.n8n/agent_results/${workflow_id}/research_findings.json"
 
 if [ -f "$research_file" ]; then
   researcher_status=$(jq -r '.research_findings.status // ""' "$research_file")
@@ -1264,10 +1314,10 @@ fi
 
 ```bash
 # GATE 3 CHECK: Phase 5 Real Testing (before accepting QA PASS)
-qa_report_file="memory/agent_results/${workflow_id}/qa_report.json"
+qa_report_file="${project_path}/.n8n/agent_results/${workflow_id}/qa_report.json"
 
 if [ -f "$qa_report_file" ]; then
-  qa_status=$(jq -r '.qa_report.status // ""' memory/run_state_active.json)
+  qa_status=$(jq -r '.qa_report.status // ""' ${project_path}/.n8n/run_state.json)
 
   if [ "$qa_status" = "PASS" ]; then
     phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' "$qa_report_file")
@@ -1322,7 +1372,7 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 
 ```bash
 # Extract last 3 builder actions from agent_log
-recent_builder=$(jq -c '[.agent_log[] | select(.agent=="builder")] | .[-3:]' memory/run_state_active.json)
+recent_builder=$(jq -c '[.agent_log[] | select(.agent=="builder")] | .[-3:]' ${project_path}/.n8n/run_state.json)
 
 # Format for prompt
 if [ "$recent_builder" != "[]" ]; then
@@ -1340,7 +1390,7 @@ Task({
 Read: .claude/agents/builder.md
 
 ## CONTEXT
-Read state from: memory/run_state_active.json
+Read state from: ${project_path}/.n8n/run_state.json
 
 ## TASK
 Fix workflow per edit_scope.
@@ -1411,7 +1461,7 @@ qa_report: ${qa_report_summary}`
 
 ```bash
 # 1. Read updated workflow (L-067: smart mode selection)
-node_count=$(jq -r '.workflow.node_count // 999' memory/run_state_active.json)
+node_count=$(jq -r '.workflow.node_count // 999' ${project_path}/.n8n/run_state.json)
 mode=$( [ "$node_count" -gt 10 ] && echo "structure" || echo "full" )
 workflow=$(mcp__n8n-mcp__n8n_get_workflow id=$workflow_id mode="$mode")
 

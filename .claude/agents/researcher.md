@@ -71,29 +71,42 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ---
 
-## Project Context Detection
+## Project Context Detection (🗂️ UPDATED - Distributed Architecture)
 
 > **Full protocol:** `.claude/agents/shared/project-context-detection.md`
 
 **At session start, detect which project you're working on:**
 
 ```bash
-# Read project context from run_state
-project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
-project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
+# STEP 0: Read project context from run_state (or use default)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_path" ] && project_path="/Users/sergey/Projects/ClaudeN8N"
 
-# Load project-specific context (if external project)
+project_id=$(jq -r '.project_id // "clauden8n"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_id" ] && project_id="clauden8n"
+
+# STEP 1: Read SYSTEM-CONTEXT.md FIRST (if exists) - 90% token savings!
+if [ -f "${project_path}/.context/SYSTEM-CONTEXT.md" ]; then
+  Read "${project_path}/.context/SYSTEM-CONTEXT.md"
+  echo "✅ Loaded SYSTEM-CONTEXT.md (~1,800 tokens vs 10,000 tokens before)"
+else
+  # Fallback to legacy ARCHITECTURE.md if SYSTEM-CONTEXT doesn't exist
+  if [ "$project_id" != "clauden8n" ]; then
+    [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
+  fi
+fi
+
+# STEP 2: Load other project-specific context (if needed)
 if [ "$project_id" != "clauden8n" ]; then
   [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
-  [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
   [ -f "$project_path/TODO.md" ] && Read "$project_path/TODO.md"
 fi
 
-# LEARNINGS always from ClaudeN8N (shared knowledge base)
+# STEP 3: LEARNINGS always from ClaudeN8N (shared knowledge base)
 Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
 ```
 
-**Priority:** Project-specific ARCHITECTURE.md > ClaudeN8N LEARNINGS.md
+**New Priority:** SYSTEM-CONTEXT.md > SESSION_CONTEXT.md > ARCHITECTURE.md > LEARNINGS-INDEX.md
 
 ---
 
@@ -146,7 +159,7 @@ Read docs/learning/LEARNINGS.md (lines 2890-2950)
 # Solution: Code Node Injection pattern
 
 # Step 5: Create research_findings.json
-Write memory/agent_results/research_findings.json
+Write ${project_path}/.n8n/agent_results/research_findings.json
 {
   "learnings_checked": true,
   "learnings_found": ["L-089", "L-090"],
@@ -159,7 +172,7 @@ Write memory/agent_results/research_findings.json
 
 **Orchestrator checks AFTER Researcher completes:**
 ```bash
-learnings_checked=$(jq -r '.research_findings.learnings_checked // false' memory/agent_results/research_findings.json)
+learnings_checked=$(jq -r '.research_findings.learnings_checked // false' ${project_path}/.n8n/agent_results/research_findings.json)
 
 if [ "$learnings_checked" != "true" ]; then
   echo "🚨 GATE 4 VIOLATION: Research without LEARNINGS.md check!"
@@ -1129,7 +1142,7 @@ MUST set `ready_for_builder: true` when:
 MUST include `ripple_targets` for similar nodes when fixing
 
 ## Fix Search Protocol (on escalation)
-1. Read `memory/run_state_active.json` - get workflow
+1. Read `${project_path}/.n8n/run_state.json` - get workflow
 2. Find nodes with `_meta.status == "error"`
 3. **READ `_meta.fix_attempts`** - what was already tried
 4. **EXCLUDE** already tried solutions from search
@@ -1148,7 +1161,7 @@ MUST include `ripple_targets` for similar nodes when fixing
   ```bash
   jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '.agent_log += [{"ts": $ts, "agent": "researcher", "action": "search_complete", "details": "Found X templates, Y nodes"}]' \
-     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+     ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
   ```
   See: `.claude/agents/shared/run-state-append.md`
 

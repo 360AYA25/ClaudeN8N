@@ -75,7 +75,7 @@ IF cycle_count >= 8:
 **Orchestrator Check (before every Task call in QA loop):**
 
 ```bash
-cycle=$(jq -r '.cycle_count // 0' memory/run_state_active.json)
+cycle=$(jq -r '.cycle_count // 0' ${project_path}/.n8n/run_state.json)
 
 # Cycle 4-5: MUST call Researcher first
 if [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
@@ -123,14 +123,14 @@ IF fixing_broken_workflow:
 **Orchestrator Check:**
 
 ```bash
-stage=$(jq -r '.stage' memory/run_state_active.json)
-workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
+stage=$(jq -r '.stage' ${project_path}/.n8n/run_state.json)
+workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
 
 # Check if fixing existing workflow (not creating new)
-if [ "$stage" = "build" ] && [ -f "memory/workflow_snapshots/$workflow_id/canonical.json" ]; then
+if [ "$stage" = "build" ] && [ -f "${project_path}/.n8n/snapshots/$workflow_id/canonical.json" ]; then
   # This is a FIX, not new build
 
-  execution_analysis=$(jq -r '.execution_analysis.completed // false' memory/run_state_active.json)
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' ${project_path}/.n8n/run_state.json)
 
   if [ "$execution_analysis" != "true" ]; then
     echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
@@ -153,7 +153,7 @@ fi
       "root_cause": "Prepare Message Data passes only text, not full context",
       "failed_executions": 5
     },
-    "diagnosis_file": "memory/agent_results/{workflow_id}/execution_analysis.json"
+    "diagnosis_file": "${project_path}/.n8n/agent_results/{workflow_id}/execution_analysis.json"
   }
 }
 ```
@@ -209,10 +209,10 @@ fi
 **Orchestrator Check:**
 
 ```bash
-qa_status=$(jq -r '.qa_report.status' memory/run_state_active.json)
+qa_status=$(jq -r '.qa_report.status' ${project_path}/.n8n/run_state.json)
 
 if [ "$qa_status" = "PASS" ]; then
-  phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' memory/agent_results/$workflow_id/qa_report.json)
+  phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' ${project_path}/.n8n/agent_results/$workflow_id/qa_report.json)
 
   if [ "$phase_5_executed" != "true" ]; then
     echo "🚨 GATE 3 VIOLATION: QA reported PASS without Phase 5 real testing!"
@@ -258,10 +258,10 @@ Try something DIFFERENT based on execution analysis...
 **Orchestrator Check:**
 
 ```bash
-cycle=$(jq -r '.cycle_count // 0' memory/run_state_active.json)
+cycle=$(jq -r '.cycle_count // 0' ${project_path}/.n8n/run_state.json)
 
 if [ "$cycle" -ge 2 ]; then
-  fix_attempts=$(jq -r '.fix_attempts // []' memory/run_state_active.json)
+  fix_attempts=$(jq -r '.fix_attempts // []' ${project_path}/.n8n/run_state.json)
 
   if [ "$fix_attempts" = "[]" ]; then
     echo "🚨 GATE 4 VIOLATION: Cycle $cycle requires fix_attempts context!"
@@ -293,10 +293,10 @@ IF builder_reports_done:
 **Orchestrator Check:**
 
 ```bash
-builder_status=$(jq -r '.build_result.status' memory/agent_results/$workflow_id/build_result.json)
+builder_status=$(jq -r '.build_result.status' ${project_path}/.n8n/agent_results/$workflow_id/build_result.json)
 
 if [ "$builder_status" = "success" ]; then
-  mcp_calls=$(jq -r '.build_result.mcp_calls // []' memory/agent_results/$workflow_id/build_result.json)
+  mcp_calls=$(jq -r '.build_result.mcp_calls // []' ${project_path}/.n8n/agent_results/$workflow_id/build_result.json)
 
   if [ "$mcp_calls" = "[]" ]; then
     echo "🚨 GATE 5 VIOLATION: Builder reported success without MCP call proof!"
@@ -350,10 +350,10 @@ IF researcher_proposes_solution:
 **Orchestrator Check:**
 
 ```bash
-researcher_status=$(jq -r '.research_findings.status' memory/agent_results/$workflow_id/research_findings.json)
+researcher_status=$(jq -r '.research_findings.status' ${project_path}/.n8n/agent_results/$workflow_id/research_findings.json)
 
 if [ "$researcher_status" = "complete" ]; then
-  hypothesis_validated=$(jq -r '.research_findings.hypothesis_validated // false' memory/agent_results/$workflow_id/research_findings.json)
+  hypothesis_validated=$(jq -r '.research_findings.hypothesis_validated // false' ${project_path}/.n8n/agent_results/$workflow_id/research_findings.json)
 
   if [ "$hypothesis_validated" != "true" ]; then
     echo "🚨 GATE 6 VIOLATION: Researcher proposed solution without testing hypothesis!"
@@ -500,7 +500,7 @@ WARN_IF: code length > 1000 lines (performance concern)
 **Before QA can validate:**
 - [ ] Builder provided verification report
 - [ ] Version ID confirmed changed
-- [ ] Result file written to `memory/agent_results/`
+- [ ] Result file written to `${project_path}/.n8n/agent_results/`
 - [ ] No rollback detected
 - [ ] `expected_changes` documented
 

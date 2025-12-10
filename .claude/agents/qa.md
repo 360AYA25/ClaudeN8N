@@ -220,10 +220,10 @@ return {
 
 ```bash
 # Before accepting QA PASS:
-qa_status=$(jq -r '.qa_report.status' memory/run_state_active.json)
+qa_status=$(jq -r '.qa_report.status' ${project_path}/.n8n/run_state.json)
 
 if [ "$qa_status" = "PASS" ]; then
-  phase_5=$(jq -r '.qa_report.phase_5_executed // false' memory/run_state_active.json)
+  phase_5=$(jq -r '.qa_report.phase_5_executed // false' ${project_path}/.n8n/run_state.json)
 
   if [ "$phase_5" != "true" ]; then
     echo "🚨 GATE 3 VIOLATION: QA PASS without Phase 5!"
@@ -305,16 +305,35 @@ for (const connKey of Object.keys(workflow.connections)) {
 **At session start, detect which project you're working on:**
 
 ```bash
-# Read project context from run_state
-project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memory/run_state_active.json)
-project_id=$(jq -r '.project_id // "clauden8n"' memory/run_state_active.json)
+# STEP 0: Read project context from run_state (or use default)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_path" ] && project_path="/Users/sergey/Projects/ClaudeN8N"
 
-# Load project-specific context (if external project)
-if [ "$project_id" != "clauden8n" ]; then
-  [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
-  [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+project_id=$(jq -r '.project_id // "clauden8n"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_id" ] && project_id="clauden8n"
+
+# STEP 1: Read SYSTEM-CONTEXT.md FIRST (if exists) - 90% token savings!
+if [ -f "${project_path}/.context/SYSTEM-CONTEXT.md" ]; then
+  Read "${project_path}/.context/SYSTEM-CONTEXT.md"
+  echo "✅ Loaded SYSTEM-CONTEXT.md (~1,800 tokens vs 10,000 tokens before)"
+else
+  # Fallback to legacy ARCHITECTURE.md if SYSTEM-CONTEXT doesn't exist
+  if [ "$project_id" != "clauden8n" ]; then
+    [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
+  fi
 fi
+
+# STEP 2: Load other project-specific context (if needed)
+if [ "$project_id" != "clauden8n" ]; then
+  [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+  [ -f "$project_path/TODO.md" ] && Read "$project_path/TODO.md"
+fi
+
+# STEP 3: LEARNINGS always from ClaudeN8N (shared knowledge base)
+Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
 ```
+
+**Priority:** SYSTEM-CONTEXT.md > SESSION_CONTEXT.md > ARCHITECTURE.md > LEARNINGS-INDEX.md
 
 ---
 
@@ -532,7 +551,7 @@ if (node.typeVersion < nodeInfo.latestVersion) {
 # NEVER use mode="full" for workflows >10 nodes or with binary data!
 
 # STEP 1: Get summaries (find WHERE)
-before_exec_id=$(jq -r '.execution_summary.latest_execution_id' memory/run_state_active.json)
+before_exec_id=$(jq -r '.execution_summary.latest_execution_id' ${project_path}/.n8n/run_state.json)
 before_summary=$(n8n_executions action="get" id=$before_exec_id mode="summary")
 
 # 2. Trigger test execution AFTER fix
@@ -601,11 +620,11 @@ for (const connKey of Object.keys(workflow.connections)) {
 ### Enforcement Rule
 
 ```bash
-qa_status=$(jq -r '.qa_report.status' memory/run_state_active.json)
+qa_status=$(jq -r '.qa_report.status' ${project_path}/.n8n/run_state.json)
 
 if [ "$qa_status" = "PASS" ]; then
-  workflow_id=$(jq -r '.workflow_id' memory/run_state_active.json)
-  phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' memory/agent_results/$workflow_id/qa_report.json)
+  workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
+  phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' ${project_path}/.n8n/agent_results/$workflow_id/qa_report.json)
 
   if [ "$phase_5_executed" != "true" ]; then
     echo "🚨 GATE 3 VIOLATION: Cannot report PASS without Phase 5 real testing!"
@@ -891,7 +910,7 @@ Shared nodes include: Check User, AI Agent, Database, Memory, Error Handler
 
 ```javascript
 // Step 1: Check result file exists
-const result_file = `memory/agent_results/workflow_${run_id}.json`;
+const result_file = `${project_path}/.n8n/agent_results/workflow_${run_id}.json`;
 if (!file_exists(result_file)) {
   FAIL("CRITICAL: No result file - Builder may have failed silently!");
 }
@@ -978,7 +997,7 @@ if (real_workflow.nodes.length !== run_state.workflow.node_count) {
 
 ### Step 1: Write FULL report to file
 ```
-memory/agent_results/qa_report_{run_id}.json
+${project_path}/.n8n/agent_results/qa_report_{run_id}.json
 ```
 
 ### Step 2: Return SUMMARY to run_state.qa_report
@@ -989,7 +1008,7 @@ memory/agent_results/qa_report_{run_id}.json
   "warning_count": 5,
   "edit_scope": ["node_id_1", "node_id_2"],
   "ready_for_deploy": true,
-  "full_report_file": "memory/agent_results/qa_report_{run_id}.json"
+  "full_report_file": "${project_path}/.n8n/agent_results/qa_report_{run_id}.json"
 }
 ```
 
@@ -1421,7 +1440,7 @@ mcp__n8n-mcp__n8n_update_partial_workflow({
   ```bash
   jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
      '.agent_log += [{"ts": $ts, "agent": "qa", "action": "validation_complete", "details": "X errors, Y warnings"}]' \
-     memory/run_state_active.json > tmp.json && mv tmp.json memory/run_state_active.json
+     ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
   ```
   See: `.claude/agents/shared/run-state-append.md`
 
