@@ -1,0 +1,53 @@
+{
+  "project_name": "PROJECT_NAME",
+  "project_type": "n8n-workflow",
+  "project_id": "project-id",
+  "project_path": "/path/to/project",
+  "workflow_id": "workflow-id",
+  "context_sources": {
+    "workflow": {
+      "enabled": true,
+      "path": "${project_path}/.n8n/canonical.json",
+      "sections": ["version", "nodes", "connections", "settings"]
+    },
+    "architecture": {
+      "enabled": true,
+      "path": "${project_path}/ARCHITECTURE.md",
+      "sections": ["overview", "node_flow", "critical_nodes"]
+    },
+    "session_context": {
+      "enabled": false,
+      "path": "${project_path}/SESSION_CONTEXT.md",
+      "note": "Only for PM-managed projects"
+    },
+    "tasks": {
+      "enabled": false,
+      "path": "${project_path}/TODO.md",
+      "filter": ["in_progress", "next_up", "blocked"],
+      "note": "Only for PM-managed projects"
+    },
+    "learnings": {
+      "enabled": true,
+      "global_path": "/Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS.md",
+      "index_path": "/Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md",
+      "limit": 10,
+      "project_specific": "${project_path}/docs/learning/"
+    },
+    "database": {
+      "enabled": false,
+      "path": "${project_path}/docs/database/schema.sql",
+      "note": "Only if project has database"
+    }
+  },
+  "refresh_settings": {
+    "auto_refresh_on_complete": true,
+    "auto_refresh_on_version_change": true,
+    "max_tokens": 3000,
+    "git_commit": true
+  },
+  "metadata": {
+    "created_at": "2025-12-10T00:00:00Z",
+    "created_by": "Analyst",
+    "template_version": "1.0.0"
+  }
+}

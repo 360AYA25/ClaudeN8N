@@ -1,0 +1,49 @@
+{
+  "id": "run_webhook_simple_20251210",
+  "stage": "build",
+  "cycle_count": 0,
+  "user_request": "Create simple webhook workflow that receives JSON and stores to Supabase",
+  "workflow_id": "abc123xyz",
+  "project_id": "simple-webhook",
+  "project_path": "/Users/sergey/Projects/simple-webhook-workflow",
+  "agent_log": [
+    {
+      "ts": "2025-12-10T12:00:00Z",
+      "agent": "orchestrator",
+      "action": "session_started",
+      "details": "New CREATE flow for simple webhook workflow"
+    },
+    {
+      "ts": "2025-12-10T12:01:00Z",
+      "agent": "architect",
+      "action": "clarification_complete",
+      "details": "Requirements: webhook trigger + Supabase insert"
+    },
+    {
+      "ts": "2025-12-10T12:05:00Z",
+      "agent": "researcher",
+      "action": "research_complete",
+      "details": "Found Webhook node + Supabase node, fit_score: 95"
+    }
+  ],
+  "requirements": {
+    "trigger": "webhook",
+    "services": ["supabase"],
+    "input_format": "JSON",
+    "output_action": "Store in database"
+  },
+  "research_findings": {
+    "status": "complete",
+    "hypothesis_validated": true,
+    "fit_score": 95,
+    "learnings_checked": true
+  },
+  "worklog": [],
+  "usage": {
+    "tokens_used": 12500,
+    "agent_calls": 3,
+    "qa_cycles": 0,
+    "cost_usd": 0.05
+  },
+  "validation_gates_version": "3.6.0"
+}
