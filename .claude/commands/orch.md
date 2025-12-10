@@ -646,10 +646,114 @@ When `/orch` is invoked:
 # 0.1 Source gate enforcement functions
 source .claude/agents/shared/gate-enforcement.sh
 
-# 0.2 This enables validation gates BEFORE every agent delegation
+# 0.2 Source frustration detection functions
+source .claude/agents/shared/frustration-detector.sh
+
+# 0.3 This enables validation gates BEFORE every agent delegation
 # Reference: SYSTEM-SAFETY-OVERHAUL.md (prevents FAILURE-ANALYSIS disasters)
 
 echo "🔒 Gate enforcement loaded (v1.0.0)"
+echo "🧠 Frustration detection loaded (v1.0.0)"
+```
+
+### Step 0.5: Check User Frustration (🚨 NEW - PREVENTS 6-HOUR DISASTERS!)
+
+```bash
+# 0.5.1 Initialize session_start if new session
+if [ ! -f memory/run_state_active.json ] || [ "$(jq -r '.session_start // null' memory/run_state_active.json)" = "null" ]; then
+  # Create/update run_state with session_start
+  session_start=$(date +%s)
+
+  if [ -f memory/run_state_active.json ]; then
+    jq --arg ts "$session_start" '.session_start = ($ts | tonumber)' \
+       memory/run_state_active.json > /tmp/run_state_tmp.json && \
+       mv /tmp/run_state_tmp.json memory/run_state_active.json
+  else
+    # Create minimal run_state for frustration detection
+    echo '{"session_start": '"$session_start"', "frustration_signals": {"profanity": 0, "complaints": 0, "repeated_requests": 0, "session_duration": 0}}' > memory/run_state_active.json
+  fi
+fi
+
+# 0.5.2 Update last_request for repeated request detection
+if [ -f memory/run_state_active.json ]; then
+  jq --arg req "$user_request" '.last_request = $req' \
+     memory/run_state_active.json > /tmp/run_state_tmp.json && \
+     mv /tmp/run_state_tmp.json memory/run_state_active.json
+fi
+
+# 0.5.3 Check frustration level
+frustration_action=$(check_frustration "$user_request" memory/run_state_active.json)
+
+# 0.5.4 Handle frustration levels
+case "$frustration_action" in
+  STOP_AND_ROLLBACK)
+    echo ""
+    echo "🚨 CRITICAL FRUSTRATION DETECTED"
+    echo ""
+    get_frustration_message "CRITICAL"
+    echo ""
+
+    # Show frustration signals
+    signals=$(jq -r '.frustration_signals' memory/run_state_active.json)
+    echo "Signals detected:"
+    echo "$signals" | jq '.'
+    echo ""
+
+    # Execute auto-rollback
+    snapshot_path=$(execute_auto_rollback memory/run_state_active.json)
+
+    if [ $? -eq 0 ]; then
+      echo "✅ Auto-rollback completed: $snapshot_path"
+      echo ""
+      echo "💤 Рекомендация: Продолжим завтра, когда ты отдохнёшь? 😊"
+      echo ""
+      echo "Для восстановления используй:"
+      echo "  /orch rollback $(basename $snapshot_path .json)"
+    fi
+
+    # STOP processing - do not continue with task
+    exit 0
+    ;;
+
+  OFFER_ROLLBACK)
+    echo ""
+    echo "⚠️ HIGH FRUSTRATION DETECTED"
+    echo ""
+    get_frustration_message "HIGH"
+    echo ""
+
+    # Show frustration signals
+    signals=$(jq -r '.frustration_signals' memory/run_state_active.json)
+    echo "Signals detected:"
+    echo "$signals" | jq '.'
+    echo ""
+
+    echo "Варианты:"
+    echo "  [R]ollback - Откатить все изменения"
+    echo "  [C]ontinue - Попробовать другой подход"
+    echo "  [S]top - Остановить и отдохнуть"
+    echo ""
+    echo "❓ Что выбираешь? (R/C/S)"
+
+    # WAIT FOR USER INPUT before continuing
+    # Note: In actual implementation, orchestrator should pause here
+    # For now, this is a reminder to handle user choice
+    ;;
+
+  CHECK_IN)
+    echo ""
+    echo "💡 MODERATE FRUSTRATION DETECTED"
+    echo ""
+    get_frustration_message "MODERATE"
+    echo ""
+
+    # Continue processing but notify user
+    ;;
+
+  CONTINUE)
+    # Normal processing - no frustration detected
+    ;;
+esac
 ```
 
 ### Step 1: Load and Validate run_state

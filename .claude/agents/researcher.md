@@ -923,6 +923,175 @@ Return incomplete findings:
 
 ---
 
+## 🟡 Solution Proposal Protocol (Minimal Fix First - Priority 1)
+
+> **Purpose:** Always propose minimal fix BEFORE complex solutions
+> **Reference:** SYSTEM-SAFETY-OVERHAUL.md (prevents over-engineering disasters)
+> **When:** Proposing solutions for bug fixes or modifications
+
+### MANDATORY Structure for ALL Proposals
+
+**When proposing solutions, ALWAYS use this structure:**
+
+```markdown
+### Option 1: MINIMAL FIX ⭐ (RECOMMENDED)
+
+**Goal:** Restore functionality with minimum changes
+
+**Changes:**
+- [List specific nodes/parameters to change]
+- Example: "In 'Success Reply' node: Set replyMarkup parameter to 'none'"
+
+**Estimated time:** [X minutes]
+**Risk level:** Minimal
+
+**Pros:**
+- ✅ Fast implementation (< 1 hour)
+- ✅ Low risk of breaking other features
+- ✅ Easy to rollback
+- ✅ User can test immediately
+
+**Cons:**
+- ⚠️ May not address root cause
+- ⚠️ Might need proper fix later
+
+**Implementation:**
+\`\`\`javascript
+// Exact code or config change
+node["Success Reply"].parameters.replyMarkup = "none";
+\`\`\`
+
+---
+
+### Option 2: PROPER FIX (Alternative)
+
+**Goal:** Address root cause with architectural improvement
+
+**Changes:**
+- [List architectural changes]
+- Example: "Merge 'Success Reply' + 'Send Keyboard' into single HTTP Request node"
+
+**Estimated time:** [X hours]
+**Risk level:** Medium/High
+
+**Pros:**
+- ✅ Addresses root cause
+- ✅ Cleaner architecture
+- ✅ Better long-term solution
+
+**Cons:**
+- ⚠️ Takes longer (3+ hours)
+- ⚠️ Higher risk of breaking workflow
+- ⚠️ Harder to rollback
+- ⚠️ More testing required
+
+**Implementation:**
+\`\`\`javascript
+// Detailed architectural changes
+// Delete 2 nodes, create 1 new node, rewire connections
+\`\`\`
+
+---
+
+### RECOMMENDATION
+
+**I recommend Option 1 (Minimal Fix) because:**
+- [Specific reasoning for this case]
+- Solves immediate problem quickly
+- User can implement Option 2 later if needed
+- Lower risk in production environment
+
+**User decides which option to implement.**
+```
+
+### Validation Rules
+
+**Before submitting proposal:**
+
+```javascript
+/**
+ * Validate proposal structure
+ * Ensures minimal fix is ALWAYS first
+ */
+function validateProposal(proposal) {
+  const errors = [];
+
+  // Rule 1: Must have Option 1
+  if (!proposal.options[0] || !proposal.options[0].title.includes("MINIMAL FIX")) {
+    errors.push("❌ Option 1 MUST be MINIMAL FIX");
+  }
+
+  // Rule 2: Minimal option must have time estimate
+  if (!proposal.options[0].estimated_time) {
+    errors.push("❌ Option 1 must have estimated_time");
+  }
+
+  // Rule 3: Minimal option estimated time must be < 1 hour
+  if (proposal.options[0].estimated_time_minutes > 60) {
+    errors.push("⚠️ Option 1 should take < 1 hour (or it's not minimal)");
+  }
+
+  // Rule 4: Must recommend Option 1 by default
+  if (!proposal.recommendation.includes("Option 1")) {
+    errors.push("⚠️ Should recommend Minimal Fix by default");
+  }
+
+  return errors;
+}
+```
+
+### Examples
+
+**Good Proposal (follows protocol):**
+```markdown
+### Option 1: MINIMAL FIX ⭐
+Goal: Fix duplicate key error
+Changes: Remove "Log Message" node (conflicting with existing)
+Time: 5 minutes
+Risk: Minimal
+
+### Option 2: PROPER FIX
+Goal: Restructure logging architecture
+Changes: Create dedicated logging workflow, use Execute Workflow nodes
+Time: 3 hours
+Risk: High
+
+RECOMMENDATION: Option 1 (removes immediate blocker, Option 2 can be done later)
+```
+
+**Bad Proposal (violates protocol):**
+```markdown
+❌ WRONG - Only one complex option:
+### Solution: Restructure entire workflow
+Changes: Merge 5 nodes, rewrite 3 Code nodes, add error handling
+Time: 6 hours
+
+❌ WRONG - Complex option listed first:
+### Option 1: Complete Refactor (3 hours)
+### Option 2: Quick Fix (5 minutes)
+```
+
+### When Minimal Fix Not Possible
+
+**If truly no minimal option exists (rare!):**
+
+```markdown
+### Option 1: PARTIAL FIX ⭐
+Goal: Reduce severity (doesn't fully fix but improves situation)
+Changes: Add error handling to prevent crash
+Time: 30 minutes
+Note: ⚠️ Doesn't solve root cause but prevents critical failure
+
+### Option 2: FULL FIX
+Goal: Complete solution
+Changes: [architectural changes]
+Time: 4 hours
+```
+
+**Never skip Option 1! There's ALWAYS a simpler option, even if partial.**
+
+---
+
 ## Output → `run_state.research_findings`
 
 ```json
