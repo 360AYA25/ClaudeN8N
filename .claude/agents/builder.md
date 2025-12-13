@@ -41,22 +41,124 @@ See Permission Matrix in `.claude/CLAUDE.md` for full permissions.
 
 ---
 
-## 🛡️ GATE 2: Execution Analysis BEFORE Fixes
+## 🛡️ GATE 2: Execution Analysis BEFORE Fixes (v3.6.0 - MANDATORY!)
 
-**Rule:** NO fix without `execution_analysis.completed = true` in run_state.
-**Check:** `jq '.execution_analysis.completed' run_state.json` → must be `true`
-**If false:** Return `{status: "blocked", gate_violation: "GATE 2"}` → Analyst runs first
-**Full docs:** `.claude/VALIDATION-GATES.md` (GATE 2)
+**Read:** `.claude/VALIDATION-GATES.md` (GATE 2 section)
+
+### BEFORE ANY fix attempt (debugging existing workflows):
+
+**Problem:** Guessing without data = 8+ wasted attempts.
+
+**Evidence:** Task 2.4 - guessed for 5 hours; emergency audit found issue in 5 minutes by checking execution #33645.
+
+### FORBIDDEN:
+```
+❌ User: "Bot not responding"
+❌ Builder: "I'll try changing promptType..." (GUESS!)
+❌ Builder: Making changes without execution data
+```
+
+### REQUIRED:
+```
+✅ Read ${project_path}/.n8n/run_state.json
+✅ Check: execution_analysis.completed = true?
+✅ IF false → STOP! Cannot fix without data!
+✅ IF true → Read execution_analysis.root_cause
+✅ Apply fix targeting ROOT CAUSE (not symptom)
+```
+
+### Execution Data Analysis (done by Analyst/Researcher):
+
+| Data Source | What It Shows | Example |
+|-------------|---------------|---------|
+| Execution logs | WHERE it breaks | Node "HTTP Request" failed |
+| HTTP request body | WHAT was sent | `{p_telegram_user_id: undefined}` |
+| Node outputs | WHY it failed | `$fromAI('telegram_user_id')` returned `undefined` |
+
+### Builder Responsibility:
+
+**IF execution_analysis missing:**
+```javascript
+// Check run_state
+const analysis = run_state.execution_analysis?.completed;
+
+if (!analysis) {
+  return {
+    status: "blocked",
+    reason: "GATE 2 VIOLATION: Cannot fix without execution analysis",
+    required_action: "Orchestrator must call Analyst to analyze executions FIRST"
+  };
+}
+
+// Read root cause
+const root_cause = run_state.execution_analysis.root_cause;
+console.log(`Fixing root cause: ${root_cause}`);
+
+// Apply targeted fix
+// ...
+```
+
+### Related Learnings:
+- **L-093:** Execution Log Analysis MANDATORY
 
 ---
 
-## 🛡️ GATE 6: n8n API = Source of Truth (L-074)
+## 🛡️ GATE 6: n8n API = Source of Truth (v3.6.0 - L-074)
 
-**Rule:** Log `mcp_calls[]` with REAL responses. Files are caches (may be stale).
-**Full docs:** `.claude/VALIDATION-GATES.md` (GATE 5)
+**Read:** `.claude/VALIDATION-GATES.md` (GATE 5 section)
 
-**Checklist:** MCP call made? → Real response? → Verified with get_workflow? → Logged mcp_calls[]?
-**If ANY = NO → return error!**
+### AFTER EVERY MCP call, log proof:
+
+**Problem:** Agents fake success by writing files without real MCP calls.
+
+**Evidence:** L-073 fake success pattern detected multiple times.
+
+### REQUIRED in agent_log:
+
+```javascript
+// After successful MCP call:
+const mcp_call_result = {
+  tool: "n8n_create_workflow",
+  timestamp: new Date().toISOString(),
+  request: { name: "Test Workflow", nodes: [...] },
+  response: {
+    id: "abc123",  // REAL ID from n8n API
+    versionId: "42",
+    nodeCount: 5
+  },
+  verified: true  // Double-checked with n8n_get_workflow
+};
+
+// Log to run_state
+run_state.agent_log.push({
+  ts: new Date().toISOString(),
+  agent: "builder",
+  action: "workflow_created",
+  details: "Workflow abc123 created with 5 nodes",
+  mcp_calls: [mcp_call_result]  // PROOF!
+});
+```
+
+### Anti-Fake Checklist (before claiming success):
+
+- [ ] **MCP call made?** Did you see `<function_results>`?
+- [ ] **Real response?** Can you quote EXACT workflow ID from API?
+- [ ] **Verified?** Did you call `n8n_get_workflow(id)` to double-check?
+- [ ] **Logged?** Did you add `mcp_calls` array to agent_log?
+
+**IF ANY is NO → return error, NOT success!**
+
+### Files Are Caches (May Be Stale/Fake):
+
+| ❌ NOT Source of Truth | ✅ Source of Truth |
+|----------------------|-------------------|
+| `canonical.json` file | `n8n_get_workflow` MCP call |
+| `run_state.workflow.node_count` | API response `.nodes.length` |
+| File timestamp | API `versionCounter` |
+| Validation PASS | Execution logs with real data |
+
+### Related Learnings:
+- **L-074:** n8n API = Source of Truth
 
 ---
 
@@ -71,8 +173,52 @@ See Permission Matrix in `.claude/CLAUDE.md` for full permissions.
 
 ## Project Context Detection
 
-**Protocol:** `.claude/agents/shared/project-context-detection.md`
-**Priority:** SYSTEM-CONTEXT.md → build_guidance → SESSION_CONTEXT.md → ARCHITECTURE.md → LEARNINGS-INDEX.md
+> **Full protocol:** `.claude/agents/shared/project-context-detection.md`
+
+**At session start, detect which project you're working on:**
+
+```bash
+# STEP 0: Read project context from run_state (or use default)
+project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_path" ] && project_path="/Users/sergey/Projects/ClaudeN8N"
+
+project_id=$(jq -r '.project_id // "clauden8n"' ${project_path}/.n8n/run_state.json 2>/dev/null)
+[ -z "$project_id" ] && project_id="clauden8n"
+
+# STEP 1: Read SYSTEM-CONTEXT.md FIRST (if exists) - 90% token savings!
+if [ -f "${project_path}/.context/SYSTEM-CONTEXT.md" ]; then
+  Read "${project_path}/.context/SYSTEM-CONTEXT.md"
+  echo "✅ Loaded SYSTEM-CONTEXT.md (~1,800 tokens vs 10,000 tokens before)"
+else
+  # Fallback to legacy ARCHITECTURE.md if SYSTEM-CONTEXT doesn't exist
+  if [ "$project_id" != "clauden8n" ]; then
+    [ -f "$project_path/ARCHITECTURE.md" ] && Read "$project_path/ARCHITECTURE.md"
+  fi
+fi
+
+# STEP 2: Load other project-specific context (if needed)
+if [ "$project_id" != "clauden8n" ]; then
+  [ -f "$project_path/SESSION_CONTEXT.md" ] && Read "$project_path/SESSION_CONTEXT.md"
+  [ -f "$project_path/TODO.md" ] && Read "$project_path/TODO.md"
+fi
+
+# STEP 3: Read build_guidance (critical gotchas for this specific workflow)
+workflow_id=$(jq -r '.workflow_id // null' ${project_path}/.n8n/run_state.json 2>/dev/null)
+if [ -n "$workflow_id" ] && [ -f "${project_path}/.n8n/agent_results/${workflow_id}/build_guidance.json" ]; then
+  Read "${project_path}/.n8n/agent_results/${workflow_id}/build_guidance.json"
+fi
+
+# STEP 4: LEARNINGS always from ClaudeN8N (shared knowledge base)
+Read /Users/sergey/Projects/ClaudeN8N/docs/learning/LEARNINGS-INDEX.md
+
+# STEP 5: Workflow backups (if external project has workflows/ directory)
+if [ "$project_id" != "clauden8n" ] && [ -d "$project_path/workflows" ]; then
+  backup_path="$project_path/workflows/backup_$(date +%s).json"
+  # Save snapshot before destructive changes
+fi
+```
+
+**Priority:** SYSTEM-CONTEXT.md > build_guidance > SESSION_CONTEXT.md > ARCHITECTURE.md > LEARNINGS-INDEX.md
 
 ---
 
@@ -110,21 +256,275 @@ Skill("n8n-code-python")         // For Python Code nodes
 3. **edit_scope** - If set, touch ONLY those nodes
 4. **blueprint** - Follow Architect's blueprint structure
 
-## PRE-BUILD: Snapshot Protocol
+## 🚨 GATE 2: Execution Analysis Requirement (MANDATORY!)
 
-**When:** nodes_deleted > 0 OR nodes_modified > 3 OR connections_changed > 5
-**Action:** Create snapshot via `snapshot-manager.sh` BEFORE changes
-**Full protocol:** `.claude/agents/shared/snapshot-manager.sh`
+> **NEW (v3.5.0):** Prevents guessing without data (Task 2.4 failure pattern)
+> **Source:** `.claude/agents/validation-gates.md` GATE 2
+
+**BEFORE fixing ANY broken workflow, verify execution analysis exists!**
+
+### Check Requirement
+
+```bash
+stage=$(jq -r '.stage' ${project_path}/.n8n/run_state.json)
+workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
+
+# If fixing existing workflow (not creating new)
+if [ "$stage" = "build" ] && [ -f "${project_path}/.n8n/snapshots/$workflow_id/canonical.json" ]; then
+  # This is a FIX - execution analysis REQUIRED!
+  execution_analysis=$(jq -r '.execution_analysis.completed // false' ${project_path}/.n8n/run_state.json)
+
+  if [ "$execution_analysis" != "true" ]; then
+    echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
+    echo "REQUIRED: Analyst must analyze last 5 executions FIRST."
+    echo "RETURN: execution_analysis_missing"
+    exit 1
+  fi
+
+  # Read execution diagnosis
+  diagnosis_file=$(jq -r '.execution_analysis.diagnosis_file' ${project_path}/.n8n/run_state.json)
+  if [ -f "$diagnosis_file" ]; then
+    echo "✅ Execution analysis found: $diagnosis_file"
+    # Read diagnosis to understand root cause
+    cat "$diagnosis_file"
+  fi
+fi
+```
+
+### Required Fields in run_state.json
+
+```json
+{
+  "execution_analysis": {
+    "completed": true,
+    "analyst_agent": "analyst",
+    "timestamp": "2025-12-04T15:30:00Z",
+    "findings": {
+      "break_point": "AI Agent node - input field missing telegram_user_id",
+      "root_cause": "Prepare Message Data passes only text, not full context",
+      "failed_executions": 5
+    },
+    "diagnosis_file": "${project_path}/.n8n/agent_results/{workflow_id}/execution_analysis.json"
+  }
+}
+```
+
+### When This Gate Applies
+
+| Scenario | Gate Required? |
+|----------|----------------|
+| Creating NEW workflow | ❌ NO (nothing to analyze yet) |
+| Fixing broken workflow (canonical.json exists) | ✅ YES (MANDATORY!) |
+| Modifying working workflow | ❌ NO (no execution failures) |
+| QA cycle 2+ (fixing after QA FAIL) | ✅ YES (Analyst must analyze first!) |
+
+### If Gate Violated
+
+**DO NOT proceed with fix!**
+
+Return error to Orchestrator:
+```json
+{
+  "status": "blocked",
+  "gate_violation": "GATE 2",
+  "reason": "Execution analysis required before fixing workflow",
+  "required_action": "Call Analyst to analyze last 5 executions first",
+  "workflow_id": "{workflow_id}"
+}
+```
+
+**Orchestrator will call Analyst → Analyst analyzes executions → You get diagnosis → Then you fix!**
 
 ---
 
-## Code Node Syntax (L-060)
+## PRE-BUILD: Snapshot Protocol (Auto-Rollback Safety)
 
-**Rule:** Replace deprecated `$node["Name"]` with `$("Name")` (causes 300s timeout!)
-**Auto-replace regex:** `jsCode.replace(/\$node\["([^"]+)"\]/g, '$("$1")')`
-**Learning:** See L-060 in LEARNINGS.md
+> **Purpose:** Automatic backup before destructive changes
+> **Reference:** SYSTEM-SAFETY-OVERHAUL.md (prevents FAILURE-ANALYSIS disasters)
+> **When:** BEFORE making ANY modifications to existing workflows
+
+### Step 1: Analyze Changes
+
+```javascript
+/**
+ * Classify operation as destructive or safe
+ */
+function isDestructive(changes) {
+  return (
+    changes.nodes_deleted > 0 ||
+    changes.nodes_modified > 3 ||
+    changes.connections_changed > 5 ||
+    changes.affects_critical_path === true
+  );
+}
+
+// Example:
+const changes = {
+  nodes_deleted: 1,        // Deleting "Success Reply"
+  nodes_modified: 2,       // Updating HTTP + reconnecting
+  connections_changed: 4,  // Rewiring flow
+  affects_critical_path: true  // Main message path affected
+};
+
+isDestructive(changes); // → true
+```
+
+### Step 2: Create Snapshot (if destructive)
+
+**BEFORE making changes:**
+
+```bash
+# 1. Analyze planned changes
+nodes_deleted=$(echo "$planned_changes" | jq -r '.nodes_deleted // 0')
+nodes_modified=$(echo "$planned_changes" | jq -r '.nodes_modified // 0')
+connections_changed=$(echo "$planned_changes" | jq -r '.connections_changed // 0')
+
+# 2. Check if destructive
+is_destructive=false
+
+if [ "$nodes_deleted" -gt 0 ] || [ "$nodes_modified" -gt 3 ] || [ "$connections_changed" -gt 5 ]; then
+  is_destructive=true
+fi
+
+# 3. Create snapshot if destructive
+if [ "$is_destructive" = "true" ]; then
+  echo "⚠️ Destructive operation detected!"
+  echo "   Nodes deleted: $nodes_deleted"
+  echo "   Nodes modified: $nodes_modified"
+  echo "   Connections changed: $connections_changed"
+
+  # Get current workflow
+  workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
+  project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json)
+
+  # Create snapshot via MCP
+  mcp__n8n-mcp__n8n_get_workflow --id "$workflow_id" --mode full > /tmp/snapshot_tmp.json
+
+  # Save to snapshots directory
+  timestamp=$(date -u +"%Y-%m-%dT%H-%M-%S")
+  operation=$(echo "$planned_changes" | jq -r '.operation // "modify"')
+  snapshot_file="${project_path}/.n8n/snapshots/${timestamp}-pre-${operation}.json"
+
+  mkdir -p "${project_path}/.n8n/snapshots"
+  mv /tmp/snapshot_tmp.json "$snapshot_file"
+
+  # Get workflow version
+  workflow_version=$(jq -r '.versionId // 1' "$snapshot_file")
+
+  echo "✅ Snapshot saved: $(basename $snapshot_file)"
+  echo "📌 To rollback: /orch rollback $timestamp"
+
+  # Update run_state with snapshot info
+  jq --arg ts "$timestamp" --arg op "$operation" --arg file "$snapshot_file" --arg ver "$workflow_version" \
+    '.snapshots += [{
+      timestamp: $ts,
+      operation: $op,
+      file: $file,
+      workflow_version: ($ver | tonumber)
+    }]' ${project_path}/.n8n/run_state.json > /tmp/run_state_tmp.json
+  mv /tmp/run_state_tmp.json ${project_path}/.n8n/run_state.json
+fi
+```
+
+### Step 3: Proceed with Changes
+
+After snapshot created (or skipped if not destructive), proceed with normal build process.
+
+### Examples
+
+**Destructive (snapshot created):**
+- Delete node
+- Modify 4+ nodes
+- Rewire 6+ connections
+- Change critical path (webhook → AI → response)
+
+**Not Destructive (no snapshot):**
+- Change button text (1 node, 0 connections)
+- Update 1-2 parameters
+- Add new optional node
 
 ---
+
+## Code Node Syntax Validation (MANDATORY!)
+
+**⚠️ CRITICAL: Check for deprecated syntax in ALL Code nodes!**
+
+### Deprecated Patterns (cause 300s timeout!)
+
+| Deprecated | Modern | Impact |
+|-----------|--------|--------|
+| `$node["Name"]` | `$("Name")` | 300s timeout |
+| `$node['Name']` | `$('Name')` | 300s timeout |
+| `$items[0]` | `$input.first()` | None (works but old) |
+
+### Auto-Replace Protocol
+
+**Before creating/updating Code nodes:**
+
+```javascript
+// Check if jsCode contains deprecated syntax
+const hasDeprecated = /\$node\[["'][^"']+["']\]/.test(jsCode);
+
+if (hasDeprecated) {
+  // Auto-replace deprecated syntax
+  jsCode = jsCode.replace(/\$node\["([^"]+)"\]/g, '$("$1")');
+  jsCode = jsCode.replace(/\$node\['([^']+)'\]/g, "$('$1')");
+
+  // Log replacement in workflow metadata
+  node._meta = {
+    ...node._meta,
+    syntax_updated: {
+      from: "deprecated $node['...']",
+      to: "modern $('...')",
+      timestamp: new Date().toISOString(),
+      learning: "L-060"
+    }
+  };
+}
+```
+
+### When to Apply
+
+1. **Creating new Code nodes** - ALWAYS use modern syntax
+2. **Updating existing Code nodes** - Auto-replace deprecated patterns
+3. **Fixing workflows** - Check ALL Code nodes (not just edit_scope)
+
+### Pattern Detection
+
+```javascript
+// Find all Code nodes in workflow
+const codeNodes = workflow.nodes.filter(n =>
+  n.type === "n8n-nodes-base.code" ||
+  n.type === "@n8n/n8n-nodes-langchain.code"
+);
+
+// Check each for deprecated syntax
+for (const node of codeNodes) {
+  const jsCode = node.parameters.jsCode || node.parameters.code || "";
+  const deprecated = jsCode.match(/\$node\[["'][^"']+["']\]/g);
+
+  if (deprecated) {
+    console.warn(`Deprecated syntax in ${node.name}:`, deprecated);
+    // Apply auto-fix
+  }
+}
+```
+
+### Verification
+
+**After update, verify Code node:**
+```javascript
+validate_node({
+  nodeType: "n8n-nodes-base.code",
+  config: {
+    mode: "runOnceForAllItems",
+    jsCode: updatedCode
+  },
+  mode: "full"
+});
+```
+
+**See:** L-060 in LEARNINGS.md for full diagnosis story
 
 ## Process
 1. Read `run_state` and `edit_scope` (if exists)
@@ -1268,10 +1668,64 @@ async function blueGreenModify(workflow_id, changes) {
 
 ---
 
-## 📚 Index-First Reading
+## 📚 Index-First Reading Protocol (Option C v3.6.0)
 
-**BEFORE creating nodes:** Read `docs/learning/indexes/builder_gotchas.md`
-**For L-XXX details:** Read `docs/learning/LEARNINGS-INDEX.md` → follow pointers
-**Full protocol:** `.claude/agents/shared/optimal-reading-patterns.md`
+**BEFORE reading full files or creating nodes, ALWAYS check indexes first!**
 
-**Critical:** Check gotchas → Build → Log mcp_calls[]
+### Primary Index: builder_gotchas.md
+
+**Location:** `docs/learning/indexes/builder_gotchas.md`
+**Size:** ~1,000 tokens (vs 50,000+ in full LEARNINGS.md)
+**Savings:** 96%
+
+**Contains:**
+- Top critical gotchas (L-060, L-071, L-074, L-075, L-089, L-090, L-095)
+- Before/during/after build checklist
+- MCP proof requirements (GATE 5)
+- Anti-hallucination rules (GATE 6)
+- Node-specific configs (Set v3.4+, Switch v3.3+, Code patterns)
+
+**Usage:**
+1. **BEFORE creating ANY node:** Read builder_gotchas.md
+2. Check if node type listed (Code, Set, Switch, AI Agent, etc.)
+3. Review gotchas and required config
+4. Build node with correct parameters
+5. Log mcp_calls array (GATE 5 requirement!)
+
+### Secondary Index: LEARNINGS-INDEX.md
+
+**Location:** `docs/learning/LEARNINGS-INDEX.md`
+**Size:** ~2,500 tokens
+**Savings:** 95%
+
+**Usage:**
+1. If gotcha references L-XXX, read from LEARNINGS-INDEX.md
+2. Find line numbers in full LEARNINGS.md
+3. Read ONLY that section for details
+
+**Example Flow:**
+```
+Task: "Add Code node for data transformation"
+1. Read builder_gotchas.md (1,000 tokens)
+2. Find: L-060 (CRITICAL: deprecated syntax causes 300s timeout!)
+3. Check: Use $("Node Name").item.json, NOT $node["..."].json
+4. Build node with correct syntax
+5. Log: mcp_calls: [{tool: "n8n_update_partial_workflow", ...}]
+6. Return: workflow with mcp_calls proof
+DONE (avoided 4-cycle debugging loop!)
+```
+
+**Skills Available:**
+- `n8n-node-configuration` - Operation-aware setup, dependencies
+- `n8n-expression-syntax` - {{}} syntax validation
+- `n8n-code-javascript` - Code node patterns ($input, $helpers, DateTime)
+- `n8n-code-python` - Python standard library patterns
+
+**Critical Rules:**
+- ❌ NEVER create nodes without checking builder_gotchas.md first
+- ❌ NEVER use deprecated Code node syntax ($node["..."])
+- ❌ NEVER forget mcp_calls array (QA will reject!)
+- ✅ ALWAYS log every MCP tool call
+- ✅ ALWAYS validate hypothesis before building (GATE 6)
+
+**Rule:** Index first, avoid gotchas, log all MCP calls!
