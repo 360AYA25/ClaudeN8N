@@ -293,4 +293,83 @@ function check_frustration() {
   echo "$action"
 }
 
+###############################################################################
+# Handle Frustration Action (full implementation)
+###############################################################################
+
+function handle_frustration_action() {
+  local action="$1"
+  local run_state="$2"
+
+  case "$action" in
+    STOP_AND_ROLLBACK)
+      echo ""
+      echo "🚨 CRITICAL FRUSTRATION DETECTED"
+      echo ""
+      get_frustration_message "CRITICAL"
+      echo ""
+
+      # Show frustration signals
+      local signals=$(jq -r '.frustration_signals' "$run_state")
+      echo "Signals detected:"
+      echo "$signals" | jq '.'
+      echo ""
+
+      # Execute auto-rollback
+      local snapshot_path=$(execute_auto_rollback "$run_state")
+
+      if [ $? -eq 0 ]; then
+        echo "✅ Auto-rollback completed: $snapshot_path"
+        echo ""
+        echo "💤 Рекомендация: Продолжим завтра, когда ты отдохнёшь? 😊"
+        echo ""
+        echo "Для восстановления используй:"
+        echo "  /orch rollback $(basename $snapshot_path .json)"
+      fi
+
+      # Signal to stop processing
+      return 1
+      ;;
+
+    OFFER_ROLLBACK)
+      echo ""
+      echo "⚠️ HIGH FRUSTRATION DETECTED"
+      echo ""
+      get_frustration_message "HIGH"
+      echo ""
+
+      # Show frustration signals
+      local signals=$(jq -r '.frustration_signals' "$run_state")
+      echo "Signals detected:"
+      echo "$signals" | jq '.'
+      echo ""
+
+      echo "Варианты:"
+      echo "  [R]ollback - Откатить все изменения"
+      echo "  [C]ontinue - Попробовать другой подход"
+      echo "  [S]top - Остановить и отдохнуть"
+      echo ""
+      echo "❓ Что выбираешь? (R/C/S)"
+
+      # Signal to wait for user input
+      return 2
+      ;;
+
+    CHECK_IN)
+      echo ""
+      echo "💡 MODERATE FRUSTRATION DETECTED"
+      echo ""
+      get_frustration_message "MODERATE"
+      echo ""
+      # Continue processing
+      return 0
+      ;;
+
+    *)
+      # Normal processing - no frustration detected
+      return 0
+      ;;
+  esac
+}
+
 # End of frustration-detector.sh

@@ -2,6 +2,73 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.7.0] - 2025-12-13
+
+### 🚀 Orchestrator Token Optimization (44% reduction)
+
+**Major optimization of `/orch` command file for significant token savings.**
+
+**Problem:**
+- `orch.md` was 1,827 lines (~14,900 tokens)
+- Large bash code blocks duplicated logic from shared libraries
+- Verbose JavaScript examples served as documentation, not execution
+- Target: reduce to ~4,200 tokens (72%)
+
+**Solution: Extract to shared libraries + compact documentation**
+
+**Achieved:** 44% token reduction (1,827 → 1,037 lines, ~14,900 → ~8,400 tokens)
+
+### Changes Made
+
+**1. New Shared Libraries:**
+- `.claude/agents/shared/snapshot-manager.sh` — Rollback/snapshot functions
+- `.claude/agents/shared/run-state-lib.sh` — Token-efficient jq operations
+
+**2. Enhanced Existing Libraries:**
+- `gate-enforcement.sh` — Added `check_gate_1()` (Progressive Escalation, 70 lines)
+- `frustration-detector.sh` — Added `handle_frustration_action()` (75 lines)
+
+**3. Optimized Sections in orch.md:**
+
+| Section | Before | After | Savings |
+|---------|--------|-------|---------|
+| ENFORCEMENT PROTOCOL | 175 lines bash | 30 lines reference | ~145 lines |
+| Debugger Mode | 100 lines ASCII tree | 30 lines table | ~70 lines |
+| Canonical Snapshot Protocol | 100 lines JS | 18 lines compact | ~82 lines |
+| Post-Fix Checklist | 35 lines (3 duplicates) | 12 lines | ~23 lines |
+| Post-Build Verification | 50 lines bash | 14 lines table | ~36 lines |
+| Hard Caps | 55 lines JS | 10 lines table | ~45 lines |
+| Handoff Contracts | 70 lines JS | 15 lines table | ~55 lines |
+| L-073 Anti-Fake | 45 lines bash | 7 lines reference | ~38 lines |
+
+**4. Metrics:**
+
+| Metric | Before | After | Savings |
+|--------|--------|-------|---------|
+| Lines | 1,827 | 1,037 | -790 (-43%) |
+| Words | 7,533 | 4,228 | -3,305 (-44%) |
+| Tokens | ~14,900 | ~8,400 | ~6,500 (-44%) |
+
+### Rollback
+
+If issues arise, rollback available at:
+- `.backup/2025-12-13_orch-optimization/orch.md.original`
+- `.backup/2025-12-13_orch-optimization/ROLLBACK.md` (instructions)
+
+### Files Modified
+
+- `.claude/commands/orch.md` — Optimized (44% smaller)
+- `.claude/agents/shared/gate-enforcement.sh` — Added GATE 1
+- `.claude/agents/shared/frustration-detector.sh` — Added handle_frustration_action()
+
+### Files Created
+
+- `.claude/agents/shared/snapshot-manager.sh` (new)
+- `.claude/agents/shared/run-state-lib.sh` (new)
+- `.backup/2025-12-13_orch-optimization/` (backup + rollback instructions)
+
+---
+
 ## [3.6.3] - 2025-12-10
 
 ### 🗂️ Distributed Architecture Migration - Project Portability

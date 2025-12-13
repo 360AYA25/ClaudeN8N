@@ -37,22 +37,13 @@
 
 ## 📋 Доступные режимы
 
-| Команда | Описание |
-|---------|----------|
-| `/orch <задача>` | Создать/изменить workflow (5-phase flow) |
-| `/orch workflow_id=X <задача>` | Модифицировать существующий workflow (MODIFY flow) |
-| `/orch --fix workflow_id=X node="Y" error="Z"` | **L1 Quick Fix** (~500 tokens) |
-| `/orch --debug workflow_id=X` | **L2 Targeted Debug** (~2K tokens) |
-| `/orch --test` | Quick health check всех агентов |
-| `/orch --test agent:builder` | Тест Builder агента |
-| `/orch --test agent:qa` | Тест QA агента |
-| `/orch --test agent:researcher` | Тест Researcher агента |
-| `/orch --test agent:architect` | Тест Architect агента |
-| `/orch --test agent:analyst` | Тест Analyst агента |
-| `/orch --test e2e` | Full E2E тест — создает реальный workflow 20+ нод |
-| `/orch snapshot view <workflow_id>` | Посмотреть canonical snapshot |
-| `/orch snapshot rollback <id> [version]` | Откатить snapshot к версии |
-| `/orch snapshot refresh <workflow_id>` | Принудительно обновить snapshot |
+**Available Modes:**
+- `/orch <task>` — 5-phase flow (create/modify)
+- `/orch workflow_id=X <task>` — MODIFY existing workflow
+- `/orch --fix workflow_id=X` — L1 Quick Fix (~500 tokens)
+- `/orch --debug workflow_id=X` — L2 Targeted Debug (~2K tokens)
+- `/orch --test [agent:name]` — Health check (quick|specific agent|e2e)
+- `/orch snapshot <view|rollback|refresh> <id>` — Snapshot management
 
 ---
 
@@ -147,28 +138,18 @@ Create the workflow per blueprint...`
 Task({ agent: "builder", prompt: "..." })
 ```
 
-### Agent Role Templates
+### Agent Templates
 
-| Agent | Model | Role Prompt |
-|-------|-------|-------------|
-| architect | sonnet (default) | `## ROLE: Architect Agent\nRead: .claude/agents/architect.md` |
-| researcher | sonnet (default) | `## ROLE: Researcher Agent\nRead: .claude/agents/researcher.md` |
-| builder | `model: "opus"` | `## ROLE: Builder Agent\nRead: .claude/agents/builder.md` |
-| qa | sonnet (default) | `## ROLE: QA Agent\nRead: .claude/agents/qa.md` |
-| analyst | sonnet (default) | `## ROLE: Analyst Agent\nRead: .claude/agents/analyst.md` |
+**Agents:**
+- architect, researcher, qa, analyst → sonnet | Read `.claude/agents/{agent}.md`
+- builder → opus | Read `.claude/agents/builder.md`
 
-### Agent Delegation
-
-| Stage | Agent | Model |
-|-------|-------|-------|
-| clarification | architect | sonnet |
-| research | researcher | sonnet |
-| decision | architect | sonnet |
-| credentials | researcher | sonnet |
-| implementation | researcher | sonnet |
-| build | builder | opus 4.5 |
-| validate/test | qa | sonnet |
-| analysis | analyst | sonnet |
+**Delegation:**
+- clarification/decision → architect (sonnet)
+- research/credentials/implementation → researcher (sonnet)
+- build → builder (opus 4.5)
+- validate/test → qa (sonnet)
+- analysis → analyst (sonnet)
 
 ### Context Passing
 
@@ -177,78 +158,27 @@ Task({ agent: "builder", prompt: "..." })
 3. **Agent writes**: Results to run_state + `${project_path}/.n8n/agent_results/`
 4. **Return**: Summary only (~500 tokens max)
 
-### 🛑 MANDATORY Validation Gates
+### 🛑 6 VALIDATION GATES (v3.6.0 - MANDATORY!)
 
-**See `.claude/agents/validation-gates.md` for full rules.**
+**Enforce BEFORE every agent call:**
+- **GATE 0:** Mandatory Research (before first Builder call)
+- **GATE 1:** Progressive Escalation (cycles 1-7 → BLOCKED at 8)
+- **GATE 2:** Execution Analysis (before fix attempts)
+- **GATE 3:** Phase 5 Real Testing (before QA PASS)
+- **GATE 4:** Knowledge Base First (before web search)
+- **GATE 5:** n8n API = Source of Truth (verify MCP calls)
+- **GATE 6:** Context Injection (cycles 2+ know previous attempts)
 
-**GATE 1: Execution Analysis Required (DEBUGGING ONLY)**
-```javascript
-// BEFORE any fix attempt:
-if (user_reports_broken && !execution_data_analyzed) {
-  BLOCK("❌ FORBIDDEN: Fix without execution analysis!");
-  REQUIRE: researcher.analyze_execution_data();
-  // Researcher MUST get execution logs, identify stopping point
-}
-
-// 🔴 CRITICAL (L-060): Code Node Inspection!
-if (code_node_never_executes && !code_inspected) {
-  BLOCK("❌ FORBIDDEN: Fix Code node without inspecting JavaScript!");
-  REQUIRE: researcher.STEP_0_3_1_inspect_code_nodes();
-  // Execution data ≠ Configuration data!
-  // MUST check for deprecated $node["..."] syntax → causes 300s timeout
-}
+**Enforcement:**
+```bash
+source .claude/agents/shared/gate-enforcement.sh
+check_all_gates "$agent" "$run_state_path"
+[[ $? -ne 0 ]] && exit 1
 ```
 
-**GATE 2: Hypothesis Validation Required**
-```javascript
-// BEFORE calling Builder:
-if (!research_findings.hypothesis_validated) {
-  BLOCK("❌ FORBIDDEN: Unvalidated hypothesis!");
-  REQUIRE: researcher.validate_with_mcp_tools();
-  // Researcher MUST use get_node to verify configuration
-}
-
-if (!research_findings || !build_guidance_file_exists) {
-  BLOCK("❌ FORBIDDEN: Missing research or build_guidance!");
-}
-
-if (modifying_workflow && !user_approval) {
-  BLOCK("❌ FORBIDDEN: User approval required for modifications!");
-}
-```
-
-**GATE 3: Post-Build Verification Required**
-```javascript
-// AFTER Builder completes:
-if (builder_result.version_id) {
-  REQUIRE: orchestrator.verify_changes_applied();
-  // 1. Read workflow via MCP
-  // 2. Check version_id changed
-  // 3. Verify expected parameters present
-  // 4. Detect rollback (version_counter decreased)
-}
-```
-
-**GATE 4: Circuit Breaker**
-```javascript
-// If 2 cycles with same hypothesis:
-if (cycle_count >= 2 && current_hypothesis === previous_hypothesis) {
-  ESCALATE_TO_L4();
-  REQUIRE: analyst.audit_methodology();
-  REASON: "Not learning from failures";
-}
-
-// If 7 QA cycles with progressive escalation:
-if (qa_fail_count >= 7) {
-  ESCALATE_TO_L4();
-  ANALYST_AUDIT_METHODOLOGY();
-  // Progressive: cycles 1-3 Builder, 4-5 +Researcher, 6-7 +Analyst
-}
-```
-
-**Before workflow mutation:**
-- ❌ FORBIDDEN if 3+ nodes AND NOT incremental mode
-- ❌ FORBIDDEN if stage !== "build"
+**Details:** `.claude/agents/validation-gates.md`
+**Code:** `.claude/agents/shared/gate-enforcement.sh`
+**Evidence:** 5 hours (no gates) vs 30 minutes (with gates) - Task 2.4
 
 ### Context Isolation
 
@@ -291,47 +221,34 @@ Each `Task({ subagent_type: "general-purpose", ... })` = **NEW PROCESS**:
 
 ### After EACH agent completes:
 
+**Source library:**
 ```bash
-# 1. Merge agent result into run_state
-jq --argjson result "$AGENT_RESULT" \
-   '.requirements = $result.requirements // .requirements |
-    .research_findings = $result.research_findings // .research_findings |
-    .decision = $result.decision // .decision |
-    .blueprint = $result.blueprint // .blueprint |
-    .build_guidance = $result.build_guidance // .build_guidance |
-    .workflow = $result.workflow // .workflow |
-    .qa_report = $result.qa_report // .qa_report |
-    .edit_scope = $result.edit_scope // .edit_scope' \
-   ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
+source .claude/agents/shared/run-state-lib.sh
 ```
 
-### Stage transitions (Orchestrator decides):
-
+**Merge result:**
 ```bash
-# After Architect (clarification → research)
-jq '.stage = "research"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-
-# After Researcher (research → decision)
-jq '.stage = "decision"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-
-# After Architect decision (decision → implementation)
-jq '.stage = "implementation"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-
-# After Researcher implementation (implementation → build)
-jq '.stage = "build"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-
-# After Builder (build → validate)
-jq '.stage = "validate"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-
-# After QA success (validate → test → complete)
-jq '.stage = "complete"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-
-# After QA fail (stay in validate, increment cycle)
-jq '.cycle_count += 1 | .stage = "build"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-
-# After 7 QA fails (→ blocked)
-jq '.stage = "blocked"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
+merge_agent_result "$AGENT_RESULT"
 ```
+
+**Update stage:**
+```bash
+update_stage "research"        # After Architect clarification
+update_stage "decision"        # After Researcher search
+update_stage "credentials"     # After Architect decision
+update_stage "implementation"  # After Researcher credentials
+update_stage "build"           # After Researcher implementation
+update_stage "validate"        # After Builder
+update_stage "complete"        # After QA success
+update_stage "blocked"         # After 7 QA fails
+```
+
+**Update cycle:**
+```bash
+increment_cycle    # After QA fail, before retry
+```
+
+**Functions:** `.claude/agents/shared/run-state-lib.sh`
 
 ### Merge Rules (applied by Orchestrator):
 
@@ -353,53 +270,13 @@ jq '.stage = "blocked"' ${project_path}/.n8n/run_state.json > tmp.json && mv tmp
 
 ---
 
-## ❌ L-073: ANTI-FAKE - Verify MCP Calls in Agent Output!
+## ❌ L-073: ANTI-FAKE - Verify MCP Calls!
 
-> **Note:** Verification is delegated to QA agent, NOT done by Orchestrator directly.
-> The code below shows what QA agent executes when validating Builder output.
+**Rule:** Builder MUST log `mcp_calls[]` array. Verified by GATE 5 in `check_all_gates()`.
 
-**Orchestrator MUST verify agents actually used MCP tools!**
+**Blocks if:** mcp_calls missing/empty | workflow not found in n8n | node count mismatch
 
-### After Builder returns (BEFORE calling QA):
-
-```bash
-# Check agent_log for MCP calls
-latest_builder=$(jq '[.agent_log[] | select(.agent=="builder")] | last' ${project_path}/.n8n/run_state.json)
-mcp_calls=$(echo "$latest_builder" | jq -r '.mcp_calls // []')
-
-# BLOCK if no MCP calls!
-if [ "$mcp_calls" == "[]" ] || [ "$mcp_calls" == "null" ]; then
-  echo "❌ L-073 FRAUD DETECTED: Builder reported success without MCP calls!"
-  jq '.stage = "blocked" | .block_reason = "L-073: No MCP calls in agent_log"' \
-     ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-  # DO NOT proceed to QA!
-  exit 1
-fi
-
-# Double-check: verify workflow exists via MCP
-workflow_id=$(jq -r '.workflow_id' ${project_path}/.n8n/run_state.json)
-real_check=$(mcp__n8n-mcp__n8n_get_workflow id="$workflow_id" mode="minimal")
-
-if [ -z "$real_check" ] || echo "$real_check" | jq -e '.error' > /dev/null; then
-  echo "❌ L-073: Workflow $workflow_id does NOT exist in n8n!"
-  jq '.stage = "blocked" | .block_reason = "L-073: Workflow not found in n8n"' \
-     ${project_path}/.n8n/run_state.json > tmp.json && mv tmp.json ${project_path}/.n8n/run_state.json
-  exit 1
-fi
-
-echo "✅ L-073: MCP calls verified, workflow exists"
-```
-
-### What gets BLOCKED:
-
-| Check | Blocked If |
-|-------|-----------|
-| `mcp_calls` array | Missing or empty |
-| `verified` field | false or missing |
-| `n8n_get_workflow` | Returns error/null |
-| Node count | Doesn't match claim |
-
-**Trust NO agent! Verify EVERYTHING via MCP!**
+**Impl:** `.claude/agents/shared/gate-enforcement.sh` → `check_gate_5()`
 
 ---
 
@@ -510,82 +387,23 @@ fi
 **Implementation:**
 
 ```bash
+source .claude/agents/shared/snapshot-manager.sh
+
 # Parse rollback command
 if [[ "$user_request" =~ ^/orch\ rollback ]]; then
 
-  # Get project context
-  if [ -f ${project_path}/.n8n/run_state.json ]; then
-    project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json)
-    workflow_id=$(jq -r '.workflow_id // null' ${project_path}/.n8n/run_state.json)
-  else
-    project_path="/Users/sergey/Projects/ClaudeN8N"
-    workflow_id=null
+  # Handle rollback (list, find snapshot, prepare)
+  handle_rollback_command "$user_request" "$project_path" "$workflow_id"
+  result=$?
+
+  if [ $result -eq 0 ]; then
+    exit 0  # list command completed
+  elif [ $result -eq 1 ]; then
+    exit 1  # error
   fi
 
-  snapshot_dir="${project_path}/.n8n/snapshots"
-
-  # Handle "list" subcommand
-  if [[ "$user_request" =~ rollback\ list ]]; then
-    echo "📋 Available snapshots in $snapshot_dir:"
-    echo ""
-    if [ -d "$snapshot_dir" ] && [ -n "$(ls -A $snapshot_dir 2>/dev/null)" ]; then
-      ls -1t "$snapshot_dir"/*.json | while read file; do
-        timestamp=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$file")
-        basename_file=$(basename "$file")
-        size=$(du -h "$file" | cut -f1)
-        echo "  $basename_file ($size, created: $timestamp)"
-      done
-    else
-      echo "  No snapshots found"
-    fi
-    exit 0
-  fi
-
-  # Get timestamp (latest if not specified)
-  timestamp=$(echo "$user_request" | awk '{print $3}')
-
-  if [ -z "$timestamp" ]; then
-    # Get latest snapshot
-    latest_snapshot=$(ls -t "$snapshot_dir"/*.json 2>/dev/null | head -1)
-
-    if [ -z "$latest_snapshot" ]; then
-      echo "❌ No snapshots found in $snapshot_dir"
-      echo "Snapshots are created automatically before destructive changes"
-      exit 1
-    fi
-
-    timestamp=$(basename "$latest_snapshot" | cut -d'-' -f1-6)
-  fi
-
-  # Find snapshot file
-  snapshot_file=$(find "$snapshot_dir" -name "${timestamp}*.json" 2>/dev/null | head -1)
-
-  if [ ! -f "$snapshot_file" ]; then
-    echo "❌ Snapshot not found: $timestamp"
-    echo "Available snapshots:"
-    ls -1 "$snapshot_dir"/*.json 2>/dev/null | xargs -n1 basename || echo "  No snapshots"
-    exit 1
-  fi
-
-  # Extract workflow_id from snapshot
-  if [ "$workflow_id" = "null" ]; then
-    workflow_id=$(jq -r '.id // .workflow_id // null' "$snapshot_file")
-
-    if [ "$workflow_id" = "null" ]; then
-      echo "❌ Cannot determine workflow_id from snapshot"
-      exit 1
-    fi
-  fi
-
-  # Confirm with user
-  echo "⚠️ This will restore workflow to snapshot:"
-  echo "   Workflow ID: $workflow_id"
-  echo "   Snapshot: $(basename $snapshot_file)"
-  echo "   Created: $(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$snapshot_file")"
-  echo "   Size: $(du -h "$snapshot_file" | cut -f1)"
-  echo ""
+  # result=2: need user confirmation
   read -p "Confirm rollback? (yes/no): " confirm
-
   if [ "$confirm" != "yes" ]; then
     echo "❌ Rollback cancelled"
     exit 0
@@ -595,27 +413,7 @@ if [[ "$user_request" =~ ^/orch\ rollback ]]; then
   Task({
     subagent_type: "general-purpose",
     model: "opus",
-    prompt: `## ROLE: Builder Agent
-
-Read: .claude/agents/builder.md
-
-## TASK: Restore workflow from snapshot
-
-Snapshot file: $snapshot_file
-Workflow ID: $workflow_id
-Project path: $project_path
-
-Steps:
-1. Read snapshot file
-2. Use mcp__n8n-mcp__n8n_update_full_workflow to restore
-3. Verify restore successful (n8n_get_workflow)
-4. Report to user with workflow stats (node count, connections)
-
-CRITICAL:
-- Use EXACT workflow JSON from snapshot
-- Verify with MCP call after restore
-- Report success with workflow details
-`
+    prompt: "## ROLE: Builder Agent\nRead: .claude/agents/builder.md\n\n## TASK: Restore workflow from snapshot\nSnapshot: $SNAPSHOT_FILE\nWorkflow: $WORKFLOW_ID\n\nSteps: Read snapshot → n8n_update_full_workflow → Verify → Report"
   })
 
   exit 0
@@ -640,123 +438,50 @@ fi
 
 When `/orch` is invoked:
 
-### Step 0: Load Gate Enforcement (🔒 NEW - CRITICAL!)
+### Step 0: Load Gate Enforcement
 
+**Implementation:**
 ```bash
-# 0.1 Source gate enforcement functions
 source .claude/agents/shared/gate-enforcement.sh
-
-# 0.2 Source frustration detection functions
 source .claude/agents/shared/frustration-detector.sh
-
-# 0.3 This enables validation gates BEFORE every agent delegation
-# Reference: SYSTEM-SAFETY-OVERHAUL.md (prevents FAILURE-ANALYSIS disasters)
-
-echo "🔒 Gate enforcement loaded (v1.0.0)"
-echo "🧠 Frustration detection loaded (v1.0.0)"
+source .claude/agents/shared/run-state-lib.sh
 ```
 
-### Step 0.5: Check User Frustration (🚨 NEW - PREVENTS 6-HOUR DISASTERS!)
+**Functions:** Gate validation, frustration detection, run_state helpers
+**Evidence:** Prevents FAILURE-ANALYSIS disasters (Priority 0)
 
+### Step 0.5: Frustration Detection
+
+**Flow:** init_session → update_last_request → check_frustration → handle_action
+
+**Implementation:**
 ```bash
-# 0.5.1 Initialize session_start if new session
-if [ ! -f ${project_path}/.n8n/run_state.json ] || [ "$(jq -r '.session_start // null' ${project_path}/.n8n/run_state.json)" = "null" ]; then
-  # Create/update run_state with session_start
-  session_start=$(date +%s)
+# Init if needed
+init_run_state
 
-  if [ -f ${project_path}/.n8n/run_state.json ]; then
-    jq --arg ts "$session_start" '.session_start = ($ts | tonumber)' \
-       ${project_path}/.n8n/run_state.json > /tmp/run_state_tmp.json && \
-       mv /tmp/run_state_tmp.json ${project_path}/.n8n/run_state.json
-  else
-    # Create minimal run_state for frustration detection
-    echo '{"session_start": '"$session_start"', "frustration_signals": {"profanity": 0, "complaints": 0, "repeated_requests": 0, "session_duration": 0}}' > ${project_path}/.n8n/run_state.json
-  fi
+# Update last request
+update_field '.last_request' "$user_request"
+
+# Check frustration level
+frustration_action=$(check_frustration "$user_request" "$run_state_path")
+
+# Handle action (STOP_AND_ROLLBACK|OFFER_ROLLBACK|CHECK_IN|CONTINUE)
+handle_frustration_action "$frustration_action" "$run_state_path"
+result=$?
+
+# Exit if user frustrated (return code 1 = stop, 2 = wait for input)
+if [ $result -eq 1 ]; then
+  exit 0  # Stop processing
+elif [ $result -eq 2 ]; then
+  # Wait for user choice [R/C/S] before continuing
+  :
 fi
-
-# 0.5.2 Update last_request for repeated request detection
-if [ -f ${project_path}/.n8n/run_state.json ]; then
-  jq --arg req "$user_request" '.last_request = $req' \
-     ${project_path}/.n8n/run_state.json > /tmp/run_state_tmp.json && \
-     mv /tmp/run_state_tmp.json ${project_path}/.n8n/run_state.json
-fi
-
-# 0.5.3 Check frustration level
-frustration_action=$(check_frustration "$user_request" ${project_path}/.n8n/run_state.json)
-
-# 0.5.4 Handle frustration levels
-case "$frustration_action" in
-  STOP_AND_ROLLBACK)
-    echo ""
-    echo "🚨 CRITICAL FRUSTRATION DETECTED"
-    echo ""
-    get_frustration_message "CRITICAL"
-    echo ""
-
-    # Show frustration signals
-    signals=$(jq -r '.frustration_signals' ${project_path}/.n8n/run_state.json)
-    echo "Signals detected:"
-    echo "$signals" | jq '.'
-    echo ""
-
-    # Execute auto-rollback
-    snapshot_path=$(execute_auto_rollback ${project_path}/.n8n/run_state.json)
-
-    if [ $? -eq 0 ]; then
-      echo "✅ Auto-rollback completed: $snapshot_path"
-      echo ""
-      echo "💤 Рекомендация: Продолжим завтра, когда ты отдохнёшь? 😊"
-      echo ""
-      echo "Для восстановления используй:"
-      echo "  /orch rollback $(basename $snapshot_path .json)"
-    fi
-
-    # STOP processing - do not continue with task
-    exit 0
-    ;;
-
-  OFFER_ROLLBACK)
-    echo ""
-    echo "⚠️ HIGH FRUSTRATION DETECTED"
-    echo ""
-    get_frustration_message "HIGH"
-    echo ""
-
-    # Show frustration signals
-    signals=$(jq -r '.frustration_signals' ${project_path}/.n8n/run_state.json)
-    echo "Signals detected:"
-    echo "$signals" | jq '.'
-    echo ""
-
-    echo "Варианты:"
-    echo "  [R]ollback - Откатить все изменения"
-    echo "  [C]ontinue - Попробовать другой подход"
-    echo "  [S]top - Остановить и отдохнуть"
-    echo ""
-    echo "❓ Что выбираешь? (R/C/S)"
-
-    # WAIT FOR USER INPUT before continuing
-    # Note: In actual implementation, orchestrator should pause here
-    # For now, this is a reminder to handle user choice
-    ;;
-
-  CHECK_IN)
-    echo ""
-    echo "💡 MODERATE FRUSTRATION DETECTED"
-    echo ""
-    get_frustration_message "MODERATE"
-    echo ""
-
-    # Continue processing but notify user
-    ;;
-
-  CONTINUE)
-    # Normal processing - no frustration detected
-    ;;
-esac
 ```
 
-### Step 0.75: Project Path Detection (🗂️ NEW - DISTRIBUTED ARCHITECTURE!)
+**Details:** `.claude/agents/shared/frustration-detector.sh`
+**Evidence:** Prevented 6-hour disasters in Task 2.4
+
+### Step 0.75: Project Path Detection
 
 ```bash
 # 0.75.1 Detect project_path from run_state or user input
@@ -764,7 +489,6 @@ if [ -f ${project_path}/.n8n/run_state.json ]; then
   project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json)
   workflow_id=$(jq -r '.workflow_id // null' ${project_path}/.n8n/run_state.json)
 else
-  # Default to ClaudeN8N project
   project_path="/Users/sergey/Projects/ClaudeN8N"
   workflow_id=null
 fi
@@ -774,34 +498,19 @@ if [[ "$user_request" =~ workflow_id=([a-zA-Z0-9_-]+) ]]; then
   workflow_id="${BASH_REMATCH[1]}"
 fi
 
-# 0.75.3 If workflow_id known, detect project_path from workflow location
-# (For future: can lookup workflow → project mapping)
-
-echo "📁 Project: $project_path"
-echo "📋 Workflow: ${workflow_id:-none}"
-echo ""
-
-# 0.75.4 Context Freshness Check (if SYSTEM-CONTEXT.md exists)
+# 0.75.3 Context Freshness Check (if SYSTEM-CONTEXT.md exists)
 if [ -n "$workflow_id" ] && [ -f "${project_path}/.context/SYSTEM-CONTEXT.md" ]; then
-  # Get workflow version from n8n API
   real_workflow=$(mcp__n8n-mcp__n8n_get_workflow id="$workflow_id" mode="minimal")
   workflow_version=$(echo "$real_workflow" | jq -r '.versionId // .versionCounter')
-
-  # Get context version from SYSTEM-CONTEXT.md
   context_version=$(grep -m1 "Workflow Version:" "${project_path}/.context/SYSTEM-CONTEXT.md" | awk '{print $3}')
 
   if [ -n "$context_version" ] && [ "$workflow_version" != "$context_version" ]; then
-    echo "⚠️ CONTEXT OUTDATED!"
-    echo "   Workflow version: $workflow_version"
-    echo "   Context version: $context_version"
-    echo ""
-    echo "Recommendation: Refresh context before continuing"
-    echo "Command: /orch snapshot refresh $workflow_id"
-    echo ""
+    echo "⚠️ CONTEXT OUTDATED (workflow v$workflow_version, context v$context_version)"
+    echo "Recommendation: /orch snapshot refresh $workflow_id"
   fi
 fi
 
-# 0.75.5 Export project_path for use in all subsequent steps
+# 0.75.4 Export for subsequent steps
 export PROJECT_PATH="$project_path"
 export WORKFLOW_ID="$workflow_id"
 ```
@@ -881,7 +590,7 @@ archive_stale_session() {
     cycle_count: 0,
     agent_log: [],
     worklog: [],
-    usage: { tokens_used: 0, agent_calls: 0, qa_cycles: 0, cost_usd: 0 }
+    usage: { tokens_used: 0, agent_calls: 0, qa_cycles: 0 }
   }' > ${project_path}/.n8n/run_state.json
 
   echo "📦 Archived stale session to ${project_path}/.n8n/archives/"
@@ -998,117 +707,22 @@ Task({
 
 ## Canonical Snapshot Protocol
 
-### Purpose
-Single Source of Truth для каждого workflow. Детальный анализ сохраняется между сессиями.
+**Purpose:** Single Source of Truth for each workflow. Analysis preserved between sessions.
 
-### Directory Structure
-```
-${project_path}/.n8n/snapshots/
-├── {workflow_id}/
-│   ├── canonical.json       # Current snapshot (~10K tokens)
-│   └── history/
-│       └── v{N}_{date}.json # Previous versions
-└── README.md
-```
+**Location:** `${project_path}/.n8n/snapshots/{workflow_id}/canonical.json` + `history/`
 
-### Load Snapshot (at session start)
+**Lifecycle:**
+- **Load (session start):** If exists → load from file. Else → create via Researcher
+- **Update (after build):** Archive current to history → Create new → Save
 
-```javascript
-if (workflow_id) {
-  const snapshot_dir = `${project_path}/.n8n/snapshots/${workflow_id}`;
-  const canonical_file = `${snapshot_dir}/canonical.json`;
+**Commands:**
+- `/orch snapshot view <id>` — Show nodes, anti-patterns, recommendations
+- `/orch snapshot rollback <id> <version>` — Restore from history
+- `/orch snapshot refresh <id>` — Force re-download from n8n
 
-  if (file_exists(canonical_file)) {
-    // Load existing
-    run_state.canonical_snapshot = read_json(canonical_file);
-    console.log(`📖 Loaded snapshot: ${run_state.canonical_snapshot.node_inventory.total} nodes`);
-  } else {
-    // Create initial
-    console.log("📸 Creating initial canonical snapshot...");
-    run_state.canonical_snapshot = await createCanonicalSnapshot(workflow_id);
-  }
+**Contents:** workflow_config (~5K) | extracted_code (~2K) | anti_patterns | learnings_matched | recommendations | execution_history | change_history
 
-  run_state.snapshot = {
-    dir: snapshot_dir,
-    file: canonical_file,
-    version: run_state.canonical_snapshot.snapshot_metadata.snapshot_version,
-    anti_patterns_count: run_state.canonical_snapshot.anti_patterns_detected.length
-  };
-}
-```
-
-### Update Snapshot (after successful build)
-
-```javascript
-if (build_result.success && workflow_id) {
-  // 1. Archive current to history
-  const current_version = run_state.canonical_snapshot.snapshot_metadata.snapshot_version;
-  const history_file = `${snapshot_dir}/history/v${current_version}_${timestamp}.json`;
-  write_file(history_file, run_state.canonical_snapshot);
-
-  // 2. Create new canonical
-  const new_snapshot = await createCanonicalSnapshot(workflow_id);
-  new_snapshot.change_history.push({
-    version: current_version + 1,
-    timestamp: new Date().toISOString(),
-    action: run_state.stage === "build" ? "feature" : "fix",
-    description: run_state.goal,
-    nodes_changed: build_result.nodes_changed
-  });
-
-  // 3. Save
-  write_file(`${snapshot_dir}/canonical.json`, new_snapshot);
-  console.log(`✅ Snapshot updated: v${current_version} → v${current_version + 1}`);
-}
-```
-
-### Snapshot Commands
-
-**View snapshot:**
-```
-/orch snapshot view sw3Qs3Fe3JahEbbW
-
-📸 Canonical Snapshot: FoodTracker v2.0
-├── Nodes: 29
-├── Anti-patterns: 1 (L-060)
-├── Last updated: 2025-11-28 23:30
-├── History: 5 versions
-└── Recommendations:
-    1. [CRITICAL] Fix deprecated $node["..."] in 7 Code nodes
-```
-
-**Rollback:**
-```
-/orch snapshot rollback sw3Qs3Fe3JahEbbW v4
-→ Restores canonical.json from history/v4_*.json
-```
-
-**Force refresh:**
-```
-/orch snapshot refresh sw3Qs3Fe3JahEbbW
-→ Downloads fresh from n8n, recreates snapshot
-```
-
-### What Snapshot Contains
-
-| Section | Purpose | Size |
-|---------|---------|------|
-| workflow_config | Full nodes + connections | ~5K |
-| extracted_code | All jsCode from Code nodes | ~2K |
-| anti_patterns_detected | L-060, L-056, etc. | ~200 |
-| learnings_matched | Already checked LEARNINGS | ~200 |
-| recommendations | Prioritized fixes | ~300 |
-| execution_history | Last 10 runs summary | ~500 |
-| change_history | Who changed what | ~300 |
-
-### Agent Usage
-
-| Agent | Access | When |
-|-------|--------|------|
-| Researcher | READ | Before debug — use instead of n8n_get_workflow |
-| Builder | READ | Before build — check anti_patterns |
-| QA | READ | Compare before/after |
-| Analyst | READ | Richer context for post-mortem |
+**Agent Access:** All agents READ snapshots (Researcher before debug, Builder before build, QA for compare, Analyst for context)
 
 ## Context Passed to Agents
 
@@ -1156,195 +770,32 @@ final_validate → complete | blocked
 
 ## 🚨 ENFORCEMENT PROTOCOL (MANDATORY!)
 
-> **Source:** validation-gates.md (Priority 0 Critical Gates)
-> **Orchestrator MUST check gates BEFORE every Task call in QA loop!**
+> **Source:** `.claude/agents/shared/gate-enforcement.sh` (all gates implemented)
+> **Docs:** `.claude/agents/validation-gates.md`
 
-### BEFORE Calling ANY Agent in QA Loop
-
-**Step 1: Check GATE 1 - Progressive Escalation**
+### BEFORE Calling ANY Agent
 
 ```bash
-# Read current cycle
-cycle=$(jq -r '.cycle_count // 0' ${project_path}/.n8n/run_state.json)
-stage=$(jq -r '.stage' ${project_path}/.n8n/run_state.json)
+source .claude/agents/shared/gate-enforcement.sh
 
-# GATE 1 CHECK: Progressive Escalation
-if [ "$stage" = "validate" ] || [ "$stage" = "build" ]; then
-  # Cycle 1-3: Builder OK
-  if [ "$cycle" -ge 1 ] && [ "$cycle" -le 3 ]; then
-    echo "✅ GATE 1 PASS: Cycle $cycle allows Builder direct fix"
-  fi
+# Check ALL gates before delegation
+check_all_gates "$target_agent" "${project_path}/.n8n/run_state.json"
+[[ $? -ne 0 ]] && exit 1
 
-  # Cycle 4-5: MUST call Researcher FIRST!
-  if [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
-    # Check if Researcher was already called this cycle
-    researcher_called=$(jq -r '[.agent_log[] | select(.agent=="researcher" and .cycle_context=='$cycle')] | length > 0' ${project_path}/.n8n/run_state.json 2>/dev/null || echo "false")
-
-    if [ "$researcher_called" != "true" ]; then
-      echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Researcher FIRST (alternative approach)!"
-      echo "Required: Call Researcher to find different solution before Builder."
-      echo "See validation-gates.md GATE 1 for details."
-      exit 1
-    fi
-  fi
-
-  # Cycle 6-7: MUST call Analyst FIRST!
-  if [ "$cycle" -ge 6 ] && [ "$cycle" -le 7 ]; then
-    analyst_called=$(jq -r '[.agent_log[] | select(.agent=="analyst" and .cycle_context=='$cycle')] | length > 0' ${project_path}/.n8n/run_state.json 2>/dev/null || echo "false")
-
-    if [ "$analyst_called" != "true" ]; then
-      echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Analyst FIRST (root cause diagnosis)!"
-      echo "Required: Call Analyst to analyze execution logs and identify root cause."
-      echo "See validation-gates.md GATE 1 for details."
-      exit 1
-    fi
-  fi
-
-  # Cycle 8+: BLOCKED!
-  if [ "$cycle" -ge 8 ]; then
-    echo "🚨 GATE 1 VIOLATION: Cycle 8+ blocked! No more attempts allowed."
-    echo "Required: Set stage='blocked' and escalate to user."
-    echo "See validation-gates.md GATE 1 for details."
-    exit 1
-  fi
-fi
+# Proceed with Task() call only if gates passed
 ```
 
-**Step 2: Check GATE 2 - Execution Analysis (if fixing workflow)**
+### Gates Checked (by `check_all_gates()`)
 
-```bash
-# GATE 2 CHECK: Execution Analysis Required
-workflow_id=$(jq -r '.workflow_id // ""' ${project_path}/.n8n/run_state.json)
-
-# Check if fixing existing workflow (not creating new)
-if [ "$stage" = "build" ] && [ -n "$workflow_id" ] && [ -f "${project_path}/.n8n/snapshots/$workflow_id/canonical.json" ]; then
-  # This is a FIX to existing workflow
-  execution_analysis=$(jq -r '.execution_analysis.completed // false' ${project_path}/.n8n/run_state.json)
-
-  if [ "$execution_analysis" != "true" ]; then
-    echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
-    echo "Required: Call Analyst to analyze last 5 executions FIRST."
-    echo "Must identify: WHERE it breaks, root cause, failed executions count."
-    echo "See validation-gates.md GATE 2 for details."
-    exit 1
-  fi
-
-  echo "✅ GATE 2 PASS: Execution analysis completed"
-fi
-```
-
-**Step 3: Check GATE 4 - Context Injection (cycle 2+)**
-
-```bash
-# GATE 4 CHECK: Fix Attempts History
-if [ "$cycle" -ge 2 ]; then
-  fix_attempts=$(jq -r '.fix_attempts // []' ${project_path}/.n8n/run_state.json)
-
-  if [ "$fix_attempts" = "[]" ]; then
-    echo "🚨 GATE 4 VIOLATION: Cycle $cycle requires fix_attempts history!"
-    echo "Required: Extract previous failed approaches and add to run_state.fix_attempts[]"
-    echo "See validation-gates.md GATE 4 for details."
-    exit 1
-  fi
-
-  echo "✅ GATE 4 PASS: Fix attempts history present (cycle $cycle)"
-fi
-```
-
-**Step 4: Check GATE 5 - MCP Call Verification (after Builder)**
-
-```bash
-# GATE 5 CHECK: MCP Call Verification (after Builder completes)
-# This check runs AFTER Builder Task returns
-
-build_result_file="${project_path}/.n8n/agent_results/${workflow_id}/build_result.json"
-
-if [ -f "$build_result_file" ]; then
-  builder_status=$(jq -r '.build_result.status // ""' "$build_result_file")
-
-  if [ "$builder_status" = "success" ]; then
-    mcp_calls=$(jq -r '.build_result.mcp_calls // []' "$build_result_file")
-
-    if [ "$mcp_calls" = "[]" ]; then
-      echo "🚨 GATE 5 VIOLATION: Builder reported success without MCP call proof!"
-      echo "Possible L-073 fake success pattern detected."
-      echo "See validation-gates.md GATE 5 for details."
-      exit 1
-    fi
-
-    # Verify at least one create/update call
-    has_mutation=$(echo "$mcp_calls" | jq '[.[] | select(.tool | test("create|update|autofix"))] | length > 0')
-
-    if [ "$has_mutation" != "true" ]; then
-      echo "🚨 GATE 5 VIOLATION: No create/update MCP calls found!"
-      echo "See validation-gates.md GATE 5 for details."
-      exit 1
-    fi
-
-    echo "✅ GATE 5 PASS: MCP calls verified ($mcp_calls)"
-  fi
-fi
-```
-
-**Step 5: Check GATE 6 - Researcher Hypothesis Validation (after Researcher)**
-
-```bash
-# GATE 6 CHECK: Hypothesis Validation (after Researcher completes)
-research_file="${project_path}/.n8n/agent_results/${workflow_id}/research_findings.json"
-
-if [ -f "$research_file" ]; then
-  researcher_status=$(jq -r '.research_findings.status // ""' "$research_file")
-
-  if [ "$researcher_status" = "complete" ]; then
-    hypothesis_validated=$(jq -r '.research_findings.hypothesis_validated // false' "$research_file")
-
-    if [ "$hypothesis_validated" != "true" ]; then
-      echo "🚨 GATE 6 VIOLATION: Researcher proposed solution without testing hypothesis!"
-      echo "Required: Validate hypothesis with execution data before proposing to Builder."
-      echo "See validation-gates.md GATE 6 for details."
-      exit 1
-    fi
-
-    echo "✅ GATE 6 PASS: Hypothesis validated"
-  fi
-fi
-```
-
-**Step 6: Check GATE 3 - Phase 5 Real Testing (before accepting QA PASS)**
-
-```bash
-# GATE 3 CHECK: Phase 5 Real Testing (before accepting QA PASS)
-qa_report_file="${project_path}/.n8n/agent_results/${workflow_id}/qa_report.json"
-
-if [ -f "$qa_report_file" ]; then
-  qa_status=$(jq -r '.qa_report.status // ""' ${project_path}/.n8n/run_state.json)
-
-  if [ "$qa_status" = "PASS" ]; then
-    phase_5_executed=$(jq -r '.qa_report.phase_5_executed // false' "$qa_report_file")
-
-    if [ "$phase_5_executed" != "true" ]; then
-      echo "🚨 GATE 3 VIOLATION: QA reported PASS without Phase 5 real testing!"
-      echo "Required: QA must trigger workflow and verify execution."
-      echo "See validation-gates.md GATE 3 for details."
-      exit 1
-    fi
-
-    echo "✅ GATE 3 PASS: Phase 5 real testing completed"
-  fi
-fi
-```
-
-### Enforcement Summary
-
-**Before EVERY Task call in QA loop:**
-1. ✅ Check GATE 1 (progressive escalation - cycle based agent selection)
-2. ✅ Check GATE 2 (execution analysis required for fixes)
-3. ✅ Check GATE 4 (fix attempts history for cycle 2+)
-
-**After agent returns:**
-4. ✅ Check GATE 5 (MCP call verification after Builder)
-5. ✅ Check GATE 6 (hypothesis validation after Researcher)
-6. ✅ Check GATE 3 (Phase 5 testing before QA PASS)
+| Gate | Rule | When |
+|------|------|------|
+| **GATE 0** | Research before first Builder | Before build |
+| **GATE 1** | Progressive escalation (1-3→Builder, 4-5→Researcher, 6-7→Analyst, 8+→BLOCKED) | QA loop |
+| **GATE 2** | Execution analysis required for fixes | Before fix |
+| **GATE 3** | Phase 5 real testing before QA PASS | After QA |
+| **GATE 4** | Knowledge base before web search | Before search |
+| **GATE 5** | MCP call verification (anti-fake) | After Builder |
+| **GATE 6** | Hypothesis validation | After Researcher |
 
 **If ANY gate fails → STOP, report violation, exit 1**
 
@@ -1413,101 +864,36 @@ qa_report: ${qa_report_summary}`
 | 4-5 | ❌ NO | Researcher reads `_meta.fix_attempts` |
 | 6-7 | ❌ NO | Analyst reads full history |
 
-**Token cost:** ~150 tokens (3 entries × 50 tokens)
-
 ---
 
-## Post-Fix Checklist (MANDATORY! - L-067)
+## Post-Fix Checklist (L-067)
 
-**After successful fix + test, Orchestrator MUST:**
+**After successful fix + test:**
+1. ✅ Fix applied (Builder confirmed)
+2. ✅ Tests passed (QA Phase 5)
+3. ✅ User verified in n8n UI
+4. **ASK:** "Update canonical snapshot? [Y/N]"
+   - Y → Update snapshot
+   - N → Keep old (user wants more testing)
 
-```markdown
-## Post-Fix Checklist
-- [ ] Fix applied (Builder confirmed)
-- [ ] Tests passed (QA Phase 5 real test)
-- [ ] User verified in n8n UI
-- [ ] **ASK USER:** "Workflow fixed and tested. Update canonical snapshot? [Y/N]"
-- [ ] If Y → Update snapshot
-- [ ] If N → Note reason, keep old snapshot
-```
-
-**⚠️ CRITICAL RULES:**
-- ❌ NEVER update snapshot without user approval!
-- ❌ NEVER update snapshot if tests failed!
-- ✅ ALWAYS ask user after successful test
-
-**Integration with Snapshot System:**
-```
-┌────────────────────────────────────────────────────────────────┐
-│  ⚠️ AFTER SUCCESSFUL FIX + TEST:                               │
-│                                                                │
-│  1. QA confirms workflow works                                 │
-│  2. ASK USER: "Workflow fixed and tested. Update snapshot?"    │
-│  3. IF user approves:                                          │
-│     └── Update canonical.json with new working state           │
-│  4. IF user declines:                                          │
-│     └── Keep old snapshot (user may want more testing)         │
-│                                                                │
-│  ❌ NEVER update snapshot without user approval!               │
-│  ❌ NEVER update snapshot if tests failed!                     │
-└────────────────────────────────────────────────────────────────┘
-```
+**Rules:** ❌ NEVER update without user approval! ❌ NEVER update if tests failed!
 
 ---
 
 ## Post-Build Verification Protocol
 
-**Orchestrator MUST verify AFTER every Builder execution:**
+**After Builder execution, delegate to QA for verification:**
 
-```bash
-# 1. Read updated workflow (L-067: smart mode selection)
-node_count=$(jq -r '.workflow.node_count // 999' ${project_path}/.n8n/run_state.json)
-mode=$( [ "$node_count" -gt 10 ] && echo "structure" || echo "full" )
-workflow=$(mcp__n8n-mcp__n8n_get_workflow id=$workflow_id mode="$mode")
+| Check | Pass | Fail |
+|-------|------|------|
+| Version changed | Continue | ❌ BLOCK: Update failed silently |
+| Changes applied | Continue | ❌ BLOCK: Change not applied |
+| Rollback detected | Continue | ⚠️ STOP: Ask user re-apply/abort |
+| Node count match | Continue | ⚠️ WARN: Data corruption |
 
-# 2. Verify version changed
-current_version=$(echo $workflow | jq -r '.versionId')
-if [ "$current_version" == "$previous_version" ]; then
-  FAIL("❌ CRITICAL: Workflow version didn't change! Update may have failed silently.");
-  BLOCK_QA();
-  REPORT_TO_USER();
-fi
+**L-067:** Use `mode="structure"` for workflows >10 nodes, `mode="full"` for smaller.
 
-# 3. Verify specific changes (from build_guidance expected_changes)
-for change in "${expected_changes[@]}"; do
-  node=$(echo $workflow | jq ".nodes[] | select(.name == \"${change.node}\")")
-  actual_value=$(echo $node | jq -r ".parameters.${change.parameter}")
-
-  if [ "$actual_value" != "${change.value}" ]; then
-    FAIL("❌ Change not applied: ${change.node}.${change.parameter} = $actual_value (expected: ${change.value})");
-    BLOCK_QA();
-  fi
-done
-
-# 4. Detect rollback
-version_counter=$(echo $workflow | jq -r '.versionCounter')
-if [ $version_counter -lt $previous_counter ]; then
-  CRITICAL_ALERT("⚠️ Version rollback detected! User may have reverted changes in UI.");
-  STOP_BUILD_CYCLE();
-  NOTIFY_USER("Workflow was rolled back after our update. Previous: $previous_counter, Current: $version_counter");
-fi
-
-# 5. Check node count matches
-if [ $(echo $workflow | jq '.nodes | length') != $expected_node_count ]; then
-  WARN("Node count mismatch - possible data corruption");
-fi
-```
-
-**If verification fails:**
-1. BLOCK QA from running
-2. Report failure details to user
-3. Provide rollback option
-4. Do NOT continue build cycle
-
-**If rollback detected:**
-1. STOP immediately
-2. Alert user: "Workflow reverted in UI - conflicts with our changes"
-3. Ask: Re-apply fix? OR Abort?
+**On failure:** BLOCK QA → Report to user → Offer rollback → Do NOT continue
 
 ## Test Mode
 
@@ -1588,233 +974,57 @@ Tests specific agent in isolation:
 
 ## Debugger Mode (Fast Fix)
 
-### Problem
-Full 5-phase flow is overkill for simple bugs (~10K+ tokens).
+**Problem:** Full 5-phase flow is overkill for simple bugs.
 
-### Solution: 3-Level Debug System
+### 3-Level Debug System
 
-```
-Level 1: QUICK_FIX (1 agent, ~500 tokens)
-├── Trigger: /orch --fix workflow_id=X node="Y" error="Z"
-├── Agent: Builder ONLY
-├── Flow: Read workflow → Fix node → Validate → Done
-└── Escalate if: fix fails 2 times → L2
+| Level | Trigger | Agents | Flow | Escalate |
+|-------|---------|--------|------|----------|
+| **L1** QUICK_FIX | `/orch --fix workflow_id=X node="Y"` | Builder | Read → Fix → Validate | 2 fails → L2 |
+| **L2** TARGETED | `/orch --debug workflow_id=X` | Analyst → Builder | Analyze executions → Find root cause → Fix | Unclear → L3 |
+| **L3** FULL | Complex/"bot not working" | Researcher → Builder → QA | Full diagnosis (L-067) → User approval → Fix → Test | - |
 
-Level 2: TARGETED_DEBUG (2 agents, ~2K tokens)
-├── Trigger: /orch --debug workflow_id=X
-├── Agents: Analyst → Builder
-├── Analyst: Read executions, find root cause, check LEARNINGS.md
-├── Builder: Apply fix
-└── Escalate if: root cause unclear → L3
+**L3 Details:** Researcher downloads workflow (mode=structure for >10 nodes), analyzes executions (summary→filtered), finds WHERE + ROOT CAUSE, presents to user → Builder fixes → QA tests.
 
-Level 3: FULL_INVESTIGATION (NEW 9-STEP ALGORITHM!)
-├── Trigger: Complex issue, user reports "bot not working"
-├── **PHASE 1: FULL DIAGNOSIS** (Researcher only!)
-│   ├── Download workflow with smart mode selection (L-067: see .claude/agents/shared/L-067-smart-mode-selection.md):
-│   │   ├── If node_count > 10 → mode="structure" (safe, ~2-5K tokens)
-│   │   └── If node_count ≤ 10 → mode="full" (safe for small workflows)
-│   ├── Decompose ALL nodes (types, params, code, credentials)
-│   ├── Analyze executions with two-step approach (L-067):
-│   │   ├── STEP 1: mode="summary" (all nodes, find WHERE)
-│   │   └── STEP 2: mode="filtered" (problem nodes only, find WHY)
-│   ├── Find WHERE it breaks (exact node + reason)
-│   ├── Identify ROOT CAUSE (not symptom!)
-│   └── Output: diagnosis_complete.json with hypothesis
-├── Orchestrator presents findings to User
-│   └── "Found: X breaks at node Y because Z. Approve fix?"
-├── **PHASE 2: FIX + TEST**
-│   ├── Builder: Create snapshot → Apply fix → Verify
-│   ├── Architect → User: "Send test message to bot"
-│   ├── User sends message
-│   ├── QA: Phase 5 Real Testing (did bot respond?)
-│   └── If bot responded → SUCCESS, else → back to PHASE 1
-└── Used for: bot debugging, multi-failure workflows
-```
+### Auto-Detection
 
-### Auto-Detection: Which Level?
+| User says | Level | Why |
+|-----------|-------|-----|
+| "fix X in node Y" | L1 | Specific node |
+| "debug workflow"/"why doesn't work" | L2 | Need diagnosis |
+| "redesign the flow" | L3 | Architectural |
+| L1 failed 2x | L2 | Auto-escalate |
+| L2 unclear | L3 | Auto-escalate |
 
-| User Input | Detected Level | Why |
-|------------|----------------|-----|
-| "fix X in node Y" | L1 QUICK_FIX | Specific node + action |
-| "debug workflow" | L2 TARGETED | Need diagnosis first |
-| "why doesn't it work" | L2 TARGETED | Root cause unknown |
-| "redesign the flow" | L3 FULL | Architectural change |
-| L1 failed 2x | L2 TARGETED | Auto-escalate |
-| L2 unclear | L3 FULL | Auto-escalate |
-
-### 🚨 MANDATORY Escalation Rules
-
-**MUST use L3 FULL if ANY:**
-1. ✅ 2nd+ fix attempt (previous fix didn't solve)
-2. ✅ 3+ nodes modified
-3. ✅ 3+ execution failures in row
-4. ✅ Root cause unclear after diagnosis
-5. ✅ Architectural/pattern issue
-
-**FORBIDDEN:** Skip to L1/L2 when triggers met!
-
-### Quick Fix Protocol (L1)
-
-```bash
-/orch --fix workflow_id=abc node="Supabase Insert" error="missing field"
-
-# System:
-# 1. Builder: Read workflow (n8n_get_workflow)
-# 2. Builder: Identify node, read config
-# 3. Builder: Apply fix (curl PUT)
-# 4. Builder: Validate (n8n_validate_workflow)
-# 5. Show result to user
-# 6. If fail → escalate to L2
-```
-
-### Targeted Debug Protocol (L2)
-
-```bash
-/orch --debug workflow_id=abc
-
-# System:
-# 1. Analyst: Read recent executions (n8n_executions)
-# 2. Analyst: Identify failing node + error pattern
-# 3. Analyst: Check LEARNINGS.md for known solution
-# 4. Present diagnosis:
-#    "🔍 Проблема: Supabase Insert
-#     Ошибка: missing field 'user_id'
-#     Причина: Set node не передаёт это поле
-#     Решение: Добавить user_id в Set node"
-# 5. User approves → Builder applies fix
-# 6. If unclear → escalate to L3
-```
+**🚨 MUST use L3 if:** 2nd+ fix attempt | 3+ nodes modified | 3+ execution failures | Root cause unclear | Architectural issue
 
 ---
 
 ## Hard Caps (Resource Limits)
 
-### Per-Task Limits
-
-| Resource | Limit | Action on Exceed |
-|----------|-------|------------------|
-| Tokens | 50,000 | Stop + report |
+| Resource | Limit | Action |
+|----------|-------|--------|
+| Tokens | 50K | Stop + report |
 | Agent calls | 25 | Stop + report |
-| Time | 10 minutes | Stop + report |
-| Cost | $0.50 | Stop + report |
+| Time | 10 min | Stop + report |
 | QA cycles | 7 | stage="blocked" |
 
-### Tracking in run_state.usage
-
-```javascript
-// Check before EACH agent call:
-function checkCaps() {
-  const { usage } = run_state;
-  const caps = {
-    max_tokens: 50000,
-    max_agent_calls: 25,
-    max_time_seconds: 600,
-    max_cost_usd: 0.50,
-    max_qa_cycles: 7
-  };
-
-  if (usage.qa_cycles >= caps.max_qa_cycles) {
-    return escalateToUser("QA failed 7 times. Need human help.");
-  }
-  if (usage.tokens_used >= caps.max_tokens) {
-    return escalateToUser("Token limit reached. Task too complex?");
-  }
-  if (usage.cost_usd >= caps.max_cost_usd) {
-    return escalateToUser("Cost limit reached.");
-  }
-  // ... other checks
-}
-```
-
-### Escalation Dialog
-
-```
-⚠️ Hard Cap Reached
-
-QA Cycles: 7/7 (LIMIT)
-Tokens: 45K/50K
-Time: 8min/10min
-
-Проблема не решена за 7 попыток.
-
-Варианты:
-1. Показать все 7 попыток и ошибки (для анализа)
-2. Откатить все изменения (Blue-Green rollback)
-3. Увеличить лимит (+3 попытки) и продолжить
-4. Эскалировать (manual intervention)
-
-Выбор? (1/2/3/4)
-```
+**On limit reached:** Show all attempts → Offer rollback/extend/escalate
 
 ---
 
 ## Handoff Contracts (Agent → Agent)
 
-### Purpose
-Validate data integrity between agent transitions.
+| Transition | Required | Validator |
+|------------|----------|-----------|
+| architect→researcher | requirements, research_request | services[] not empty |
+| researcher→architect | research_findings | templates or workflows found |
+| architect→builder | blueprint, credentials_selected | nodes_needed[] not empty |
+| researcher→builder | build_guidance | node_configs[] not empty |
+| builder→qa | workflow.id, node_count | id exists, count > 0 |
+| qa→builder | qa_report, edit_scope | edit_scope[] if failed |
 
-### Contracts
-
-| Transition | Required Fields | Validator |
-|------------|-----------------|-----------|
-| architect→researcher | requirements, research_request | services array not empty |
-| researcher→architect | research_findings | templates or existing_workflows found |
-| architect→builder | blueprint, credentials_selected | nodes_needed array not empty |
-| researcher→builder | build_guidance | node_configs array not empty |
-| builder→qa | workflow.id, workflow.node_count | id exists, count > 0 |
-| qa→builder | qa_report, edit_scope | edit_scope array if failed |
-
-### Validation Example
-
-```javascript
-const handoff_contracts = {
-  "architect→researcher": {
-    required: ["requirements", "research_request"],
-    validate: (data) => {
-      if (!data.requirements?.services?.length) {
-        throw new Error("requirements.services required");
-      }
-      return true;
-    }
-  },
-  "builder→qa": {
-    required: ["workflow.id", "workflow.node_count"],
-    validate: (data) => {
-      if (!data.workflow?.id) {
-        throw new Error("workflow.id required for QA");
-      }
-      return true;
-    }
-  }
-};
-
-// Before handoff:
-function handoff(from, to, data) {
-  const contract = handoff_contracts[`${from}→${to}`];
-  try {
-    contract.validate(data);
-    log(`✅ Handoff ${from}→${to} valid`);
-  } catch (error) {
-    log(`❌ Handoff ${from}→${to} FAILED: ${error.message}`);
-    throw new HandoffError(from, to, error);
-  }
-}
-```
-
-### Handoff Failure Recovery
-
-```
-❌ Handoff Failed: researcher→builder
-
-Missing: build_guidance.node_configs
-
-Recovery options:
-1. Re-run Researcher with explicit request
-2. Fill missing data manually
-3. Skip to Builder with partial data (risky)
-
-Выбор?
-```
+**On handoff fail:** Re-run agent with explicit request → Fill manually → Skip (risky)
 
 ---
 
