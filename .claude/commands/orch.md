@@ -158,27 +158,9 @@ Task({ agent: "builder", prompt: "..." })
 3. **Agent writes**: Results to run_state + `${project_path}/.n8n/agent_results/`
 4. **Return**: Summary only (~500 tokens max)
 
-### 🛑 6 VALIDATION GATES (v3.6.0 - MANDATORY!)
+### 🛑 6 VALIDATION GATES (MANDATORY!)
 
-**Enforce BEFORE every agent call:**
-- **GATE 0:** Mandatory Research (before first Builder call)
-- **GATE 1:** Progressive Escalation (cycles 1-7 → BLOCKED at 8)
-- **GATE 2:** Execution Analysis (before fix attempts)
-- **GATE 3:** Phase 5 Real Testing (before QA PASS)
-- **GATE 4:** Knowledge Base First (before web search)
-- **GATE 5:** n8n API = Source of Truth (verify MCP calls)
-- **GATE 6:** Context Injection (cycles 2+ know previous attempts)
-
-**Enforcement:**
-```bash
-source .claude/agents/shared/gate-enforcement.sh
-check_all_gates "$agent" "$run_state_path"
-[[ $? -ne 0 ]] && exit 1
-```
-
-**Details:** `.claude/agents/validation-gates.md`
-**Code:** `.claude/agents/shared/gate-enforcement.sh`
-**Evidence:** 5 hours (no gates) vs 30 minutes (with gates) - Task 2.4
+**See top of file for gate definitions. Enforce via:** `check_all_gates "$agent" "$run_state_path"`
 
 ### Context Isolation
 
@@ -325,112 +307,34 @@ PHASE 5: BUILD
 
 ## Project Selection
 
-Detect if working on external project:
+**Parse --project flag → map to path → store in run_state:**
 
-```bash
-# Parse --project flag from user_request
-if [[ "$user_request" =~ --project=([a-z-]+) ]]; then
-  project_id="${BASH_REMATCH[1]}"
+| project_id | project_path |
+|------------|--------------|
+| `clauden8n` (default) | `/Users/sergey/Projects/ClaudeN8N` |
+| `food-tracker` | `/Users/sergey/Projects/MultiBOT/bots/food-tracker` |
+| `health-tracker` | `/Users/sergey/Projects/MultiBOT/bots/health-tracker` |
 
-  # Set project_path based on ID
-  case "$project_id" in
-    "food-tracker")
-      project_path="/Users/sergey/Projects/MultiBOT/bots/food-tracker"
-      ;;
-    "health-tracker")
-      project_path="/Users/sergey/Projects/MultiBOT/bots/health-tracker"
-      ;;
-    "clauden8n"|"")
-      project_path="/Users/sergey/Projects/ClaudeN8N"
-      project_id="clauden8n"
-      ;;
-  esac
-else
-  # Check if run_state has project context from previous session
-  if [ -f ${project_path}/.n8n/run_state.json ]; then
-    project_id=$(jq -r '.project_id // "clauden8n"' ${project_path}/.n8n/run_state.json)
-    project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' ${project_path}/.n8n/run_state.json)
-  else
-    # Default to ClaudeN8N
-    project_id="clauden8n"
-    project_path="/Users/sergey/Projects/ClaudeN8N"
-  fi
-fi
-```
+**Priority:** `--project=X` flag → run_state.project_id → default `clauden8n`
 
-**Project context stored in run_state:**
-```json
-{
-  "project_id": "$project_id",
-  "project_path": "$project_path",
-  ...
-}
-```
-
-**Agents will read project_path from run_state** to access project-specific documentation (TODO.md, SESSION_CONTEXT.md, ARCHITECTURE.md).
+**Storage:** `run_state.project_id` + `run_state.project_path` → agents read from run_state
 
 ---
 
 ## Special Commands: Rollback System
 
-### COMMAND: /orch rollback
-
-**Purpose:** Restore workflow from auto-snapshot (created by Builder before destructive changes)
+**Purpose:** Restore workflow from auto-snapshot (Builder creates before destructive changes)
 
 **Syntax:**
-```bash
-/orch rollback                    # Rollback to last snapshot
-/orch rollback <timestamp>        # Rollback to specific snapshot
-/orch rollback list               # Show available snapshots
-```
+| Command | Action |
+|---------|--------|
+| `/orch rollback` | Rollback to last snapshot |
+| `/orch rollback <timestamp>` | Rollback to specific snapshot |
+| `/orch rollback list` | Show available snapshots |
 
-**Implementation:**
+**Implementation:** `.claude/agents/shared/snapshot-manager.sh` → `handle_rollback_command()`
 
-```bash
-source .claude/agents/shared/snapshot-manager.sh
-
-# Parse rollback command
-if [[ "$user_request" =~ ^/orch\ rollback ]]; then
-
-  # Handle rollback (list, find snapshot, prepare)
-  handle_rollback_command "$user_request" "$project_path" "$workflow_id"
-  result=$?
-
-  if [ $result -eq 0 ]; then
-    exit 0  # list command completed
-  elif [ $result -eq 1 ]; then
-    exit 1  # error
-  fi
-
-  # result=2: need user confirmation
-  read -p "Confirm rollback? (yes/no): " confirm
-  if [ "$confirm" != "yes" ]; then
-    echo "❌ Rollback cancelled"
-    exit 0
-  fi
-
-  # Delegate to Builder for restore
-  Task({
-    subagent_type: "general-purpose",
-    model: "opus",
-    prompt: "## ROLE: Builder Agent\nRead: .claude/agents/builder.md\n\n## TASK: Restore workflow from snapshot\nSnapshot: $SNAPSHOT_FILE\nWorkflow: $WORKFLOW_ID\n\nSteps: Read snapshot → n8n_update_full_workflow → Verify → Report"
-  })
-
-  exit 0
-fi
-```
-
-**Example:**
-```bash
-# Rollback to latest snapshot
-/orch rollback
-
-# Rollback to specific snapshot
-/orch rollback 2025-12-10T14-30-00
-
-# List all snapshots
-/orch rollback list
-```
+**Flow:** Parse → `handle_rollback_command()` → User confirm → Builder restores via MCP
 
 ---
 
@@ -663,45 +567,13 @@ Task({ subagent_type: "general-purpose", prompt: "## ROLE: Architect\nRead: .cla
 
 ## 🔒 Agent Delegation Protocol (MANDATORY!)
 
-**BEFORE EVERY Task() call, Orchestrator MUST check gates:**
+**BEFORE EVERY Task() call:**
+1. `check_all_gates "$agent" "$run_state_path"` → exit 1 if fails
+2. `Task({ subagent_type: "general-purpose", model: "opus" (builder only), prompt: "## ROLE: $agent\nRead: .claude/agents/$agent.md\n\n## TASK: ..." })`
 
-```bash
-# Standard delegation pattern (use for ALL agent calls):
+**Applies to ALL agents:** architect, researcher, builder, qa, analyst
 
-# 1. Determine target agent
-target_agent="builder"  # or researcher, qa, architect, analyst
-
-# 2. Check validation gates
-check_all_gates "$target_agent" "${project_path}/.n8n/run_state.json"
-
-if [ $? -ne 0 ]; then
-  # Gate violation - STOP!
-  echo "❌ Cannot delegate to $target_agent - gate violation"
-  echo "See error message above for required action"
-  exit 1
-fi
-
-# 3. Gates passed - proceed with delegation
-Task({
-  subagent_type: "general-purpose",
-  model: "opus",  # only for builder
-  prompt: `## ROLE: ${agent} Agent
-
-  Read: .claude/agents/${agent}.md
-
-  ## TASK
-  ...`
-})
-```
-
-**Applies to:**
-- ✅ Architect (clarification)
-- ✅ Researcher (search, analysis)
-- ✅ Builder (create, modify workflows)
-- ✅ QA (validate, test)
-- ✅ Analyst (post-mortem, execution analysis)
-
-**NO EXCEPTIONS!** Gates prevent disasters like FAILURE-ANALYSIS-2025-12-10.md
+**NO EXCEPTIONS!** Gates prevent disasters (FAILURE-ANALYSIS-2025-12-10.md)
 
 ---
 
@@ -770,34 +642,9 @@ final_validate → complete | blocked
 
 ## 🚨 ENFORCEMENT PROTOCOL (MANDATORY!)
 
-> **Source:** `.claude/agents/shared/gate-enforcement.sh` (all gates implemented)
-> **Docs:** `.claude/agents/validation-gates.md`
-
-### BEFORE Calling ANY Agent
-
-```bash
-source .claude/agents/shared/gate-enforcement.sh
-
-# Check ALL gates before delegation
-check_all_gates "$target_agent" "${project_path}/.n8n/run_state.json"
-[[ $? -ne 0 ]] && exit 1
-
-# Proceed with Task() call only if gates passed
-```
-
-### Gates Checked (by `check_all_gates()`)
-
-| Gate | Rule | When |
-|------|------|------|
-| **GATE 0** | Research before first Builder | Before build |
-| **GATE 1** | Progressive escalation (1-3→Builder, 4-5→Researcher, 6-7→Analyst, 8+→BLOCKED) | QA loop |
-| **GATE 2** | Execution analysis required for fixes | Before fix |
-| **GATE 3** | Phase 5 real testing before QA PASS | After QA |
-| **GATE 4** | Knowledge base before web search | Before search |
-| **GATE 5** | MCP call verification (anti-fake) | After Builder |
-| **GATE 6** | Hypothesis validation | After Researcher |
-
-**If ANY gate fails → STOP, report violation, exit 1**
+**Gates:** See "6 VALIDATION GATES" at top of file
+**Code:** `.claude/agents/shared/gate-enforcement.sh`
+**Check:** `check_all_gates "$agent" "$run_state_path"` → exit 1 if fails
 
 ---
 
@@ -815,52 +662,22 @@ QA fail → Builder fix (edit_scope) → QA → repeat
 
 ## Recent Context Injection (Cycles 1-3)
 
-**Problem:** Builder in cycles 1-3 doesn't know what was already tried (workflow rollback, new session).
+**Problem:** Builder doesn't know what was already tried (workflow rollback, new session).
 
-**Solution:** Orchestrator extracts recent builder actions and adds to prompt.
+**Solution:** Extract last 3 builder actions from `agent_log`, add `⚠️ ALREADY TRIED` section to prompt.
 
-### BEFORE calling Builder (cycles 1-3):
+**Extract:** `jq '[.agent_log[] | select(.agent=="builder")] | .[-3:]' run_state.json`
 
-```bash
-# Extract last 3 builder actions from agent_log
-recent_builder=$(jq -c '[.agent_log[] | select(.agent=="builder")] | .[-3:]' ${project_path}/.n8n/run_state.json)
-
-# Format for prompt
-if [ "$recent_builder" != "[]" ]; then
-  already_tried=$(echo "$recent_builder" | jq -r '.[] | "- \(.action): \(.details)"')
-fi
+**Add to Builder prompt (cycles 1-3 only):**
 ```
-
-### Include in Task prompt:
-
-```javascript
-Task({
-  subagent_type: "general-purpose",
-  model: "opus",
-  prompt: `## ROLE: Builder Agent
-Read: .claude/agents/builder.md
-
-## CONTEXT
-Read state from: ${project_path}/.n8n/run_state.json
-
-## TASK
-Fix workflow per edit_scope.
-
-${already_tried ? `⚠️ ALREADY TRIED (don't repeat!):
+⚠️ ALREADY TRIED (don't repeat!):
 ${already_tried}
-
-Try a DIFFERENT approach.` : ''}
-
-edit_scope: ${edit_scope}
-qa_report: ${qa_report_summary}`
-})
+Try a DIFFERENT approach.
 ```
 
-### When to use:
-
-| Cycle | Include recent context? | Why |
-|-------|------------------------|-----|
-| 1-3 | ✅ YES | Builder needs to know what failed |
+| Cycle | Include? | Why |
+|-------|----------|-----|
+| 1-3 | ✅ YES | Builder needs context |
 | 4-5 | ❌ NO | Researcher reads `_meta.fix_attempts` |
 | 6-7 | ❌ NO | Analyst reads full history |
 
