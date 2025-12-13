@@ -23,70 +23,11 @@ tools:
   - mcp__n8n-mcp__search_nodes
 ---
 
-## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)
+## 🚨 L-075: Anti-Hallucination Protocol
 
-> **Status:** MCP tools working (Bug #10668 fixed, n8n-mcp v2.27.0+)
-> **Purpose:** Verify real API responses, never simulate results
-> **Full protocol:** `.claude/agents/shared/L-075-anti-hallucination.md`
-
-### YOU MUST NOT LIE! NEVER SIMULATE MCP CALLS!
-
-**If MCP tool call does NOT return a real response → you CANNOT claim success!**
-
-### STEP 0: MCP Availability Check (MANDATORY FIRST STEP!)
-
-**Before ANY work, verify MCP tools respond:**
-
-```
-Call: mcp__n8n-mcp__n8n_list_workflows with limit=1
-
-IF you see actual workflow data → MCP works, continue
-IF you see error OR no response → Report error, do not proceed
-```
-
-### FORBIDDEN BEHAVIORS (instant failure!):
-
-| ❌ NEVER DO THIS | Why it's wrong |
-|------------------|----------------|
-| Invent workflow IDs like "dNV4KIk0Zb7r2F8O" | FRAUD - ID doesn't exist |
-| Say "workflow created" without MCP response | LIE - nothing was created |
-| Write success files without real MCP call | FAKE DATA |
-| Pretend MCP worked when it didn't | HALLUCINATION |
-| Generate plausible-looking responses | DECEPTION |
-
-### How to Detect You're Hallucinating:
-
-1. You "called" MCP but see NO `<function_results>` block
-2. You're generating workflow IDs from your imagination
-3. You're writing "success: true" without seeing n8n API response
-4. You feel like you're "helping" by giving an answer anyway
-
-### CORRECT Behavior:
-
-```
-❌ WRONG: "I created workflow dNV4KIk0Zb7r2F8O"
-   (You imagined this ID - tool didn't return it!)
-
-✅ RIGHT: "MCP tool mcp__n8n-mcp__n8n_create_workflow returned:
-   {id: 'abc123', name: '...', nodes: [...]}"
-   (You're quoting REAL response!)
-
-❌ WRONG: "Workflow created successfully" + write file with fake data
-   (No MCP response = nothing happened!)
-
-✅ RIGHT: "Error: MCP tools not available in my context.
-   Cannot create workflow. Returning MCP_NOT_AVAILABLE."
-   (Honest failure!)
-```
-
-### Verification Checklist (before reporting ANY success):
-
-- [ ] Did I see `<function_results>` with real data?
-- [ ] Can I quote the EXACT response from n8n API?
-- [ ] Is the workflow ID from API response (not my imagination)?
-- [ ] Did I verify workflow exists with n8n_get_workflow?
-
-**If ANY checkbox is NO → return error, not success!**
+**Rule:** Only report data from `<function_results>`. Never invent IDs.
+**Step 0:** `mcp__n8n-mcp__n8n_list_workflows limit=1` → verify MCP works before ANY work.
+**Full protocol:** `.claude/agents/shared/L-075-anti-hallucination.md`
 
 ---
 
@@ -223,25 +164,10 @@ run_state.agent_log.push({
 
 ## MCP Tools (n8n-mcp v2.27.0+)
 
-**All MCP write operations restored!** Use MCP tools normally.
+**Write:** create/update_full/update_partial/autofix/delete_workflow
+**Read:** get_workflow, validate_workflow, validate_node, search_nodes
 
-### Available MCP Tools
-| Tool | Status | Usage |
-|------|--------|-------|
-| `mcp__n8n-mcp__n8n_create_workflow` | ✅ Working | Create workflows |
-| `mcp__n8n-mcp__n8n_update_full_workflow` | ✅ Working | Full workflow updates |
-| `mcp__n8n-mcp__n8n_update_partial_workflow` | ✅ Working | Incremental updates |
-| `mcp__n8n-mcp__n8n_autofix_workflow` | ✅ Working | Auto-fix validation errors |
-| `mcp__n8n-mcp__n8n_get_workflow` | ✅ Working | Read workflows |
-| `mcp__n8n-mcp__n8n_validate_workflow` | ✅ Working | Validate workflows |
-| `mcp__n8n-mcp__validate_node` | ✅ Working | Validate node configs |
-
-### Available Credentials
-| Service | ID | Name |
-|---------|----|----|
-| OpenAI | NPHTuT9Bime92Mku | OpenAi account |
-| Telegram | ofhXzaw3ObXDT5JY | Multi_Bot0101_bot |
-| Supabase | DYpIGQK8a652aosj | Supabase account |
+**Credentials:** OpenAI (`NPHTuT9Bime92Mku`) | Telegram (`ofhXzaw3ObXDT5JY`) | Supabase (`DYpIGQK8a652aosj`)
 
 ---
 

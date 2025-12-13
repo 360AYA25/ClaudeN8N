@@ -34,13 +34,13 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 82 (Added L-079 to L-083, L-091 to L-096, L-099 to L-101)
+- **Total Entries:** 85 (Added L-075, L-079 to L-083, L-091 to L-096, L-099 to L-104)
 - **Categories:** 13
 - **Node Types Covered:** 15+
 - **Error Types Cataloged:** 31+
-- **File Size:** 7,630+ lines (~228,000 tokens)
-- **Index Size:** ~1,100 tokens (99.5% reduction)
-- **Last Updated:** 2025-12-10
+- **File Size:** 7,935+ lines (~238,000 tokens)
+- **Index Size:** ~1,200 tokens (99.5% reduction)
+- **Last Updated:** 2025-12-11
 
 ---
 
@@ -50,17 +50,17 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Node Type | Entries | Line Numbers | Topics |
 |-----------|---------|--------------|--------|
-| **Supabase** | 5 | 1020-1130 | Schema checks, RLS, RPC, insert/update, getAll |
+| **Supabase** | 6 | 1020-1130, 3094-3124 | Schema checks, RLS, RPC, insert/update, getAll, **🔴 L-075: RPC Parameter Order (CRITICAL)** |
 | **Set (v3.4)** | 2 | 285-400 | ={{ syntax, expression validation, manual mode |
 | **HTTP Request** | 4 | 1441-1710, 172-240 | continueOnFail, credentials, status codes, error handling, **🔴 L-101: Credential expression not resolved (CRITICAL)** |
 | **Webhook** | 3 | 730-1458, 4940-5076 | Creation, production setup, path uniqueness, **L-076: Telegram Webhook configuration checklist** |
 | **Telegram** | 5 | 1130-1190, 400-490, 4940-5076, 6820+, 244-335 | Parameter format, AI Agent integration, **L-076: Webhook onError+path parameters**, **🔴 L-099: Reply Keyboard RAW array format**, **🔴 L-100: n8n node doesn't support Reply Keyboard (CRITICAL)** |
 | **Notion** | 6 | 890-1050 | Filters, dates, properties, page objects, timezone |
 | **Memory (AI Agent)** | 2 | 1639-1683 | Session ID, context passing, customKey |
-| **Code Node** | 3 | 1570-1602, 3560-3718 | IF routing, regex escaping, **🔴 L-060: Deprecated $node["..."] syntax causes 300s timeout (CRITICAL)** |
+| **Code Node** | 4 | 1570-1602, 3560-3718, 3492-3576 | **⭐ L-104: Post-processing pattern for reliable formatting**, IF routing, regex escaping, **🔴 L-060: Deprecated $node["..."] syntax causes 300s timeout (CRITICAL)** |
 | **Switch Node** | 2 | 1415-1441, 2145-2279 | Data flow after routing, fan-out patterns |
 | **IF Node** | 3 | 1570-1586, 2616-2675, 330-430 | Debugging, Code Node fallback, v2.2 validator false positive (L-053), **🔴 L-068: Binary data NOT passed through IF outputs (CRITICAL)** |
-| **AI Agent** | 3 | 1639-1683 | Parameters, clarification, tools, memory |
+| **AI Agent** | 5 | 172-305, 1639-1683, 3492-3576 | **⭐ L-104: AI Formatting Rules Unreliable - Post-Processing 100% Success**, **🟡 L-103: Multi-layer data integration pattern (DB+Tool+Prompt)**, Parameters, clarification, tools, memory |
 | **Generic (MCP)** | 10 | 172-890 | **🔴 L-067: Two-step execution mode for large workflows (CRITICAL)**, **🔴 L-059: Execution analysis (superseded by L-067 for >10 nodes)**, Workflow creation, modification, validation, debugging |
 
 ### By Error Type
@@ -95,9 +95,9 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 |----------|-------|---------|-------------|
 | Claude Code | 295-400 | 1 | Task tool syntax, agent vs subagent_type, context isolation |
 | Agent Standardization | 70-190 | 1 | Template v2.0, English-only, changelog |
-| n8n Workflows | 170-890, 2145-2279 | 20 | **🔴 L-067: Two-step execution mode for large workflows (CRITICAL)**, L-059 (for small workflows), Creation, modification, validation, debugging, partial updates, fan-out, large workflows, triggers |
+| n8n Workflows | 170-890, 2145-2279 | 21 | **🔴 L-103: Multi-Layer Data Integration (AI+DB)**, **🔴 L-067: Two-step execution mode for large workflows (CRITICAL)**, L-059 (for small workflows), Creation, modification, validation, debugging, partial updates, fan-out, large workflows, triggers |
 | Notion Integration | 890-1020 | 6 | Filters, dates, properties, timezone, page objects |
-| Supabase Database | 1020-1130 | 5 | Schema, RLS, RPC, insert/update, get vs getAll |
+| Supabase Database | 172-305, 1020-1130 | 6 | **🟡 L-103: Multi-layer integration with AI Agent**, Schema, RLS, RPC, insert/update, get vs getAll |
 | Telegram Bot | 1130-1190 | 2 | Webhooks, message handling, parameters |
 | Git & GitHub | 1190-1250 | 3 | Monorepo, PRs, pull/rebase, secrets |
 | Error Handling | 1250-1340, 2051-2143, 2616-2886 | 7 | continueOnFail, 404 handling, validation, false positives, IF validator bug (L-053), QA L3 override (L-054), MCP Zod bug (L-055) |
@@ -139,7 +139,10 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
-| 2025-12-10 | 🔴 L-101: HTTP Request Credential Expression Not Resolved (CRITICAL) | 172 | HTTP Request / Credentials |
+| 2025-12-11 | ⭐ L-104: AI Formatting Rules Unreliable - Use Post-Processing | 3492 | AI Agents / Post-Processing |
+| 2025-12-10 | 🟡 L-103: Multi-Layer Data Integration Pattern (AI+DB) | 172 | n8n Workflows / AI Agent / Database |
+| 2025-12-10 | 🔴 L-102: Multiple Changes Cascade - 6-Hour Debug Marathon | 309 | Debugging / Change Management |
+| 2025-12-10 | 🔴 L-101: HTTP Request Credential Expression Not Resolved (CRITICAL) | 312 | HTTP Request / Credentials |
 | 2025-12-10 | 🔴 L-100: n8n Telegram Node Doesn't Support Reply Keyboard (CRITICAL) | 244 | Telegram / Node Limitation |
 | 2025-12-10 | 🔴 L-099: Telegram Reply Keyboard RAW Array Format (CRITICAL) | 6820 | Telegram / Node Configuration |
 | 2025-12-04 | 🔥 L-096: Validation ≠ Execution Success (CRITICAL) | 6532 | Testing / QA |
@@ -197,6 +200,10 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 → **Check:** Methodology (line 3810-4387)
 → **Specific:** Line 4187 (L-066: 5-Tier Search Hierarchy)
 
+### Pattern 12: "AI not following formatting rules / emoji missing / inconsistent output"
+→ **Check:** AI Agents (line 3490-3650)
+→ **Specific:** Line 3492 (L-104: Post-Processing Pattern - 100% Success)
+
 ### Pattern 10: "Validate learning before applying / confidence threshold"
 → **Check:** Methodology (line 3810-4387)
 → **Specific:** Line 3810 (L-064: Validation Protocol)
@@ -216,8 +223,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `webhook` OR `chat trigger` → Lines: 172, 730-871, 1458-1474, 4940-5076 (L-076)
 - `telegram` → Lines: 1130-1190, 400-490, 4940-5076 (L-076), 6820+ (L-099: reply_markup), 244-335 (L-100: node limitation)
 - `notion` → Lines: 890-1020, 1229-1336
-- `memory` OR `ai agent` → Lines: 1639-1683, 1661-1683
-- `code node` → Lines: 1570-1602, 1586-1602, 3560-3718
+- `memory` OR `ai agent` → Lines: 1639-1683, 1661-1683, 3492-3576 (L-104: formatting reliability)
+- `code node` → Lines: 1570-1602, 1586-1602, 3560-3718, 3492-3576 (L-104: post-processing)
 - `switch` → Lines: 1415-1441, 2145-2279
 - `if node` → Lines: 1570-1586, 330-430 (L-068: Binary data loss)
 - `binary data` OR `vision analysis` OR `image processing` → Lines: 330-430 (L-068)
@@ -231,6 +238,7 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `template` OR `#2465` OR `ai-chatbot` OR `telegram bot template` → Lines: 5080-5178 (L-077)
 - `qa validation` OR `complete check` OR `sequential validation` → Lines: 5182-5372 (L-078)
 - `authentication` OR `credentials` → Lines: 1441-1458, 616-661
+- `parameter order` OR `rpc wrong value` OR `date out of range` → Lines: 3094-3124 (L-075: CRITICAL)
 - `schema` → Lines: 1336-1415
 - `connection` → Lines: 1364-1380, 1683-1709
 - `context passing` OR `session id` → Lines: 172-285, 1661-1683
@@ -245,6 +253,8 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 - `deprecated` OR `$node["` OR `old syntax` → Lines: 3560-3718
 - `large workflow` OR `>10 nodes` OR `chunked building` → Lines: 172
 - `mode=full` OR `mode=summary` OR `mode=filtered` OR `two-step` → Lines: 172-290 (L-067)
+- `ai formatting` OR `emoji missing` OR `post-processing` OR `regex injection` → Lines: 3492-3576 (L-104: 100% success pattern)
+- `llm unreliable` OR `instruction following` OR `prompt ignored` → Lines: 3492-3576 (L-104: why AI ignores rules)
 
 ### Operation Keywords
 - `create workflow` → Lines: 730-871, 661-686, 172
@@ -313,11 +323,11 @@ node scripts/generate-learnings-index.js
 
 ---
 
-**Last Updated:** 2025-12-10
-**Version:** 1.8.1
+**Last Updated:** 2025-12-11
+**Version:** 1.8.2
 **Maintainer:** Kilocode System
 **Purpose:** 98% token cost reduction for researcher agent
-**Latest Additions:** L-091 to L-096 (Validation Gates v3.6.0 - Process Methodology from POST_MORTEM_TASK24.md), L-099 (Telegram Reply Keyboard RAW Array Format - CRITICAL)
+**Latest Additions:** L-104 (AI Formatting Rules Unreliable - Use Post-Processing, 100% success rate), L-091 to L-096 (Validation Gates v3.6.0 - Process Methodology from POST_MORTEM_TASK24.md), L-099 (Telegram Reply Keyboard RAW Array Format - CRITICAL)
 
 ### L-069: Agent Frontmatter Must Explicitly List MCP Tools
 - **Category:** Agent System
