@@ -142,8 +142,9 @@ git commit -m "fix: remove tools field from agents for MCP inheritance (bug #106
 
 ---
 
-**Last checked:** 2025-12-03
-**Current Claude Code version:** 2.0.57
+**Last checked:** 2025-12-15
+**Current Claude Code version:** 2.0.61
 **Bug status:** Issue #10668 CLOSED ✅, Issue #7296 OPEN ❌ (MCP inheritance still broken)
-**Auto-updates:** ENABLED (restored 2025-12-03)
-**Next check:** 2025-12-10
+**Workaround:** Bash + curl API (n8n-curl-api.md)
+**Auto-updates:** ENABLED
+**Next check:** 2025-12-22
