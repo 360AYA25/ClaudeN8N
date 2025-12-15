@@ -265,28 +265,48 @@ Skill("n8n-node-configuration")  // Operation-aware setup, property dependencies
 ## Search Protocol (STRICT ORDER!)
 
 ```
-STEP 1: LOCAL FIRST (экономия API calls + токенов!)
-├── docs/learning/LEARNINGS-INDEX.md  → СНАЧАЛА INDEX! (~500 tokens)
-├── docs/learning/LEARNINGS.md        → ТОЛЬКО нужные секции (по ID из INDEX)
-└── docs/learning/PATTERNS.md         → ТОЛЬКО релевантные паттерны
+STEP 0: INDEX FILES FIRST! (ОБЯЗАТЕЛЬНО - экономия 95% токенов!)
+├── docs/learning/indexes/researcher_nodes.md → Top 20 нод (~1,200 tokens)
+├── docs/learning/LEARNINGS-INDEX.md         → Индекс обучения (~2,500 tokens)
+└── ⚠️ MANDATORY: Read indexes BEFORE full files!
 
-⚠️ INDEX-FIRST PROTOCOL:
-1. Read LEARNINGS-INDEX.md first
-2. Find relevant IDs (e.g., "L-042", "P-015")
-3. Read ONLY those sections from LEARNINGS.md
-4. DO NOT read full files! Saves ~20K tokens
+⚠️ INDEX-FIRST PROTOCOL (v3.7.0+):
+1. Read researcher_nodes.md FIRST
+   - Find node by keyword (Telegram, Supabase, AI Agent, etc.)
+   - Get nodeType format (n8n-nodes-base.*, @n8n/n8n-nodes-langchain.*)
+   - Check common configs and gotchas
+   - Saves ~48K tokens vs MCP search!
 
-STEP 2: EXISTING WORKFLOWS (приоритет modify!)
+2. Read LEARNINGS-INDEX.md (GATE 4 enforcement!)
+   - Search by keywords (grep pattern)
+   - Find relevant L-XXX IDs
+   - Note: line numbers for quick access
+
+3. Read ONLY specific sections from full files
+   - LEARNINGS.md: Read ONLY L-XXX sections found in index
+   - PATTERNS.md: Read ONLY P-XXX patterns needed
+   - DO NOT read full files! (50K+ tokens waste)
+
+STEP 1: LOCAL WORKFLOWS (приоритет modify!)
 ├── n8n_list_workflows                → список всех workflows в инстансе
 └── n8n_get_workflow                  → детали подходящих
 
-STEP 3: TEMPLATES (n8n community)
+STEP 2: MCP SEARCH (если не нашли в index)
 ├── search_templates                  → поиск по keywords
-└── get_template                      → детали топ-3
-
-STEP 4: NODES (если нужны новые)
+├── get_template                      → детали топ-3
 ├── search_nodes                      → поиск нод
 └── get_node                          → документация
+
+STEP 3: N8N-RESOURCES WEB SEARCH (глубокое исследование)
+├── Read: docs/learning/N8N-RESOURCES.md
+├── Use URLs from resources (docs, templates, community, GitHub)
+├── WebSearch with site: filters (site:docs.n8n.io, site:n8n.io/workflows)
+└── Document sources in build_guidance
+
+⚠️ Token Savings Example:
+- OLD: Read LEARNINGS.md (50K) + search MCP (10K) = 60K tokens
+- NEW: Read researcher_nodes.md (1.2K) + LEARNINGS-INDEX.md (2.5K) + specific sections (3K) = 6.7K tokens
+- SAVINGS: 89% per research task!
 ```
 
 ## Scoring Logic
@@ -667,6 +687,11 @@ STEP 3: NODE DEEP DIVE (for each node in blueprint)
 STEP 4: EXPRESSION EXAMPLES (if needed)
 ├── Search learnings for expression patterns
 └── Prepare ready-to-use examples
+
+STEP 5: WEB SEARCH (deep research - when MCP fails)
+├── Read: docs/learning/N8N-RESOURCES.md
+├── Use site: filters (docs.n8n.io, n8n.io/workflows, community.n8n.io)
+└── Document sources in build_guidance.sources[]
 ```
 
 ## Output → `run_state.build_guidance`
