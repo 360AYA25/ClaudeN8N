@@ -11,6 +11,16 @@ skills:
   - n8n-mcp-tools-expert
 ---
 
+## STEP 0: Pre-flight (ОБЯЗАТЕЛЬНО!)
+
+### 1. MCP Check (если используешь MCP)
+Читай: `.claude/agents/shared/anti-hallucination.md`
+
+### 2. Project Context
+Читай: `.claude/agents/shared/project-context.md`
+
+---
+
 ## Tool Access Model
 
 Architect has NO MCP tools (pure planning):

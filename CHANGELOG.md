@@ -2,6 +2,204 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [3.7.0] - 2025-12-15
+
+### 📁 File-Based Context Protocol - Project Documentation System
+
+**Complete implementation of .context/ file structure for project-specific documentation and agent guidance**
+
+**Problem:**
+- Agents hallucinate workflow operations without checking n8n API first
+- No surgical edit capability → Builder rewrites entire workflows → expensive + error-prone
+- Protected nodes modified without approval → critical incidents (v432: jsonBody addition broke bot)
+- No centralized documentation → context scattered across LEARNINGS.md, agent memories, chat history
+- Analyst doesn't update documentation after builds → stale context over time
+- Each agent reads 50K+ LEARNINGS.md tokens → expensive + unfocused
+
+**Solution: File-Based Context Protocol with ADRs & Enforcement Hooks**
+
+**Phase 1: .context/ File Structure (10 files created for FoodTracker example)**
+
+New directory structure for each project:
+```
+{project_path}/.context/
+├── 1-STRATEGY.md              # Mission, goals, boundaries, user context
+├── 2-INDEX.md                 # Navigation hub, protected nodes, critical changes
+├── architecture/
+│   ├── flow.md                # Data flow diagrams, integration points
+│   ├── decisions/             # Architecture Decision Records (ADRs)
+│   │   ├── 001-ai-agent-memory.md
+│   │   ├── 002-inject-context.md
+│   │   └── 003-telegram-sync.md
+│   ├── services/              # External service playbooks
+│   │   ├── telegram.md
+│   │   └── supabase.md
+│   └── nodes/                 # Critical node intent cards
+│       └── ai-agent.md
+└── technical/
+    └── state.json             # Current workflow state (version, graph hash)
+```
+
+**Token Economy (Example Project):**
+- Total added: 5,653 tokens (one-time)
+- Savings per build: ~10K tokens (focused reading vs full LEARNINGS.md)
+- 141× ROI after 10 workflows
+
+**Phase 2: Shared Protocols (4 files created)**
+
+Created `.claude/agents/shared/` protocols referenced by all agents:
+
+1. **anti-hallucination.md** (486 tokens)
+   - Forces MCP availability check before operations
+   - Prevents hallucinated workflow mutations
+   - Test: `mcp__n8n-mcp__n8n_health_check({ mode: "diagnostic" })`
+
+2. **project-context.md** (463 tokens)
+   - 4-step reading order: STRATEGY → INDEX → flow.md → ADRs/playbooks
+   - Only reads files that exist (via Glob check)
+   - Minimal token usage with maximum context
+
+3. **surgical-edits.md** (672 tokens)
+   - Forces `n8n_update_partial_workflow` only
+   - Blocks full workflow updates via hooks
+   - Requires edit_scope declaration before changes
+   - Protected nodes table enforcement
+
+4. **context-update.md** (574 tokens)
+   - Analyst protocol for updating .context/ after builds
+   - Updates INDEX.md critical changes log
+   - Updates state.json with new version/graph hash
+   - Git commit workflow
+
+**Phase 3: Enforcement Hooks (2 files created)**
+
+1. **block-full-update.md** (PreToolUse hook)
+   - Blocks `n8n_update_full_workflow` tool
+   - Forces surgical edits only
+   - Error message redirects to `n8n_update_partial_workflow`
+
+2. **enforce-context-update.md** (PostToolUse hook)
+   - Triggers after Builder success
+   - Launches Analyst to update .context/ files
+   - Ensures documentation stays synchronized
+
+**Phase 4: Agent Updates (6 files modified)**
+
+Added Pre-flight sections to all agents:
+
+**Architect** (architect.md):
+- Pre-flight: anti-hallucination + project-context protocols
+- Lines added: 14-21 (8 lines)
+
+**Researcher** (researcher.md):
+- Pre-flight: anti-hallucination + project-context protocols
+- Lines added: 49-56 (8 lines)
+
+**Builder** (builder.md):
+- Pre-flight: anti-hallucination + project-context + surgical-edits protocols
+- Surgical Edits Protocol section (122-145): 24 lines
+- Total added: ~32 lines
+
+**QA** (qa.md):
+- Edit Scope Validation section (57-115): 59 lines
+- Validates Builder only touched declared nodes
+- Blocks protected node modifications without approval
+- Regression detection
+
+**Analyst** (analyst.md):
+- Context Update Protocol section (29-60): 32 lines
+- Enforces .context/ updates after successful builds
+- Updates INDEX.md and state.json
+- Git commit integration
+
+**Phase 5: Orchestrator Integration (orch.md modified)**
+
+- File-Based Context Protocol section appended
+- Changed Task delegation pattern:
+  - ❌ Before: Embedded context in Task prompt
+  - ✅ After: Agent reads .context/ files directly
+- Enforcement: Analyst called after Builder success
+- Token savings: ~10K per workflow
+
+**Phase 6: Token Count Documentation**
+
+| Component | Model | Words | Est. Tokens | Role |
+|-----------|-------|-------|-------------|------|
+| Architect | Sonnet 4.5 | 2,256 | ~1,700 | 5-phase dialog + planning |
+| Researcher | Sonnet 4.5 | 5,060 | ~3,800 | Search with scoring |
+| Builder | Opus 4.5 | 6,594 | ~4,950 | Workflow creation/mutation |
+| QA | Sonnet 4.5 | 5,634 | ~4,225 | Validation + testing |
+| Analyst | Sonnet 4.5 | 4,226 | ~3,170 | Post-mortem analysis |
+| Orchestrator | Sonnet 4.5 | 7,685 | ~5,765 | Agent delegation & routing |
+| **TOTAL** | - | 31,455 | **~23,610** | Full system |
+
+### Key Benefits
+
+**1. Safety:**
+- Protected nodes documented with DO NOT TOUCH rules
+- Surgical edits only → cannot accidentally wipe workflows
+- Pre-flight MCP checks → no hallucinated operations
+- Edit scope validation → Builder can't go rogue
+
+**2. Knowledge Preservation:**
+- ADRs document why decisions were made (with incident history)
+- Service playbooks capture operational procedures
+- Node intent cards explain critical component purposes
+- STRATEGY.md defines project boundaries
+
+**3. Token Economy:**
+- Focused reading: ~3K tokens vs 50K+ LEARNINGS.md
+- File-based context: ~10K savings per workflow
+- Agent-scoped content: only read what's needed
+- Auto-updates: Analyst maintains freshness
+
+**4. Maintainability:**
+- Single source of truth: .context/ files
+- Version tracking: state.json graph hash
+- Change log: INDEX.md critical changes table
+- Git integration: automatic commits
+
+### Files Created (16 new files)
+
+**FoodTracker Example (.context/ structure):**
+1. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/1-STRATEGY.md`
+2. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/2-INDEX.md`
+3. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/architecture/flow.md`
+4. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/architecture/decisions/001-ai-agent-memory.md`
+5. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/architecture/decisions/002-inject-context.md`
+6. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/architecture/decisions/003-telegram-sync.md`
+7. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/architecture/services/telegram.md`
+8. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/architecture/services/supabase.md`
+9. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/architecture/nodes/ai-agent.md`
+10. `/Users/sergey/Projects/MultiBOT/bots/food-tracker/.context/technical/state.json`
+
+**Shared Protocols:**
+11. `.claude/agents/shared/anti-hallucination.md`
+12. `.claude/agents/shared/project-context.md`
+13. `.claude/agents/shared/surgical-edits.md`
+14. `.claude/agents/shared/context-update.md`
+
+**Hooks:**
+15. `.claude/hooks/block-full-update.md`
+16. `.claude/hooks/enforce-context-update.md`
+
+### Files Modified (6 agent/orchestrator files)
+
+1. `.claude/agents/architect.md` - Pre-flight section added
+2. `.claude/agents/researcher.md` - Pre-flight section added
+3. `.claude/agents/builder.md` - Pre-flight + Surgical Edits sections added
+4. `.claude/agents/qa.md` - Edit Scope Validation section added
+5. `.claude/agents/analyst.md` - Context Update Protocol section added
+6. `.claude/commands/orch.md` - File-Based Context Protocol section appended
+
+### Implementation References
+
+- Implementation plan: `IMPLEMENTATION-PLAN.md`
+- Quick start guide: `QUICK-START.md`
+- Learning documentation: `docs/learning/LEARNINGS.md` (L-075 to L-080)
+
+---
+
 ## [3.6.3] - 2025-12-10
 
 ### 🗂️ Distributed Architecture Migration - Project Portability

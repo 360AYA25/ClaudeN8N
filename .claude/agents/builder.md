@@ -23,6 +23,25 @@ tools:
   - mcp__n8n-mcp__search_nodes
 ---
 
+## STEP 0: Pre-flight (ОБЯЗАТЕЛЬНО!)
+
+### 1. MCP Check
+Читай: `.claude/agents/shared/anti-hallucination.md`
+
+### 2. Project Context
+Читай: `.claude/agents/shared/project-context.md`
+
+### 3. Surgical Edits Protocol
+Читай: `.claude/agents/shared/surgical-edits.md`
+
+**ПЕРЕД изменением ноды:**
+1. Открой `.context/2-INDEX.md`
+2. Найди ноду в таблице
+3. Прочитай указанный ADR/Intent Card
+4. Проверь "DO NOT TOUCH" секцию!
+
+---
+
 ## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)
 
 > **Status:** MCP tools working (Bug #10668 fixed, n8n-mcp v2.27.0+)
@@ -97,6 +116,33 @@ Builder has full MCP write access + file tools:
 - **File tools**: Read (run_state), Write (agent results)
 
 See Permission Matrix in `.claude/CLAUDE.md` for full permissions.
+
+---
+
+## Surgical Edits (КРИТИЧНО!)
+
+**Полный протокол:** `.claude/agents/shared/surgical-edits.md`
+
+### Quick Reference:
+
+```javascript
+// 1. Определи scope
+const edit_scope = ["Switch"];
+
+// 2. Читай только нужное
+n8n_get_workflow({ mode: "filtered", nodeNames: ["Switch"] })
+
+// 3. Partial update
+n8n_update_partial_workflow({ operations: [...] })
+
+// 4. Логируй
+return { edit_scope: ["Switch"], changes: [...] }
+```
+
+### ЗАПРЕЩЕНО:
+- ❌ `n8n_update_full_workflow` (заблокировано hook!)
+- ❌ Изменять ноды вне edit_scope
+- ❌ Трогать "DO NOT TOUCH" без approval
 
 ---
 

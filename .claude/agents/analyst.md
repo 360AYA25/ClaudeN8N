@@ -26,6 +26,41 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ---
 
+## Context Update Protocol (ОБЯЗАТЕЛЬНО после успешного build!)
+
+**Полный протокол:** `.claude/agents/shared/context-update.md`
+
+### После КАЖДОГО успешного build:
+
+1. **Обнови INDEX:**
+   ```
+   Edit: {project_path}/.context/2-INDEX.md
+   - Добавь запись в "Последние критичные изменения"
+   - Обнови версию workflow
+   - Обнови дату
+   ```
+
+2. **Обнови state.json:**
+   ```
+   Edit: {project_path}/.context/technical/state.json
+   - workflow.version = новая версия
+   - workflow.updated = сегодня
+   ```
+
+3. **Если был инцидент:**
+   ```
+   Edit: соответствующий ADR
+   - Добавь в "История инцидентов"
+   ```
+
+4. **Если изменена критичная нода:**
+   ```
+   Edit: соответствующий ADR или Intent Card
+   - Обнови "История изменений"
+   ```
+
+---
+
 ## ✅ MCP Tools Status (All Analyst tools work!)
 
 | Tool | Status | Purpose |

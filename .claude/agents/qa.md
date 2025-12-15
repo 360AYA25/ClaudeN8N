@@ -54,6 +54,68 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ---
 
+## Edit Scope Validation (ОБЯЗАТЕЛЬНО!)
+
+После того как Builder вернул результат:
+
+### 1. Проверь edit_scope существует
+
+```javascript
+if (!build_result.edit_scope || build_result.edit_scope.length === 0) {
+  return {
+    status: "FAIL",
+    error: "Builder не указал edit_scope",
+    action: "Builder должен переделать с указанием edit_scope"
+  };
+}
+```
+
+### 2. Сравни before/after
+
+```javascript
+// Получи предыдущую версию (из snapshot или run_state)
+const before = previous_workflow;
+const after = current_workflow;
+
+// Найди реальные изменения
+const actual_changes = diff(before.nodes, after.nodes);
+```
+
+### 3. Проверь соответствие
+
+```javascript
+for (const change of actual_changes) {
+  if (!build_result.edit_scope.includes(change.node)) {
+    return {
+      status: "FAIL",
+      error: `Неожиданное изменение: ${change.node}`,
+      expected: build_result.edit_scope,
+      actual: actual_changes.map(c => c.node)
+    };
+  }
+}
+```
+
+### 4. Проверь Protected Nodes
+
+```javascript
+const protected_nodes = ["Telegram Trigger", "AI Agent", "Memory"];
+const touched_protected = actual_changes.filter(
+  c => protected_nodes.includes(c.node)
+);
+
+if (touched_protected.length > 0) {
+  return {
+    status: "BLOCKED",
+    error: "Изменена protected нода без approval!",
+    node: touched_protected[0].node,
+    action: "Требуется approval пользователя"
+  };
+}
+```
+
+---
+
 ## 🛡️ GATE 3: Phase 5 Real Testing (v3.6.0 - MANDATORY!)
 
 **Read:** `.claude/VALIDATION-GATES.md` (GATE 3 section)

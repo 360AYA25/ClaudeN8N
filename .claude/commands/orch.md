@@ -1825,3 +1825,67 @@ On completion, run_state contains:
 - `qa_report.ready_for_deploy` - Whether ready for production
 - `worklog` - Full execution history
 - `finalized.status` - True when complete
+
+---
+
+## File-Based Context Protocol (v3.7.0)
+
+**НОВОЕ:** Вместо передачи JSON в Task calls, агенты сами читают файлы.
+
+### Task Calls (UPDATED):
+
+```javascript
+// ✅ ПРАВИЛЬНО: file-based context
+Task({
+  subagent_type: "general-purpose",
+  prompt: `## ROLE: Builder
+Read: .claude/agents/builder.md
+
+## CONTEXT FILES
+Read these files yourself:
+1. memory/run_state_active.json
+2. {project_path}/.context/2-INDEX.md
+3. (specific files per shared/project-context.md)
+
+## TASK
+Build workflow based on blueprint`
+})
+
+// ❌ СТАРОЕ: embedding JSON (verbose!)
+Task({
+  subagent_type: "general-purpose",
+  prompt: `## CONTEXT
+${JSON.stringify(run_state)}`
+})
+```
+
+### Enforcement After Builder Success:
+
+**После успешного build, ОБЯЗАТЕЛЬНО вызови Analyst:**
+
+```javascript
+if (build_result.status === "success") {
+  // Проверь edit_scope
+  if (!build_result.edit_scope) {
+    console.warn("⚠️ Builder не указал edit_scope!");
+  }
+
+  // Вызови Analyst для обновления контекста
+  Task({
+    subagent_type: "general-purpose",
+    prompt: `## ROLE: Analyst
+Read: .claude/agents/analyst.md
+
+## TASK
+Update project context after successful build.
+Workflow ID: ${workflow_id}
+Changes: ${build_result.changes}
+Version: ${new_version}
+
+Follow Context Update Protocol from shared/context-update.md`
+  });
+}
+```
+
+**Hook enforcement:** `.claude/hooks/enforce-context-update.md` напомнит об этом.
+

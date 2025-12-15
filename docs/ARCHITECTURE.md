@@ -239,3 +239,134 @@ Researcher protocol:
 - **Builder on Opus 4.5**: Critical generation ($3/1M input, $15/1M output)
 - **All others on Sonnet**: Dialog/search/validation ($3/1M input, $15/1M output)
 - **Cost reduced 66%** vs all-Opus system
+
+---
+
+## Project Context System (v3.7.0)
+
+### File-Based Context Protocol
+
+Each n8n project managed by ClaudeN8N now has its own `.context/` directory with structured documentation that agents read directly instead of receiving embedded JSON in Task calls.
+
+#### Directory Structure
+
+```
+{project_path}/.context/
+├── 1-STRATEGY.md              # Mission, goals, boundaries, user context
+├── 2-INDEX.md                 # Navigation hub, protected nodes, critical changes
+├── architecture/
+│   ├── flow.md                # Data flow diagrams, integration points
+│   ├── decisions/             # Architecture Decision Records (ADRs)
+│   │   ├── 001-*.md           # Critical architectural decisions
+│   │   ├── 002-*.md           # With incident history and rationale
+│   │   └── 003-*.md
+│   ├── services/              # External service playbooks
+│   │   ├── telegram.md        # Telegram Bot API operational guide
+│   │   └── supabase.md        # Supabase integration guide
+│   └── nodes/                 # Critical node intent cards
+│       └── ai-agent.md        # Purpose and DO NOT TOUCH rules
+└── technical/
+    └── state.json             # Current workflow state (version, graph hash)
+```
+
+#### Token Economy (File-Based Context)
+
+**Example Project (FoodTracker):**
+- Total documentation: 5,653 tokens (one-time cost)
+- Savings per workflow: ~10,000 tokens (vs embedding context in Task calls)
+- Agent prompt overhead: ~23,610 tokens total (all 5 agents + orchestrator)
+- **ROI: 141× after 10 workflows**
+
+### Shared Protocols
+
+All agents reference common protocols from `.claude/agents/shared/`:
+
+| Protocol | Purpose | Tokens | Phase |
+|----------|---------|--------|-------|
+| anti-hallucination.md | MCP availability checks | 486 | Pre-flight |
+| project-context.md | 4-step reading order (STRATEGY→INDEX→flow→ADRs) | 463 | Pre-flight |
+| surgical-edits.md | Partial updates only, protected nodes enforcement | 672 | Builder |
+| context-update.md | Update .context/ after successful builds | 574 | Analyst |
+
+### Enforcement Hooks
+
+| Hook | Type | Purpose |
+|------|------|---------|
+| block-full-update.md | PreToolUse | Blocks `n8n_update_full_workflow`, forces partial updates |
+| enforce-context-update.md | PostToolUse | Triggers Analyst to update .context/ after Builder success |
+
+### Architecture Decision Records (ADRs)
+
+ADRs document critical architectural decisions with:
+- **Context**: What was the situation?
+- **Decision**: What did we decide?
+- **Rationale**: Why this approach?
+- **Incident History**: What went wrong and how was it fixed?
+- **DO NOT TOUCH**: Protected configurations
+
+**Example: FoodTracker ADRs**
+- `001-ai-agent-memory.md` - Memory node configuration (customKey='telegram_user_id')
+- `002-inject-context.md` - Context injection before AI Agent
+- `003-telegram-sync.md` - Switch node routing synchronized with BotFather
+
+### Protected Nodes
+
+Projects document protected nodes in `2-INDEX.md`:
+
+```markdown
+| Node | File | DO NOT TOUCH |
+|------|------|--------------|
+| AI Agent | nodes/ai-agent.md | Memory connection, parametersBody in tools |
+| Memory | decisions/001-ai-agent-memory.md | customKey='telegram_user_id' |
+| Switch | decisions/003-telegram-sync.md | Sync with BotFather commands! |
+```
+
+**Enforcement:**
+- QA validates Builder only modified declared nodes in `edit_scope`
+- Modifications to protected nodes without approval → BLOCKED
+- Hooks prevent accidental full workflow rewrites
+
+### Agent Reading Protocol
+
+**Pre-flight checklist (all agents):**
+1. MCP health check (`anti-hallucination.md`)
+2. Read project context (`project-context.md`):
+   - `1-STRATEGY.md` - Project mission and boundaries
+   - `2-INDEX.md` - Navigation and protected nodes
+   - `architecture/flow.md` - Critical integration points
+   - Relevant ADRs/playbooks based on task
+
+**Builder-specific:**
+3. Surgical edits protocol (`surgical-edits.md`)
+   - Check `2-INDEX.md` for node in protected table
+   - Read referenced ADR/Intent Card
+   - Use `n8n_update_partial_workflow` only
+
+**Analyst-specific:**
+4. Context update protocol (`context-update.md`)
+   - Update `2-INDEX.md` critical changes log after success
+   - Update `technical/state.json` with new version/graph hash
+   - Git commit workflow
+
+### Benefits
+
+**Safety:**
+- Protected nodes documented → prevents critical incidents
+- Surgical edits only → cannot accidentally wipe workflows
+- Pre-flight MCP checks → no hallucinated operations
+
+**Knowledge Preservation:**
+- ADRs capture decision history with incident learnings
+- Service playbooks document operational procedures
+- Node intent cards explain critical component purposes
+
+**Token Efficiency:**
+- Focused reading: ~3K tokens vs 50K+ full LEARNINGS.md
+- File-based context: ~10K savings per workflow
+- Agent-scoped content: read only what's needed
+
+**Maintainability:**
+- Single source of truth per project
+- Version tracking via state.json graph hash
+- Change log in INDEX.md
+- Git integration for history
