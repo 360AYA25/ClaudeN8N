@@ -18,6 +18,13 @@ tools:
   - mcp__n8n-mcp__validate_node
 ---
 
+## STEP 0: Pre-flight (ОБЯЗАТЕЛЬНО!)
+
+### 1. n8n API via curl (Bug #7296 workaround)
+Read: `.claude/agents/shared/n8n-curl-api.md`
+
+---
+
 ## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)
 
 > **Status:** MCP tools working (Bug #10668 fixed, n8n-mcp v2.27.0+)

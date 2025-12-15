@@ -48,10 +48,13 @@ IF error OR no response → Report error, do not proceed
 
 ## STEP 0: Pre-flight (ОБЯЗАТЕЛЬНО!)
 
-### 1. MCP Check (если используешь MCP)
+### 1. n8n API via curl (Bug #7296 workaround)
+Read: `.claude/agents/shared/n8n-curl-api.md`
+
+### 2. MCP Check (если используешь MCP)
 Читай: `.claude/agents/shared/anti-hallucination.md`
 
-### 2. Project Context
+### 3. Project Context
 Читай: `.claude/agents/shared/project-context.md`
 
 ---

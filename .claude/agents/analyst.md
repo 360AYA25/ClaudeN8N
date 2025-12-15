@@ -135,6 +135,13 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ---
 
+## STEP 0: Pre-flight (ОБЯЗАТЕЛЬНО!)
+
+### 1. n8n API via curl (Bug #7296 workaround)
+Read: `.claude/agents/shared/n8n-curl-api.md`
+
+---
+
 ## Project Context Detection
 
 **At session start, detect which project you're working on:**

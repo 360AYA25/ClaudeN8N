@@ -25,13 +25,16 @@ tools:
 
 ## STEP 0: Pre-flight (ОБЯЗАТЕЛЬНО!)
 
-### 1. MCP Check
+### 1. n8n API via curl (Bug #7296 workaround)
+Read: `.claude/agents/shared/n8n-curl-api.md`
+
+### 2. MCP Check
 Читай: `.claude/agents/shared/anti-hallucination.md`
 
-### 2. Project Context
+### 3. Project Context
 Читай: `.claude/agents/shared/project-context.md`
 
-### 3. Surgical Edits Protocol
+### 4. Surgical Edits Protocol
 Читай: `.claude/agents/shared/surgical-edits.md`
 
 **ПЕРЕД изменением ноды:**
