@@ -5,78 +5,6 @@
 # Usage: source .claude/agents/shared/gate-enforcement.sh
 
 ###############################################################################
-# GATE 1: Progressive Escalation (CRITICAL!)
-# Rule: Cycle-based agent selection prevents infinite loops
-# - Cycles 1-3: Builder direct fix
-# - Cycles 4-5: Researcher FIRST (alternative approach)
-# - Cycles 6-7: Analyst FIRST (root cause diagnosis)
-# - Cycle 8+: BLOCKED
-###############################################################################
-function check_gate_1() {
-  local target_agent="$1"
-  local run_state="$2"
-
-  local cycle=$(jq -r '.cycle_count // 0' "$run_state")
-  local stage=$(jq -r '.stage // "unknown"' "$run_state")
-
-  # Only enforce in QA loop (validate/build stages)
-  if [ "$stage" != "validate" ] && [ "$stage" != "build" ]; then
-    return 0
-  fi
-
-  # Cycles 1-3: Builder OK
-  if [ "$cycle" -ge 1 ] && [ "$cycle" -le 3 ]; then
-    if [ "$target_agent" = "builder" ]; then
-      echo "✅ GATE 1 PASS: Cycle $cycle allows Builder direct fix" >&2
-    fi
-    return 0
-  fi
-
-  # Cycles 4-5: MUST call Researcher FIRST!
-  if [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
-    if [ "$target_agent" = "builder" ]; then
-      local researcher_called=$(jq -r "[.agent_log[] | select(.agent==\"researcher\" and .cycle_context==$cycle)] | length > 0" "$run_state" 2>/dev/null || echo "false")
-
-      if [ "$researcher_called" != "true" ]; then
-        echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Researcher FIRST!" >&2
-        echo "" >&2
-        echo "Required: Call Researcher to find alternative approach before Builder" >&2
-        echo "Reference: validation-gates.md GATE 1" >&2
-        return 1
-      fi
-    fi
-    return 0
-  fi
-
-  # Cycles 6-7: MUST call Analyst FIRST!
-  if [ "$cycle" -ge 6 ] && [ "$cycle" -le 7 ]; then
-    if [ "$target_agent" = "builder" ]; then
-      local analyst_called=$(jq -r "[.agent_log[] | select(.agent==\"analyst\" and .cycle_context==$cycle)] | length > 0" "$run_state" 2>/dev/null || echo "false")
-
-      if [ "$analyst_called" != "true" ]; then
-        echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Analyst FIRST!" >&2
-        echo "" >&2
-        echo "Required: Call Analyst for root cause diagnosis before Builder" >&2
-        echo "Reference: validation-gates.md GATE 1" >&2
-        return 1
-      fi
-    fi
-    return 0
-  fi
-
-  # Cycle 8+: BLOCKED!
-  if [ "$cycle" -ge 8 ]; then
-    echo "🚨 GATE 1 VIOLATION: Cycle 8+ blocked! No more attempts allowed." >&2
-    echo "" >&2
-    echo "Required: Set stage='blocked' and escalate to user" >&2
-    echo "Reference: validation-gates.md GATE 1" >&2
-    return 1
-  fi
-
-  return 0
-}
-
-###############################################################################
 # GATE 0: Research Phase Required
 # Rule: Before first Builder call in session, Research must complete
 ###############################################################################
@@ -295,9 +223,8 @@ function check_all_gates() {
 
   echo "🔒 Checking validation gates for: $target_agent" >&2
 
-  # Check all gates in order (GATE 1 = Progressive Escalation is CRITICAL!)
+  # Check all gates in order
   check_gate_0 "$target_agent" "$run_state" || return 1
-  check_gate_1 "$target_agent" "$run_state" || return 1
   check_gate_2 "$target_agent" "$run_state" || return 1
   check_gate_3 "$target_agent" "$run_state" || return 1
   check_gate_4 "$target_agent" "$run_state" || return 1
