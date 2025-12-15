@@ -45,7 +45,7 @@
 | Category | Line | Entries | Topics |
 |----------|------|---------|--------|
 | [Agent Standardization](#agent-standardization) | 70 | 1 | Template v2.0, English-only, changelog |
-| [n8n Workflows](#n8n-workflows) | 170 | 21 | MCP, creation, modification, debugging, functional blocks, validation gates, circuit breakers, binary data, AI Agent integration |
+| [n8n Workflows](#n8n-workflows) | 170 | 20 | MCP, creation, modification, debugging, functional blocks, validation gates, circuit breakers, binary data |
 | [Notion Integration](#notion-integration) | 890 | 6 | Filters, dates, properties, timezone |
 | [Supabase Database](#supabase-database) | 1020 | 5 | Schema, RLS, RPC functions, migrations |
 | [Telegram Bot](#telegram-bot) | 1130 | 2 | Webhooks, message handling |
@@ -55,7 +55,7 @@
 | [HTTP Requests](#http-requests) | 1440 | 2 | Error handling, credentials, status codes |
 | [MCP Server](#mcp-server) | 1500 | 1 | Migration, stdio, WebSocket |
 
-**Total:** 49 entries across 10 categories
+**Total:** 48 entries across 10 categories
 
 ---
 
@@ -168,143 +168,6 @@ ls .claude/agents/*.md | wc -l
 ---
 
 ## n8n Workflows
-
-## L-103: Multi-Layer Data Integration Pattern - Database + AI Prompt Required
-
-**Category:** AI Agent / Database / Architecture Pattern
-**Severity:** 🟡 **IMPORTANT** - Easy to miss, causes "data exists but not shown" bugs
-**Date:** 2025-12-10
-**Impact:** Adding new data to bot output requires coordinated changes across 2-4 layers
-
-### Problem
-
-User requested to add water tracking data to monthly report. Initially tried updating only AI Agent tool description - data was available in backend but AI didn't display it.
-
-**Symptoms:**
-- Database query returns correct data (verified via direct RPC call)
-- AI Agent receives data in tool response
-- But AI doesn't include it in final user message
-- User sees incomplete report despite feature being "implemented"
-
-### Root Cause
-
-**Data availability ≠ Data visibility to user**
-
-Simply adding data to backend or updating tool descriptions is NOT enough. AI Agent needs:
-1. Data to be available (database/RPC layer) ✅
-2. Tool to expose it (tool description layer) ✅
-3. **Explicit instructions on HOW and WHEN to use it** (system prompt layer) ❌ ← Often forgotten!
-
-### Multi-Layer Integration Pattern
-
-When adding new data to AI bot output, you MUST change **all applicable layers**:
-
-#### Layer 1: Database/Backend (ALWAYS required)
-- **Supabase RPC Function:** Update to query new data tables
-- **Schema Changes:** Add new columns, tables, or relationships if needed
-- **Example:** Added `daily_water` CTE to `get_monthly_summary` RPC:
-```sql
-WITH daily_water AS (
-    SELECT intake_date, SUM(amount_ml) as daily_water
-    FROM public.water_intake
-    WHERE telegram_user_id = p_telegram_user_id
-    GROUP BY intake_date
-)
--- Then include in RETURN jsonb_build_object('water', v_water_stats, ...)
-```
-
-#### Layer 2: API/Tool Layer (ALWAYS required)
-- **Tool Description:** Update to mention new data field
-- **Parameter Schema:** Add new fields if tool needs input parameters
-- **Example:** Tool "Get Monthly Summary" already had description mentioning water
-- **Note:** This alone is NOT enough! Proceed to Layer 3!
-
-#### Layer 3: AI System Prompt (CRITICAL - often forgotten!)
-- **Explicit Instructions:** Tell AI EXACTLY when and how to display new data
-- **Format Specification:** Provide exact output format with examples
-- **Mandatory Fields:** Mark critical fields as "MUST include" or "ОБЯЗАТЕЛЬНО"
-- **Example:** Added to AI Agent system prompt:
-```markdown
-- 🔥 **Среднее за день:**
-  - Калории (ккал)
-  - Макросы: Белки 🥩 | Жиры 🧈 | Углеводы 🍞 | Клетчатка 🌾
-  - **ОБЯЗАТЕЛЬНО:** Вода 💧 (среднее мл/день из water.avg_daily_water_ml)
-
-**CRITICAL:** Monthly report MUST include water section using data from `water` object.
-Format: "Вода: XXX мл/день 💧 (цель: 2000 мл)"
-```
-
-#### Layer 4: External APIs (if applicable)
-- **BotFather:** Update command descriptions if adding new commands
-- **Telegram Keyboard:** Update button labels if feature is user-triggered
-- **Example:** Not needed for this case (monthly report format only)
-
-### Step-by-Step Solution
-
-**Initial Attempt (FAILED):**
-1. ✅ Updated RPC to return water data
-2. ✅ Tool description mentioned water
-3. ❌ AI ignored water data - user reported "нет воды"
-
-**Second Attempt (FAILED):**
-1. ✅ Added vague mention in system prompt: "Include water if available"
-2. ❌ Still didn't work - too implicit!
-
-**Final Fix (SUCCESS):**
-1. ✅ Added **CRITICAL** section with exact format
-2. ✅ Used "ОБЯЗАТЕЛЬНО" (mandatory) marker
-3. ✅ Provided exact path to data: `water.avg_daily_water_ml`
-4. ✅ User confirmed: "теперь есть!!!" (now it works!)
-
-### Prevention & Best Practices
-
-**Before implementing new data feature:**
-
-1. **Map all layers** that need changes:
-   ```
-   Database → RPC → Tool → AI Prompt → (Optional: BotFather/Keyboard)
-   ```
-
-2. **Update checklist** for each layer:
-   - [ ] Database schema/query updated
-   - [ ] RPC function returns new data
-   - [ ] Tool description mentions new field
-   - [ ] **AI system prompt has EXPLICIT instructions**
-   - [ ] (Optional) BotFather commands updated
-   - [ ] (Optional) Keyboard buttons updated
-
-3. **Make AI instructions explicit:**
-   - ❌ BAD: "Show water data if available"
-   - ✅ GOOD: "**MANDATORY:** Show water in format: 'Вода: XXX мл/день 💧'"
-
-4. **Test with direct RPC call first:**
-   ```sql
-   -- Verify data exists before blaming AI
-   SELECT get_monthly_summary(682776858, 2025, 12);
-   -- If returns water data → problem is in Layer 3 (AI Prompt)
-   ```
-
-5. **Progressive diagnosis:**
-   - Layer 1 issue: RPC returns error or null
-   - Layer 2 issue: Tool doesn't pass data to AI
-   - Layer 3 issue: AI receives data but doesn't show it ← Most common!
-
-### Key Insight
-
-**Implicit tool descriptions are NOT sufficient for output requirements!**
-
-Tool descriptions tell AI **what data is available**. System prompt tells AI **what to DO with that data**.
-
-Think of it like:
-- Tool description = "Here's a dictionary with water data"
-- System prompt = "You MUST use this dictionary to show water stats in every monthly report"
-
-Without Layer 3, AI might think water is "optional" or "only show if user asks".
-
-### Tags
-#ai-agent #database #system-prompt #multi-layer-pattern #data-integration #rpc-functions #explicit-instructions
-
----
 
 ## L-102: Multiple Changes Cascade - When "Simple Fix" Becomes 6-Hour Debug Marathon
 
@@ -3093,37 +2956,6 @@ const calories = entryData.properties?.['Total Calories']?.number || 0;
 
 ## Supabase Database
 
-### [2025-12-11 19:30] L-075: RPC Parameter Order Must Match AI Tool Call Order
-
-**Problem:** `/month` command returns 0 records despite data existing. Error: `date field value out of range: 12-2025-01`
-
-**Cause:** Parameter order mismatch between AI Agent tool call and RPC:
-- AI Agent says "December 2025" → sends `(12, 2025)` (month, year - natural order)
-- RPC was defined as `(p_year, p_month)` → interpreted as year=12, month=2025
-- `make_date(12, 2025, 1)` → ERROR: year 12 invalid
-
-**Solution:** RPC parameter order MUST match natural language order:
-```sql
--- ❌ WRONG: (user_id, year, month) - doesn't match "December 2025"
--- ✅ CORRECT: (user_id, month, year) - matches "December 2025" → (12, 2025)
-CREATE FUNCTION get_monthly_summary(
-    p_telegram_user_id BIGINT,
-    p_month INTEGER,  -- Month FIRST (1-12)
-    p_year INTEGER    -- Year SECOND
-)
-```
-
-**Prevention:**
-1. When AI describes date as "Month Year" → RPC params must be `(month, year)`
-2. Test RPC with actual values AI will send BEFORE deploying
-3. Document parameter order in AI tool description
-
-**Root Pattern:** Silent failures cascade - RPC error → AI gets NULL → empty response → user sees "0 records"
-
-**Tags:** #supabase #rpc #parameter-order #ai-agent #silent-failure
-
----
-
 ### [2025-10-27 17:00] Check DB schema BEFORE creating Supabase nodes
 
 **Problem:** Workflow fails with "Could not find table/column in schema cache"
@@ -3519,92 +3351,6 @@ if ($input.item.json.error) {
 ---
 
 ## AI Agents
-
-### [2025-12-11 01:13] L-104: AI Formatting Rules Unreliable - Use Post-Processing
-
-**Problem:** GPT-4o-mini (and similar LLMs) inconsistently follow formatting instructions in system prompts, even when rules are emphasized and placed at the end of prompts.
-
-**Context: FoodTracker Emoji Injection**
-- Task: Ensure ALL macro nutrient mentions include emojis (🔥 калории, 🥩 белок, 🧈 жиры, etc.)
-- Challenge: Interactive responses missing emojis, while formatted reports worked correctly
-
-**Attempts & Results:**
-
-| Approach | Implementation | Success Rate | Notes |
-|----------|----------------|--------------|-------|
-| **Attempt 1** | Rule at TOP of 2500+ token prompt | 0% | Complete failure - AI ignored rule |
-| **Attempt 2** | Rule at BOTTOM with interactive examples | 33% | Partial success - only 1 of 3 test cases passed |
-| **Attempt 3** | Regex post-processing in Code node | 100% | ✅ Perfect reliability |
-
-**Root Cause:**
-1. **LLM Recency Bias:** GPT-4o-mini pays more attention to END of long prompts, but still ignores formatting rules
-2. **Priority Dilution:** Too many CRITICAL/MANDATORY sections reduce effectiveness
-3. **Instruction Following:** LLMs are fundamentally unreliable for strict formatting enforcement
-
-**Solution Pattern (100% Success):**
-
-```
-AI Agent → Code Node (Regex Post-Processing) → Output
-```
-
-**Code Node Implementation:**
-```javascript
-// Match Russian word roots + any endings
-const emojiMap = {
-  'калори': '🔥',   // калорий, калорию, калориях...
-  'белк': '🥩',      // белков, белки, белке...
-  'жир': '🧈',       // жиров, жиры, жире...
-  'углевод': '🍞',   // углеводов, углеводы...
-  'клетчатк': '🌾',  // клетчатки, клетчатке...
-  'вод': '💧'        // воды, воде, водой...
-};
-
-for (const [root, emoji] of Object.entries(emojiMap)) {
-  // Negative lookahead prevents duplicates
-  const regex = new RegExp(`(${root}[а-яА-Я]*)(?!\\s*${emoji})`, 'gi');
-  text = text.replace(regex, `$1 ${emoji}`);
-}
-```
-
-**Key Techniques:**
-- **Word root matching:** Covers all Russian grammatical cases/numbers
-- **Negative lookahead:** `(?!\s*emoji)` prevents duplicate emojis
-- **Post-processing:** Runs AFTER AI generates response (deterministic)
-
-**Evidence:**
-- Test 1: "Средний белок за неделю" → 0% emojis (TOP) → 33% (BOTTOM) → 100% (regex) ✅
-- Test 2: "Тренд по калориям" → 0% emojis (TOP) → 0% (BOTTOM) → 100% (regex) ✅
-- Test 3: "Сколько воды я выпил?" → 0% emojis (TOP) → 0% (BOTTOM) → 100% (regex) ✅
-
-**When to Use:**
-- ✅ **Mandatory formatting** (emojis, units, symbols, structure)
-- ✅ **Language-specific patterns** (Russian cases, plurals)
-- ✅ **Consistency requirements** (100% coverage needed)
-- ❌ **Content generation** (AI should handle this)
-- ❌ **Simple preferences** (AI can handle with good prompts)
-
-**Architecture Pattern:**
-```
-User Input
-  ↓
-AI Agent (focus on CONTENT, not formatting)
-  ↓
-Code Node (enforce FORMAT with regex/logic)
-  ↓
-Output (reliable, consistent, 100% compliant)
-```
-
-**Related:**
-- **Workflow:** FoodTracker (sw3Qs3Fe3JahEbbW) v422 → v424
-- **Node:** Inject Emoji (inject-emoji-001)
-- **Investigation:** run_ai_agent_investigation_20251210_182410
-
-**Strategic Insight:**
-> Separate concerns: AI for content intelligence, Code for formatting enforcement. Don't ask AI to do both.
-
-**Tags:** #ai-agent #formatting #post-processing #reliability #emoji #russian-language #regex #foodtracker #code-node #100-percent-success
-
----
 
 ### [2025-12-10 13:00] L-078: Proof - Tool 1 (Flat) vs Tool 10 (Nested)
 
