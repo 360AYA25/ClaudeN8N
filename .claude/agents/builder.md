@@ -40,6 +40,11 @@ tools:
 3. Прочитай указанный ADR/Intent Card
 4. Проверь "DO NOT TOUCH" секцию!
 
+**ЕСЛИ меняешь AI Agent:**
+5. Читай `.context/architecture/nodes/AI-AGENT-TOOLS.md`
+6. Проверь все 15 tools configurations
+7. Помни уроки v432 incident: **ONLY parametersBody, NEVER jsonBody!**
+
 ---
 
 ## 🚨 L-075: ANTI-HALLUCINATION PROTOCOL (CRITICAL!)

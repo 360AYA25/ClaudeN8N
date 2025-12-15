@@ -38,11 +38,37 @@ fi
 
 | Агент | Читает обязательно | Читает по необходимости |
 |-------|-------------------|------------------------|
-| Architect | STRATEGY, INDEX | flow.md |
-| Researcher | STRATEGY, INDEX | services/*.md, decisions/*.md |
-| Builder | STRATEGY, INDEX | ADR/Intent Card для изменяемой ноды |
-| QA | STRATEGY, INDEX | flow.md |
-| Analyst | ВСЁ | - |
+| Architect | STRATEGY, INDEX | flow.md, ALL-SERVICES.md |
+| Researcher | STRATEGY, INDEX | ALL-SERVICES.md, DATA-FLOW.md, services/*.md, decisions/*.md |
+| Builder | STRATEGY, INDEX | AI-AGENT-TOOLS.md (if modifying AI Agent), ADR/Intent Card для изменяемой ноды |
+| QA | STRATEGY, INDEX | DATA-FLOW.md, flow.md |
+| Analyst | ВСЁ | Все новые файлы для обновления после build |
+
+## Новые файлы контекста (📁 v3.7.0+)
+
+**Comprehensive Documentation:**
+- **ALL-SERVICES.md** - полное описание всех сервисов (Telegram, Supabase, OpenAI, etc.)
+  - Зачем нужен каждый сервис
+  - Какие ноды используют
+  - Критичность и failure impact
+
+- **DATA-FLOW.md** - детальные потоки данных для всех типов сообщений
+  - Text/Voice/Photo/Command flows
+  - Step-by-step transformations
+  - Pattern references (L-060, L-068, etc.)
+
+- **AI-AGENT-TOOLS.md** - документация всех AI Agent инструментов
+  - 15 tools с параметрами и примерами
+  - Паттерны использования
+  - v432 incident уроки (jsonBody vs parametersBody)
+
+**Где находятся:**
+```
+{project_path}/.context/architecture/
+├── services/ALL-SERVICES.md
+├── flows/DATA-FLOW.md
+└── nodes/AI-AGENT-TOOLS.md
+```
 
 ## Fallback (если .context/ не существует)
 
