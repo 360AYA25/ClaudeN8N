@@ -11,6 +11,11 @@
 
 ## 🚨 TOKEN ECONOMY RULES (CRITICAL!)
 
+**Language:**
+- User communication: Russian ✅
+- Code/docs/commits: English only
+- Agent prompts: English only
+
 **DO:**
 - Short answers, minimal code
 - English only (code/docs)
@@ -34,7 +39,7 @@
 
 ## 🚨 DEFAULT MODE: /orch (ALWAYS!)
 
-**ВСЕ задачи в этом проекте выполняются через Orchestrator!**
+**ALL tasks in this project go through Orchestrator!**
 
 ```
 User request → /orch → 5-Agent System → Result
@@ -56,26 +61,26 @@ Rule: ALL n8n workflow tasks MUST use /orch
 Correct: /orch <your task>
 ```
 
-### При получении ЛЮБОГО запроса:
-1. **Автоматически запускай** `/orch` (SlashCommand) - enforcement via hook!
-2. Orchestrator сам определит какого агента вызвать
-3. Hook БЛОКИРУЕТ прямые MCP вызовы к n8n - обход невозможен
+### On ANY user request:
+1. **Auto-launch** `/orch` (SlashCommand) - enforced via hook!
+2. Orchestrator determines which agent to call
+3. Hook BLOCKS direct MCP calls to n8n - bypass impossible
 
-### Исключения (когда НЕ использовать /orch):
-- Вопросы о системе ("как работает система?", "покажи агентов")
-- Редактирование документации проекта (CLAUDE.md, agents/*.md, hooks/*.md)
-- Git операции (commit, push)
-- Работа с файлами проекта (Read, Write, Edit - не n8n MCP!)
+### Exceptions (when NOT to use /orch):
+- System questions ("how does system work?", "show agents")
+- Project docs editing (CLAUDE.md, agents/*.md, hooks/*.md)
+- Git operations (commit, push)
+- Project file work (Read, Write, Edit - not n8n MCP!)
 
-### Примеры:
-| User говорит | Действие |
-|--------------|----------|
-| "создай workflow" | → `/orch создай workflow` |
-| "исправь FoodTracker" | → `/orch исправь FoodTracker` |
-| "найди node для Telegram" | → `/orch найди node для Telegram` |
-| "что сломалось?" | → `/orch что сломалось?` |
-| "как работает builder?" | Ответь напрямую (документация) |
-| *Попытка вызвать n8n_get_workflow* | **🚨 BLOCKED by hook!** |
+### Examples:
+| User says | Action |
+|-----------|--------|
+| "create workflow" | → `/orch create workflow` |
+| "fix FoodTracker" | → `/orch fix FoodTracker` |
+| "find node for Telegram" | → `/orch find node for Telegram` |
+| "what's broken?" | → `/orch what's broken?` |
+| "how does builder work?" | Answer directly (documentation) |
+| *Try to call n8n_get_workflow* | **🚨 BLOCKED by hook!** |
 
 ---
 
