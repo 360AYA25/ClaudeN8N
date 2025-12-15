@@ -3061,29 +3061,55 @@ return [{
 
 ## Telegram Bot
 
-### [2025-12-09 14:30] 🚨 BotFather Commands MUST Match n8n Workflow Routing
+### [2025-12-13 23:45] 🔴 CRITICAL PROTOCOL: BotFather Commands MUST ALWAYS Be Updated!
 
-**Problem:** Changed n8n workflow to route `/day` and `/week` instead of `/report` and `/stats`, but Telegram bot menu still shows old commands
+**🚨 MANDATORY RULE - NO EXCEPTIONS:**
 
-**Cause:** Two separate systems:
-1. **n8n workflow** - Switch node routing (what bot actually executes)
-2. **Telegram BotFather** - Command menu display (what user sees in UI)
+When you modify Telegram bot commands (add/remove/rename), you MUST update in TWO places:
 
-Changing workflow routing does NOT update BotFather menu automatically!
+1. **n8n workflow** (Switch node routing) ← What bot executes
+2. **BotFather API** (Telegram menu) ← What user sees
 
-**Solution:** When adding/removing/renaming Telegram bot commands:
+**❌ FORBIDDEN:** Changing workflow without updating BotFather!
+
+**✅ REQUIRED WORKFLOW:**
 
 **Step 1: Update n8n workflow**
 - Modify Switch node routing
 - Update Simple Reply/Code nodes with command arrays
 - Test workflow execution
 
-**Step 2: Update BotFather in Telegram** ⚠️ **CRITICAL!**
-1. Open [@BotFather](https://t.me/BotFather)
-2. Send `/setcommands`
-3. Select your bot
-4. Paste NEW command list (format: `command - Description`)
-5. Verify menu updated in bot UI
+**Step 2: Update BotFather** ⚠️ **ALWAYS DO THIS!**
+
+**Credentials location:**
+```bash
+/Users/sergey/Projects/ClaudeN8N/CREDENTIALS.env
+# Variable: TELEGRAM_BOT_TOKEN=7845235205:AAE...
+```
+
+**API call (ALWAYS use this method):**
+```bash
+# Read token from CREDENTIALS.env
+TOKEN=$(grep TELEGRAM_BOT_TOKEN /Users/sergey/Projects/ClaudeN8N/CREDENTIALS.env | cut -d'=' -f2)
+
+# Update commands
+curl -X POST "https://api.telegram.org/bot${TOKEN}/setMyCommands" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "commands": [
+      {"command": "help", "description": "Помощь"},
+      {"command": "day", "description": "Дневной отчёт"}
+    ]
+  }'
+
+# Verify
+curl -X POST "https://api.telegram.org/bot${TOKEN}/getMyCommands"
+```
+
+**Step 3: VERIFY in Telegram app**
+- Open bot in Telegram
+- Check menu shows correct commands
+- Test that old commands DON'T appear
 
 **Example:**
 ```
