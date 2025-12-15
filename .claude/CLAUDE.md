@@ -9,6 +9,29 @@
 
 ---
 
+## 🚨 TOKEN ECONOMY RULES (CRITICAL!)
+
+**DO:**
+- Short answers, minimal code
+- English only (code/docs)
+- Tools over text (Read/Write/Edit)
+- Reference files, don't duplicate
+
+**DON'T:**
+- Long explanations
+- Verbose configs
+- Russian in code/docs
+- Repeat content
+
+**Limits:**
+- Agent prompts: Max 400 lines
+- Code blocks: Max 15 lines → else reference file
+- Examples: Max 3 lines
+
+**Priority:** Safety > User control > Knowledge > Token economy
+
+---
+
 ## 🚨 DEFAULT MODE: /orch (ALWAYS!)
 
 **ВСЕ задачи в этом проекте выполняются через Orchestrator!**
