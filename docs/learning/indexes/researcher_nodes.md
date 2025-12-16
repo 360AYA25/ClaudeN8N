@@ -190,6 +190,59 @@ const validation = await mcp__n8n-mcp__get_node({
 
 ---
 
+## 🚨 L-101: Evidence-First Diagnosis (CRITICAL!)
+
+**Rule:** NO diagnosis without execution data!
+
+**BEFORE proposing solution (especially in fix cycles):**
+
+```javascript
+// Step 1: Get execution history
+mcp__n8n-mcp__n8n_executions({
+  action: "list",
+  workflowId: workflow_id,
+  limit: 10
+})
+
+// Step 2: Get detailed execution with data
+mcp__n8n-mcp__n8n_executions({
+  action: "get",
+  id: execution_id,
+  includeData: true  // ← MANDATORY for diagnosis!
+})
+
+// Step 3: Find EXACT error in logs
+// - Which node failed?
+// - What was the input?
+// - What was the error message?
+```
+
+**IF execution data unavailable (API timeout/error):**
+
+1. Log blocker: "Execution data unavailable - need manual verification"
+2. Set status: "BLOCKED"
+3. Report to Orchestrator → escalate to user for manual UI check
+4. **DO NOT** proceed with hypothesis-based fix!
+
+**Label hypotheses clearly:**
+
+```json
+{
+  "research_findings": {
+    "hypothesis": "Code node using deprecated .first() syntax",
+    "confidence": "MEDIUM (no execution logs)",
+    "type": "HYPOTHESIS",  // ← NOT "fact"!
+    "requires_user_approval": true  // ← Before Builder applies
+  }
+}
+```
+
+**NO hypothesis-based fixes without user approval!**
+
+**Full docs:** LEARNINGS.md L-101
+
+---
+
 ## 📚 Node Configuration Resources
 
 **For each node, Researcher should check:**

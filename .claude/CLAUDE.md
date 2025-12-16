@@ -89,10 +89,10 @@ Correct: /orch <your task>
 | Agent | Model | Role | MCP Tools | Skills |
 |-------|-------|------|-----------|--------|
 | architect | sonnet | 5-phase dialog + planning | **WebSearch** (NO MCP!) | workflow-patterns, mcp-tools-expert |
-| researcher | sonnet | Search with scoring | search_*, get_*, list_workflows | mcp-tools-expert, node-configuration |
+| researcher | sonnet | Search + **execution analysis** | search_*, get_*, list_workflows, **executions** | mcp-tools-expert, node-configuration |
 | **builder** | **opus 4.5** | **ONLY writer** | create_*, update_*, autofix_*, validate_* | node-config, expression, code-js, code-py |
 | qa | sonnet | Validate + test, NO fixes | validate_*, trigger_*, executions | validation-expert, mcp-tools-expert |
-| analyst | sonnet | Read-only audit + token tracking | get_workflow, executions, versions | workflow-patterns, validation-expert |
+| analyst | sonnet | **Post-mortem ONLY (L4)** + token tracking | get_workflow, executions, versions (for post-mortem) | workflow-patterns, validation-expert |
 
 **Orchestrator:** Main context (orch.md) — routes between agents, NOT a separate agent file.
 
@@ -144,18 +144,18 @@ clarification → research → decision → credentials → implementation → b
 | Level | Trigger | Action |
 |-------|---------|--------|
 | **L1** | Simple error | Builder direct fix |
-| **L2** | Unknown error | Researcher → Builder |
+| **L2** | Unknown error | Researcher execution analysis → Builder |
 | **L3** | 7+ failures | stage="blocked" |
-| **L4** | Blocked | Report to user + Analyst post-mortem |
+| **L4** | Blocked | Report to user + **Analyst post-mortem** |
 
 ## QA Loop (max 7 cycles — progressive)
 
 ```
 QA fail → Builder fix (edit_scope) → QA → repeat
 ├── Cycle 1-3: Builder fixes directly
-├── Cycle 4-5: Researcher helps find alternative approach
-├── Cycle 6-7: Analyst diagnoses root cause
-└── After 7 fails → stage="blocked" → report to user with full history
+├── Cycle 4-5: Researcher finds alternative approach (execution analysis)
+├── Cycle 6-7: Researcher deep dive (root cause analysis)
+└── After 7 fails → stage="blocked" → Analyst post-mortem → report to user
 ```
 
 ## Hard Rules (Permission Matrix)

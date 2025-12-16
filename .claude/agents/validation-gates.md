@@ -50,20 +50,21 @@ IF cycle_count IN [4, 5]:
    - Workaround (Skip broken tool, use alternative?)
    Check LEARNINGS.md for similar issues."
 
-# Cycle 6-7: Analyst Root Cause Diagnosis (MANDATORY!)
+# Cycle 6-7: Researcher Deep Dive (MANDATORY!)
 IF cycle_count IN [6, 7]:
-  BLOCK: Builder (no more guessing!), Researcher (alternatives exhausted)
-  REQUIRE: Analyst FIRST (root cause diagnosis)
+  BLOCK: Builder (no more guessing!)
+  REQUIRE: Researcher FIRST (deep root cause analysis)
   THEN: Decision (fix vs redesign vs user escalation)
 
   Rationale: 5 failures = architectural issue, need deep analysis
 
-  Analyst Prompt:
+  Researcher Prompt:
   "6 failed attempts! Find ROOT CAUSE:
    - Analyze execution logs (last 10 runs)
    - Find WHERE exactly it breaks
    - Identify architectural flaw
-   - Check if problem is solvable"
+   - Check if problem is solvable
+   - Read LEARNINGS.md for known issues"
 
 # Cycle 8+: BLOCKED - User Escalation
 IF cycle_count >= 8:
@@ -85,10 +86,10 @@ if [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
   fi
 fi
 
-# Cycle 6-7: MUST call Analyst first
+# Cycle 6-7: MUST call Researcher first (deep dive)
 if [ "$cycle" -ge 6 ] && [ "$cycle" -le 7 ]; then
-  if [ "$calling_builder_without_analyst" = true ]; then
-    echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Analyst FIRST!"
+  if [ "$calling_builder_without_researcher_deep_dive" = true ]; then
+    echo "🚨 GATE 1 VIOLATION: Cycle $cycle requires Researcher deep dive FIRST!"
     exit 1
   fi
 fi
@@ -114,7 +115,7 @@ fi
 IF fixing_broken_workflow:
   IF execution_analysis_done = false:
     BLOCK: Builder (cannot fix without diagnosis!)
-    REQUIRE: Analyst execution analysis FIRST
+    REQUIRE: Researcher execution analysis FIRST
     THEN: Builder with diagnosis results
 
   Rationale: No guessing - always data-driven fixes
@@ -134,7 +135,7 @@ if [ "$stage" = "build" ] && [ -f "${project_path}/.n8n/snapshots/$workflow_id/c
 
   if [ "$execution_analysis" != "true" ]; then
     echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis!"
-    echo "Required: Call Analyst to analyze last 5 executions FIRST."
+    echo "Required: Call Researcher to analyze last 5 executions FIRST."
     exit 1
   fi
 fi
@@ -146,7 +147,7 @@ fi
 {
   "execution_analysis": {
     "completed": true,
-    "analyst_agent": "analyst",
+    "researcher_agent": "researcher",
     "timestamp": "2025-12-04T15:30:00Z",
     "findings": {
       "break_point": "AI Agent node - input field missing telegram_user_id",

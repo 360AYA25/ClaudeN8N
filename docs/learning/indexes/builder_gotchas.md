@@ -8,6 +8,23 @@
 
 ## 🔴 CRITICAL GOTCHAS (Must Check EVERY Time!)
 
+### L-104: Code Node `.first()` Deprecated Syntax (Returns undefined!)
+**Problem:** `$('Node Name').first().json.field` returns `undefined` (deprecated!)
+**Solution:** Use `$node['Node Name'].json.field` instead
+**Detection:** Search for `.first()` in Code node BEFORE building
+**Example:**
+```javascript
+// ❌ WRONG (returns undefined!):
+const userId = $('Check User').first().json?.telegram_user_id;
+
+// ✅ CORRECT:
+const userId = $node['Check User'].json.telegram_user_id;
+// OR
+const userId = $node['Telegram Trigger'].json.message.from.id;
+```
+**Impact:** Silent failures, data undefined, 300s timeouts
+**Full docs:** LEARNINGS.md L-104
+
 ### L-060: Code Node Deprecated Syntax (300s Timeout!)
 **Problem:** `$node["Node Name"].json.field` causes 300s timeout
 **Solution:** Use `$('Node Name').item.json.field` instead
