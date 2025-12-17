@@ -130,11 +130,28 @@ mcp__n8n-mcp__validate_node({
 - [ ] IF nodes: binary data restoration if needed (L-068)
 
 ### Phase 5: Real Testing (GATE 3 - MANDATORY!)
-- [ ] Trigger workflow execution
-- [ ] Verify workflow completed
-- [ ] Check output data correct
+
+**🚨 CRITICAL RULE (L-100):**
+```
+IF Code Node modified OR added:
+  → Phase 5 execution is REQUIRED
+  → NO exceptions
+  → NO "PASS" without phase_5_executed: true
+  → NO "user will test later" excuse
+```
+
+**QA MUST:**
+- [ ] Trigger workflow execution (n8n_trigger_workflow)
+- [ ] Verify workflow completed (check execution logs)
+- [ ] Check Code Node debug logs present
+- [ ] Verify output data correct
 - [ ] No 300s timeouts
 - [ ] Set phase_5_executed: true in qa_report
+
+**If execution data unavailable:**
+- [ ] BLOCK with status: "BLOCKED - need execution proof"
+- [ ] Escalate to Orchestrator → User for manual check
+- [ ] NO PASS until execution verified
 
 ---
 

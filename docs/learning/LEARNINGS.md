@@ -169,6 +169,245 @@ ls .claude/agents/*.md | wc -l
 
 ## n8n Workflows
 
+## L-105: API Timeout Requires Manual Escalation (2025-12-16)
+
+**Category:** Process / Debugging / Tool Limitations
+**Severity:** 🟡 **LOW** - Workaround available but not automated
+**Date:** 2025-12-16
+**Impact:** n8n API timeout blocked execution analysis, no escalation to user for manual check
+
+**Problem:** n8n API `executions` endpoint with `includeData=true` times out, preventing execution log analysis. System continued with hypothesis-based fixes instead of escalating to user for manual verification.
+
+**Evidence:**
+- Cycle 2: Analyst noted "API timeout prevents execution data retrieval"
+- Cycles 3-4: Still no execution data
+- Manual workaround available (n8n UI check) but not triggered
+- 3 cycles of fixes without execution proof
+
+**Solution:**
+```yaml
+When Tool Limitation Detected:
+  1. Analyst logs: blocker = "API timeout"
+  2. Analyst → Orchestrator: "BLOCKED - need manual verification"
+  3. Orchestrator → User:
+     "Please check n8n UI:
+      - Executions page
+      - Workflow: [name]
+      - Last 3 executions
+      - Expand: [problematic node]
+      - Screenshot: Debug logs
+      OR: Export execution JSON"
+  4. BLOCK Builder until user provides data
+  5. Analyst analyzes actual data → diagnosis with proof
+```
+
+**Prevention:** Update `orch.md` with escalation protocol for tool limitations
+
+**Related:** L-101 (NO diagnosis without execution data)
+
+**Tags:** #process #debugging #escalation #tool-limitations
+
+---
+
+## L-104: Code Node Syntax - Correct Data Access Patterns (2025-12-16)
+
+**Category:** n8n / Code Node / Syntax
+**Severity:** 🟠 **MEDIUM** - Common mistake, causes silent failures
+**Date:** 2025-12-16
+**Impact:** Builder used incorrect syntax `$('Check User').first().json` → returns undefined → Code Node early exit
+
+**Problem:** Builder used deprecated/incorrect syntax for accessing data from previous nodes in Code Node, causing undefined values and silent failures.
+
+**Wrong Syntax (DEPRECATED):**
+```javascript
+// ❌ Returns undefined!
+const userId = $('Check User').first().json?.telegram_user_id;
+```
+
+**Correct Syntax:**
+```javascript
+// ✅ Correct
+const userId = $node['Check User'].json.telegram_user_id;
+// OR
+const userId = $('Check User').item.json.telegram_user_id;
+
+// ✅ From specific trigger
+const userId = $node['Telegram Trigger'].json.message.from.id;
+```
+
+**Prevention:**
+- Add to `builder_gotchas.md` index (top 5 gotchas)
+- Builder MUST read Code Node syntax reference before creating Code Nodes
+- QA should verify data access syntax during validation
+
+**Related:**
+- L-060: Code Node Deprecated Syntax (full details)
+- L-097: `$node['NodeName']` is correct in Code nodes
+
+**Tags:** #code-node #syntax #n8n #builder #gotchas
+
+---
+
+## L-103: Orchestrator Must Verify Phase 5 Executed (2025-12-16)
+
+**Category:** Process / Validation Gates / Enforcement
+**Severity:** 🔴 **CRITICAL** - Direct enforcement of validation gates
+**Date:** 2025-12-16
+**Impact:** Orchestrator accepted QA "PASS" without checking if Phase 5 executed → 4 cycles of unverified fixes
+
+**Problem:** Orchestrator moved to "complete" stage despite all 4 QA reports showing `phase_5_executed: false`. No enforcement of validation gates.
+
+**Evidence:**
+- 4 cycles, all `phase_5_executed: false`
+- Orchestrator moved to "complete" stage anyway
+- No gate enforcement → unverified fixes proceeded to production
+
+**Solution:**
+```yaml
+Orchestrator Stage Transition Rules:
+  BEFORE stage: "complete"
+    - Check: qa_report.phase_5_executed === true
+    - IF false AND Code Node modified → BLOCK
+    - IF false → Require justification
+    - IF true → Verify execution_id provided
+
+  Enforcement:
+    IF (qa_report.phase_5_executed === false && hasCodeNodeChanges) {
+      stage = "blocked"
+      reason = "Phase 5 not executed - validation incomplete"
+      escalate_to = "user"
+    }
+```
+
+**Prevention:** Update `orch.md` with gate enforcement logic, add physical check before stage transitions
+
+**Related:** L-100 (QA Phase 5 must execute), L-080 (Phase 5 Real Testing Required)
+
+**Tags:** #process #orchestrator #validation-gates #enforcement
+
+---
+
+## L-102: Builder "verified: true" Requires Runtime Testing (2025-12-16)
+
+**Category:** Process / Trust / Verification
+**Severity:** 🟠 **HIGH** - Affects QA trust and validation decisions
+**Date:** 2025-12-16
+**Impact:** Builder claimed "verified: true" for Code Node with syntax error → QA trusted claim → didn't test → failed in production
+
+**Problem:** Builder's "verified: true" meant "structure looks correct" but QA interpreted as "runtime tested and working". This trust mismatch led to unverified fixes passing validation.
+
+**Evidence:**
+- Cycle 2: Builder logged "verified: true"
+- Reality: Code Node had early exit due to undefined variable
+- QA trusted Builder's claim → skipped Phase 5 testing
+- Result: Failed in production
+
+**Solution:**
+```yaml
+Builder Verification Protocol:
+  verified: runtime_tested
+    - ONLY if workflow triggered
+    - ONLY if execution logs analyzed
+    - ONLY if output matches expectations
+
+  verified: config_only
+    - IF only structure created
+    - IF only syntax checked
+    - NOT runtime tested → QA must test!
+
+  verified: hypothesis
+    - IF fix untested
+    - QA MUST test before approving
+```
+
+**Prevention:** Update `builder.md` with verification level requirements, QA must challenge insufficient verification
+
+**Impact:** Honest signals → QA knows when to be skeptical
+
+**Tags:** #process #builder #verification #trust #qa
+
+---
+
+## L-101: NO Diagnosis Without Execution Data (2025-12-16)
+
+**Category:** Process / Debugging / Evidence-First
+**Severity:** 🔴 **CRITICAL** - Prevents hypothesis-based fixes
+**Date:** 2025-12-16
+**Impact:** Analyst diagnosed "telegram_user_id undefined" without actual execution logs showing it → hypothesis fix might not work
+
+**Problem:** Analyst diagnosed Code Node failure based on execution time inference (10ms → early exit) rather than actual debug logs showing undefined values. Fix applied based on hypothesis, not proof.
+
+**Evidence:**
+- Cycle 3: Diagnosis based on execution time (10ms) → inference of early exit
+- No execution logs showing: "telegram_user_id: undefined"
+- Hypothesis: `$('Check User')` syntax returns undefined
+- Fix applied: Changed syntax (might work, might not)
+
+**Solution:**
+```yaml
+GATE 2: Execution Analysis Required
+  IF debugging workflow:
+    - Analyst MUST call n8n_executions
+    - Analyst MUST analyze debug logs
+    - Analyst MUST identify exact error
+
+  IF execution data unavailable (API timeout, etc):
+    - Analyst → Orchestrator: "BLOCKED"
+    - Orchestrator → User: "Need manual verification"
+    - User provides: Screenshot OR db query
+    - BLOCK Builder until data analyzed
+
+  NO hypothesis fixes without proof!
+```
+
+**Prevention:** Update `analyst_learnings.md` with "Evidence-First" rule, require execution proof before diagnosis
+
+**Related:** L-067 (Smart Mode Selection for executions), L-105 (API timeout escalation)
+
+**Tags:** #process #analyst #debugging #evidence #no-hypothesis
+
+---
+
+## L-100: QA Phase 5 Must Execute Workflow (2025-12-16)
+
+**Category:** Process / Validation / Testing
+**Severity:** 🔴 **CRITICAL** - Highest impact process failure
+**Date:** 2025-12-16
+**Impact:** 4 QA cycles, all marked "PASS", all skipped Phase 5, all failed in production → 63% token waste (~30,500 tokens)
+
+**Problem:** QA validated Code Node structure but didn't execute workflow to verify it works. All "PASS" verdicts based on configuration inspection, not runtime testing.
+
+**Evidence:**
+- Cycle 1: "System prompt change requires user testing" → QA skipped Phase 5
+- Cycle 2: "Code structure looks correct" → PASS without execution
+- Cycle 3: Analyst diagnosis, no QA
+- Cycle 4: "Code logic fix requires user testing" → PASS without execution
+- Result: 4 cycles, 0 execution tests, 4 production failures
+
+**Solution:**
+```yaml
+GATE 3: Phase 5 Real Testing (MANDATORY)
+  IF Code Node modified:
+    - QA MUST trigger workflow (n8n_trigger_workflow)
+    - QA MUST retrieve execution logs (n8n_executions)
+    - QA MUST verify Code Node output
+    - QA MUST check debug logs (if added)
+
+  Exceptions: NONE
+
+  phase_5_executed: true is REQUIRED for PASS
+```
+
+**Prevention:** Update `qa_validation.md` index with Phase 5 enforcement, Orchestrator must verify phase_5_executed before accepting PASS
+
+**Impact:** Would have saved 3 cycles (~37,500 tokens, 63% waste)
+
+**Related:** L-080 (Phase 5 Real Testing Required), L-103 (Orchestrator must verify Phase 5)
+
+**Tags:** #process #qa #phase5 #validation #critical
+
+---
+
 ## L-102: Multiple Changes Cascade - When "Simple Fix" Becomes 6-Hour Debug Marathon
 
 **Category:** Debugging / Architecture / Change Management
