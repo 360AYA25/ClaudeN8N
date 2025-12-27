@@ -90,7 +90,7 @@ Correct: /orch <your task>
 |-------|-------|------|-----------|--------|
 | architect | sonnet | 5-phase dialog + planning | **WebSearch** (NO MCP!) | workflow-patterns, mcp-tools-expert |
 | researcher | sonnet | Search + **execution analysis** | search_*, get_*, list_workflows, **executions** | mcp-tools-expert, node-configuration |
-| **builder** | **opus 4.5** | **ONLY writer** | create_*, update_*, autofix_*, validate_* | node-config, expression, code-js, code-py |
+| **builder** | **glm-4.7** | **ONLY writer** | create_*, update_*, autofix_*, validate_* | node-config, expression, code-js, code-py |
 | qa | sonnet | Validate + test, NO fixes | validate_*, trigger_*, executions | validation-expert, mcp-tools-expert |
 | analyst | sonnet | **Post-mortem ONLY (L4)** + token tracking | get_workflow, executions, versions (for post-mortem) | workflow-patterns, validation-expert |
 
@@ -316,7 +316,7 @@ DONE (saved 48,800 tokens!)
 // ✅ CORRECT (workaround for Issue #7296 - custom agents can't use tools):
 Task({
   subagent_type: "general-purpose",
-  model: "opus",  // for builder only
+  // model not needed - agents use model from their .md files (glm-4.7)
   prompt: `## ROLE: Builder Agent
 Read: .claude/agents/builder.md
 
@@ -350,7 +350,7 @@ Task({ subagent_type: "general-purpose", prompt: "## ROLE: Researcher\n...\n\n##
 → returns build_guidance
 
 // Phase 5: Build
-Task({ subagent_type: "general-purpose", model: "opus", prompt: "## ROLE: Builder\n...\n\n## TASK: Build workflow" })
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: Builder\n...\n\n## TASK: Build workflow" })
 → returns workflow
 Task({ subagent_type: "general-purpose", prompt: "## ROLE: QA\n...\n\n## TASK: Validate" })
 → returns qa_report
@@ -358,7 +358,7 @@ Task({ subagent_type: "general-purpose", prompt: "## ROLE: QA\n...\n\n## TASK: V
 
 ### QA Fix Loop
 ```javascript
-Task({ subagent_type: "general-purpose", model: "opus", prompt: "## ROLE: Builder\n...\n\n## TASK: Fix issues per edit_scope" })
+Task({ subagent_type: "general-purpose", prompt: "## ROLE: Builder\n...\n\n## TASK: Fix issues per edit_scope" })
 → returns updated workflow
 Task({ subagent_type: "general-purpose", prompt: "## ROLE: QA\n...\n\n## TASK: Re-validate" })
 → returns qa_report (cycle 2/3)
@@ -373,8 +373,8 @@ Task({ subagent_type: "general-purpose", prompt: "## ROLE: Analyst\nRead: .claud
 
 ### Context Isolation
 Each agent runs in **isolated context** with its own model:
-- Orchestrator calls `Task({ subagent_type: "general-purpose", model: "opus" })` → NEW process
-- Agent reads its role from .claude/agents/*.md file
+- Orchestrator calls `Task({ subagent_type: "general-purpose" })` → NEW process
+- Agent reads its role from .claude/agents/*.md file (model: glm-4.7)
 - Agent gets clean context (~50-75K tokens) + TOOLS WORK!
 - Agent reads `memory/run_state_active.json` for details (compacted!)
 - Agent writes results to `memory/agent_results/{workflow_id}/`

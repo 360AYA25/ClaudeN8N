@@ -116,7 +116,7 @@ Report to user
 |-------|-------|------|-----------|-------------------|
 | **Architect** | Sonnet | Planning + Dialog | NO MCP! (WebSearch only) | See delegation-templates.md |
 | **Researcher** | Sonnet | Search + Discovery | search_*, get_*, list | See delegation-templates.md |
-| **Builder** | Opus 4.5 | ONLY writer | create/update/autofix | See delegation-templates.md |
+| **Builder** | GLM 4.7 | ONLY writer | create/update/autofix | See delegation-templates.md |
 | **QA** | Sonnet | Validate + Test | validate, trigger, exec | See delegation-templates.md |
 | **Analyst** | Sonnet | Read-only audit + docs | get, list, versions | See delegation-templates.md |
 
@@ -388,7 +388,7 @@ if [[ "$user_request" =~ ^/orch\ --test$ ]]; then
     check_all_gates "$agent" "$run_state_file"
     Task({
       subagent_type: "general-purpose",
-      model: $([ "$agent" = "builder" ] && echo "opus" || echo "sonnet"),
+      # model not specified - agents use model from their .md files (glm-4.7)
       prompt: "## ROLE: $(capitalize $agent) Agent\n\nRead: .claude/agents/$agent.md\n\n## TASK: Health check - report status"
     })
   done
@@ -436,7 +436,7 @@ if [[ "$user_request" =~ ^/orch\ --fix\ workflow_id=([a-zA-Z0-9_-]+) ]]; then
   Task({ prompt: "## ROLE: Researcher\nAnalyze executions for $workflow_id, identify issue" })
 
   # Builder fixes
-  Task({ model: "opus", prompt: "## ROLE: Builder\nFix issue per Researcher findings" })
+  Task({ prompt: "## ROLE: Builder\nFix issue per Researcher findings" })
 
   # QA validates
   Task({ prompt: "## ROLE: QA\nValidate fix" })

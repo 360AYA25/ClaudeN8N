@@ -361,7 +361,7 @@ fi
 - **Max cost per task:** ~$0.50 (7 cycles hard cap)
 - **Avg cost for success:** ~$0.18 (cycles 1-5 typical)
 - **Cost breakdown:**
-  - Builder (Opus 4.5): $0.04/cycle
+  - Builder (GLM 4.7): $0.004/cycle (~10x cheaper!)
   - Researcher (Sonnet): $0.015/cycle
   - Analyst (Sonnet): $0.015/cycle
 

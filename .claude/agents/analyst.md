@@ -934,7 +934,7 @@ const total = Object.values(tokenUsage).reduce((a, b) => a + b, 0);
 
 // Estimate cost (Claude pricing)
 // Sonnet: $3 per 1M input, $15 per 1M output
-// Opus 4.5: $3 per 1M input, $15 per 1M output
+// GLM 4.7: ~$0.30 per 1M input, ~$1.50 per 1M output (estimated)
 // Haiku: $0.25 per 1M input, $1.25 per 1M output
 const cost = calculateCost(tokenUsage);
 ```
@@ -948,7 +948,7 @@ const cost = calculateCost(tokenUsage);
 | Orchestrator | Sonnet | 2,500 | $0.01 |
 | Architect | Sonnet | 5,000 | $0.02 |
 | Researcher | Sonnet | 8,000 | $0.02 |
-| Builder | Opus 4.5 | 12,000 | $0.05 |
+| Builder | GLM 4.7 | 12,000 | $0.005 |
 | QA | Sonnet | 3,000 | $0.01 |
 | Analyst | Sonnet | 4,000 | $0.01 |
 | **TOTAL** | — | **34,500** | **$0.12** |

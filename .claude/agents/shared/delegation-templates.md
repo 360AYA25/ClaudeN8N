@@ -13,7 +13,7 @@
 ```javascript
 Task({
   subagent_type: "general-purpose",
-  model: "opus",  // ONLY for Builder! Others use default (sonnet)
+  // model not specified - agents use model from their .md files (glm-4.7)
   prompt: `## ROLE: [Agent Name] Agent
 
 Read your instructions from:
@@ -205,7 +205,7 @@ Return summary to orchestrator.`
 ```javascript
 Task({
   subagent_type: "general-purpose",
-  model: "opus",  // ⚠️ Builder uses Opus 4.5!
+  // model from builder.md (glm-4.7)
   prompt: `## ROLE: Builder Agent
 
 Read your instructions from:
@@ -242,7 +242,7 @@ Return summary to orchestrator.`
 ```javascript
 Task({
   subagent_type: "general-purpose",
-  model: "opus",  // Builder uses Opus
+  // model from builder.md (glm-4.7)
   prompt: `## ROLE: Builder Agent
 
 Read your instructions from:
@@ -473,7 +473,7 @@ project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' memor
 ## ⚠️ CRITICAL NOTES
 
 1. **Model Selection:**
-   - Builder: `model: "opus"` (REQUIRED!)
+   - All agents: model from their .md files (glm-4.7)
    - All others: default (sonnet)
 
 2. **Workaround #7296:**
