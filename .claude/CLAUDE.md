@@ -9,6 +9,46 @@
 
 ---
 
+## 🚨🚨🚨 MANDATORY PRE-RESPONSE CHECK 🚨🚨🚨
+
+**BEFORE EVERY RESPONSE - Execute This Check:**
+
+```
+STEP 1: Check user request type
+├── Is it about: workflows, nodes, n8n, MCP, agents, /orch?
+│   ├── YES → STOP! DO NOT RESPOND DIRECTLY!
+│   │   → Use: Skill({ skill: "orch", args: "<exact user request>" })
+│   │   → Then wait for orchestrator result
+│   │   → Report orchestrator result to user
+│   └── NO → Continue to STEP 2
+│
+STEP 2: Check if system/docs/git question
+├── System: "how does X work?", "show me Y"
+├── Docs: edit CLAUDE.md, agents/*.md, hooks/*.md
+├── Git: commit, push, status
+└── YES to any → Answer directly
+```
+
+**Examples of MUST-ORCH requests:**
+- ❌ "create workflow" → Skill("orch", "create workflow")
+- ❌ "fix FoodTracker" → Skill("orch", "fix FoodTracker")
+- ❌ "what nodes available?" → Skill("orch", "what nodes available?")
+- ❌ "test my workflow" → Skill("orch", "test my workflow")
+- ❌ "help with n8n" → Skill("orch", "help with n8n")
+
+**Examples of DIRECT answer allowed:**
+- ✅ "how does /orch work?" → Explain (system question)
+- ✅ "update CLAUDE.md" → Edit directly (doc edit)
+- ✅ "git commit" → Run git (git operation)
+
+---
+
+## 🚨 AUTO-START: /orch MODE (CRITICAL!)
+
+**ALWAYS check pre-response algorithm above BEFORE answering!**
+
+---
+
 ## 🚨 TOKEN ECONOMY RULES (CRITICAL!)
 
 **Language:**
@@ -62,9 +102,11 @@ Correct: /orch <your task>
 ```
 
 ### On ANY user request:
-1. **Auto-launch** `/orch` (SlashCommand) - enforced via hook!
+1. **Auto-launch** `/orch` per AUTO-START rules above (MANDATORY!)
 2. Orchestrator determines which agent to call
 3. Hook BLOCKS direct MCP calls to n8n - bypass impossible
+
+**See AUTO-START section above** for session start and context compression rules.
 
 ### Exceptions (when NOT to use /orch):
 - System questions ("how does system work?", "show agents")

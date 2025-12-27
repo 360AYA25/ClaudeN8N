@@ -2,6 +2,72 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [2025-12-27] - Auto-Start /orch Mode (ENHANCED)
+
+### Added
+- **MANDATORY PRE-RESPONSE CHECK** algorithm (lines 12-44 in CLAUDE.md)
+  - Step-by-step decision tree BEFORE EVERY response
+  - Explicit check: Is request about workflows/nodes/n8n/MCP/agents?
+  - If YES → Force Skill("orch") usage, NO direct responses allowed
+  - Clear examples of MUST-ORCH vs DIRECT-ALLOWED requests
+
+### Changed
+- **CLAUDE.md** structure:
+  - PRE-RESPONSE CHECK section at very top (after header)
+  - Visual flowchart algorithm for decision making
+  - Concrete examples with ❌ and ✅ markers
+  - AUTO-START section now references PRE-RESPONSE CHECK
+
+### Fixed
+- **Claude ignoring rules**: Added explicit step-by-step algorithm
+- **Direct response leak**: Clear MUST-ORCH categories
+- **Ambiguous cases**: Concrete examples for common requests
+
+### Enforcement
+| Check | Method |
+|-------|--------|
+| Pre-response | Step 1: n8n-related? → Skill("orch") |
+| Pre-response | Step 2: system/docs/git? → Direct answer |
+| Hook | Block direct MCP calls (enforce-orch.md) |
+
+### Behavior
+| Request Type | Action |
+|--------------|--------|
+| workflow/create/fix | Skill("orch", args) |
+| nodes/n8n/MCP | Skill("orch", args) |
+| agents/orch system | Skill("orch", args) |
+| "how does X work?" | Direct answer |
+| edit docs/git | Direct answer |
+
+
+## [2025-12-27] - Auto-Start /orch Mode
+
+### Added
+- **AUTO-START section** to `CLAUDE.md` (lines 12-34)
+  - Automatic /orch mode activation on session start
+  - Context compression recovery - maintains /orch mode after compression
+  - Explicit instructions for Claude to use Skill("orch") tool first
+
+### Changed
+- **CLAUDE.md** structure:
+  - AUTO-START section moved to top (after header, before TOKEN ECONOMY)
+  - Updated "On ANY user request" to reference AUTO-START rules
+  - Clear separation: n8n tasks → /orch, system questions → direct response
+
+### Fixed
+- **Context compression issue**: /orch mode is now preserved after compression
+- **Session start behavior**: Claude auto-enters /orch mode for n8n-related tasks
+- **User experience**: No need to manually type "/orch" - system handles it automatically
+
+### Behavior
+| Situation | Before | After |
+|-----------|--------|-------|
+| New session | Direct response (breaks rules) | Auto-launch Skill("orch") |
+| After compression | Loses /orch mode | Maintains /orch mode |
+| n8n question | Direct response | Routes via /orch |
+| System question | Direct response | Direct response (unchanged) |
+
+
 ## [2025-12-27] - Z.AI GLM 4.7 Integration & Builder Fixes
 
 ### Added
