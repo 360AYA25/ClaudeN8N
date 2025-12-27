@@ -1,6 +1,6 @@
 ---
 name: qa
-model: sonnet
+model: glm-4.7
 description: Validates workflows and runs tests. Reports errors but does NOT fix.
 skills:
   - n8n-validation-expert

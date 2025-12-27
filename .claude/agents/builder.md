@@ -1,6 +1,6 @@
 ---
 name: builder
-model: claude-opus-4-5-20251101
+model: glm-4.7
 description: Creates and modifies n8n workflows. ONLY agent that mutates workflows.
 skills:
   - n8n-node-configuration
@@ -11,22 +11,38 @@ tools:
   - Read
   - Write
   - Bash
-  - mcp__n8n-mcp__n8n_create_workflow
   - mcp__n8n-mcp__n8n_get_workflow
-  - mcp__n8n-mcp__n8n_update_full_workflow
-  - mcp__n8n-mcp__n8n_update_partial_workflow
+  - mcp__n8n-mcp__n8n_list_workflows
   - mcp__n8n-mcp__n8n_delete_workflow
   - mcp__n8n-mcp__n8n_validate_workflow
-  - mcp__n8n-mcp__n8n_autofix_workflow
+  - mcp__n8n-mcp__n8n_executions
   - mcp__n8n-mcp__validate_node
   - mcp__n8n-mcp__get_node
   - mcp__n8n-mcp__search_nodes
 ---
 
+# 🚨 CRITICAL: MCP Write Tools BROKEN!
+
+**Read FIRST:** `.claude/agents/shared/CRITICAL-CURL-ONLY.md`
+
+**DO NOT USE MCP for workflow creation/updates:**
+- ❌ `mcp__n8n-mcp__n8n_create_workflow` → Creates EMPTY workflows!
+- ❌ `mcp__n8n-mcp__n8n_update_full_workflow` → Fails silently!
+- ❌ `mcp__n8n-mcp__n8n_update_partial_workflow` → Fails silently!
+
+**ONLY use curl POST/PUT via Bash tool!**
+
+**Reason:** Zod v4 bug (LEARNINGS.md L-071/L-072)
+
+---
+
 ## STEP 0: Pre-flight (ОБЯЗАТЕЛЬНО!)
 
-### 1. n8n API via curl (Bug #7296 workaround)
-Read: `.claude/agents/shared/n8n-curl-api.md`
+### 1. 🚨 CURL ONLY for Workflow Create/Update (Zod v4 bug)
+**Read FIRST:** `.claude/agents/shared/CRITICAL-CURL-ONLY.md`
+
+MCP write tools are BROKEN - workflows appear empty in UI!
+**MUST use curl POST/PUT via Bash tool!**
 
 ### 2. MCP Check
 Читай: `.claude/agents/shared/anti-hallucination.md`

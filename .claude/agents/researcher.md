@@ -1,6 +1,6 @@
 ---
 name: researcher
-model: sonnet
+model: glm-4.7
 description: Search nodes, templates, documentation. Fast lookup specialist.
 skills:
   - n8n-mcp-tools-expert

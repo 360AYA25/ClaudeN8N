@@ -1,6 +1,6 @@
 ---
 name: analyst
-model: sonnet
+model: glm-4.7
 description: Read-only forensics. Audits execution logs, identifies root causes, proposes learnings.
 skills:
   - n8n-workflow-patterns

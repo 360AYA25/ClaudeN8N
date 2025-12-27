@@ -45,3 +45,4 @@ memory/*
 *.code-workspace
 # Phase migration backups
 *.backup_phase*
+.claude/settings.json

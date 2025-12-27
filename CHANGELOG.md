@@ -2,6 +2,67 @@
 
 All notable changes to ClaudeN8N (5-Agent n8n Orchestration System).
 
+## [2025-12-27] - Z.AI GLM 4.7 Integration & Builder Fixes
+
+### Added
+- **Z.AI GLM 4.7 model integration** for all agents (Architect, Researcher, Builder, QA, Analyst)
+- Project-specific settings: `.claude/settings.json` with Z.AI API endpoint and model overrides
+- **CRITICAL-CURL-ONLY.md**: Comprehensive documentation for curl workaround (L-071/L-072)
+  - Detailed instructions for curl POST/PUT/PATCH operations
+  - Critical node configuration examples
+  - Connections syntax (use node.name, not node.id)
+  - Verification and troubleshooting guides
+
+### Changed
+- **Agent model configuration** (5 agents → all on GLM 4.7):
+  - `architect.md`: `model: sonnet` → `model: glm-4.7`
+  - `researcher.md`: `model: sonnet` → `model: glm-4.7`
+  - `qa.md`: `model: sonnet` → `model: glm-4.7`
+  - `analyst.md`: `model: sonnet` → `model: glm-4.7`
+  - `builder.md`: `model: claude-opus-4-5-20251101` → `model: glm-4.7`
+
+- **Builder agent configuration fixes** (`builder.md`):
+  - Removed broken MCP write tools from tools list:
+    - ❌ `mcp__n8n-mcp__n8n_create_workflow` (Zod v4 bug)
+    - ❌ `mcp__n8n-mcp__n8n_update_full_workflow`
+    - ❌ `mcp__n8n-mcp__n8n_update_partial_workflow`
+  - Added critical warnings section at top of file
+  - Updated STEP 0 to reference CRITICAL-CURL-ONLY.md
+
+- **Global settings cleanup** (`~/.claude/settings.json`):
+  - Removed Z.AI configuration (moved to project-specific)
+  - Kept only standard Claude plugins and settings
+
+### Fixed
+- **MCP write tools workaround (L-071/L-072)**:
+  - Builder now uses curl POST/PUT instead of broken MCP tools
+  - Workflows now appear correctly in n8n UI (previous issue: empty workflows)
+  - All workflow mutations via direct n8n REST API
+
+### Tested
+- **Full 5-phase orchestration flow** with GLM 4.7:
+  - Phase 1 (Clarification): Architect ✅
+  - Phase 2 (Research): Researcher ✅
+  - Phase 3 (Decision): Architect ✅
+  - Phase 4 (Implementation): Researcher ✅
+  - Phase 5 (Build): Builder ✅
+  - Phase 5 (Validate): QA ✅
+
+- **Test workflow created**:
+  - ID: `XylGgRDVhgCYIrwI`
+  - Name: "GLM Test Workflow - 20 Node Test"
+  - Nodes: 20 (webhook, set×7, code×4, filter, if, merge, switch, aggregate, summarize, sort, respondToWebhook)
+  - Method: curl POST (not MCP)
+  - Status: Created successfully, QA validation in progress
+
+### Security
+- Added `.claude/settings.json` to `.gitignore` (contains API keys)
+
+### Notes
+- **Z.AI GLM 4.7** accessible via: `https://api.z.ai/api/anthropic`
+- Configuration is **project-specific** (only ClaudeN8N)
+- All 5 agents now running on Chinese GLM 4.7 model for testing
+
 ## [3.7.0] - 2025-12-15
 
 ### 📁 File-Based Context Protocol - Project Documentation System
