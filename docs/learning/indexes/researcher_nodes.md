@@ -56,6 +56,8 @@
 - **Critical:** System prompt, tool connections, memory
 - **Template:** #2465 (FoodTracker pattern)
 - **Common issues:** L-089, L-090, L-095 (context passing)
+- **🔴 NEW:** L-097 (Functional completeness: promptType + text + ai_tool REQUIRED)
+- **Research requirements:** GATE 4.5 - LangChain Deep-Dive Protocol
 
 **9. Chat Model (OpenAI/Anthropic/Gemini)** (`@n8n/n8n-nodes-langchain.lmChatOpenAi`)
 - **Use:** LLM integration

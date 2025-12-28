@@ -1,6 +1,6 @@
 #!/bin/bash
 # Validation Gate Enforcement Functions
-# Version: 1.0.0 (2025-12-10)
+# Version: 1.1.0 (2025-12-27) - Added GATE 6.5 for LangChain functional completeness
 # Purpose: Code-based enforcement of validation gates (prevents FAILURE-ANALYSIS disasters)
 # Usage: source .claude/agents/shared/gate-enforcement.sh
 
@@ -278,6 +278,44 @@ function check_gate_6() {
 }
 
 ###############################################################################
+# GATE 6.5: LangChain Functional Completeness (L-097, L-098, L-100)
+# Rule: QA must check functional completeness of LangChain nodes before syntax
+###############################################################################
+function check_gate_6_5() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  # Only check for QA in validate stage
+  local stage=$(jq -r '.stage // "unknown"' "$run_state")
+  if [ "$stage" != "validate" ] || [ "$target_agent" != "qa" ]; then
+    return 0
+  fi
+
+  # Check if workflow has LangChain nodes
+  local workflow_json=$(jq -r '.workflow // {}' "$run_state" 2>/dev/null)
+
+  # Check for AI Agent nodes
+  local has_ai_agent=$(echo "$workflow_json" | jq -r '[.nodes[]? | select(.type | contains("langchain.agent"))] | length')
+
+  if [ "$has_ai_agent" -gt 0 ]; then
+    # Check build_guidance has langchain_requirements
+    local langchain_reqs=$(jq -r '.build_guidance.langchain_requirements // null' "$run_state")
+
+    if [ "$langchain_reqs" = "null" ]; then
+      echo "🚨 GATE 6.5 VIOLATION: LangChain nodes present but no requirements documented" >&2
+      echo "" >&2
+      echo "Researcher must document LangChain node requirements:" >&2
+      echo "- AI Agent: promptType, text, systemMessage, ai_tool connections" >&2
+      echo "" >&2
+      echo "Reference: L-097 (AI Agent requires promptType + text + ai_tool)" >&2
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
+###############################################################################
 # Main Enforcement Function
 # Checks all gates in order
 ###############################################################################
@@ -295,6 +333,7 @@ function check_all_gates() {
   check_gate_4 "$target_agent" "$run_state" || return 1
   check_gate_5 "$target_agent" "$run_state" || return 1
   check_gate_6 "$target_agent" "$run_state" || return 1
+  check_gate_6_5 "$target_agent" "$run_state" || return 1
 
   echo "✅ All validation gates passed" >&2
   return 0

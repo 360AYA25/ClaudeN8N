@@ -28,6 +28,42 @@ if (qa_report.status === "PASS") {
 
 ---
 
+## 🔴 NEW: Phase 1.5 Functional Completeness (L-098, L-100)
+
+**INSERT between Phase 1 (Structure) and Phase 2 (Config)**
+
+**Problem:** Validation passes but workflow non-functional (empty UI)
+
+**Example: AI Agent with no promptType, text, or ai_tool**
+- n8n_validate_workflow → PASS ✅
+- UI shows → Empty node ❌
+
+**Solution: Check functional completeness BEFORE syntax validation**
+
+```javascript
+// Phase 1.5: Functional Completeness Check
+FOR EACH LangChain node in workflow:
+  CHECK promptType exists
+  CHECK text OR systemMessage exists
+  CHECK ai_tool connections exist
+  CHECK ai_languageModel connections exist
+
+IF ANY check fails:
+  → FAIL validation
+  → edit_scope = [node_name]
+  → Return specific missing requirement
+```
+
+**Priority:** Functional completeness > Syntax validation
+
+**Full docs:**
+- L-097: AI Agent Functional Completeness
+- L-098: Validation ≠ Functional Completeness
+- L-100: QA Functional Completeness Checklist
+- SYSTEM-IMPROVEMENTS-2025-12-27.md
+
+---
+
 ## ⚠️ Known False Positives (Ignore These!)
 
 ### L-053: IF Node v2.2 Validator False Positive

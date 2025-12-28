@@ -61,6 +61,91 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ---
 
+## 🎯 PHASE 1.5: Functional Completeness Check (L-098, L-100)
+
+**CRITICAL:** BEFORE syntax validation → check functional completeness!
+
+### Priority: Functional > Syntax
+
+**L-098:** Validation ≠ Functional Completeness
+- Syntax valid ≠ Node works
+- Expression valid → Logic correct
+- Structure valid → Data flows correctly
+
+### Functional Completeness Checklist
+
+#### For LangChain Nodes (AI Agent, Vector Store):
+
+**AI Agent (@n8n/n8n-nodes-langchain.agent):**
+```bash
+# Check parameters
+□ promptType exists? ("define" OR "defineFromList")
+□ text exists? (prompt with data injection)
+□ systemMessage exists? (AI role)
+□ hasOutputParser configured? (true/false)
+
+# Check connections (CRITICAL!)
+□ ai_languageModel connected? (OpenAI Chat Model)
+□ ai_tool connected? (At least ONE tool sub-node)
+□ If ai_tool missing → FUNCTIONAL FAIL → Block validation
+```
+
+**OpenAI Chat Model:**
+```bash
+□ model configured? ("gpt-4o-mini" OR "gpt-4o")
+□ credentials configured?
+```
+
+#### For Database Nodes (Supabase, Postgres):
+
+```bash
+□ tableId exists?
+□ operation configured? (create/update/getAll/delete)
+□ For create/update: data.properties has items?
+□ For update: filters.conditions configured?
+```
+
+#### For Trigger Nodes (Webhook, Schedule):
+
+```bash
+# Webhook
+□ path configured? (unique)
+□ httpMethod configured?
+
+# Schedule
+□ rule.interval configured?
+```
+
+### Functional Fail → Block Validation
+
+```javascript
+if (workflowHasLangChainNodes) {
+  const aiAgent = findNode('AI Agent');
+  if (!aiAgent.parameters.promptType) {
+    return {
+      validation_status: "FUNCTIONAL_FAIL",
+      reason: "AI Agent missing promptType",
+      fix_required: "Builder must add promptType, text, systemMessage",
+      cannot_validate: true
+    };
+  }
+  if (!hasConnection(aiAgent, 'ai_tool')) {
+    return {
+      validation_status: "FUNCTIONAL_FAIL",
+      reason: "AI Agent missing ai_tool connection (MANDATORY)",
+      fix_required: "Builder must add at least 1 tool sub-node",
+      cannot_validate: true
+    };
+  }
+}
+```
+
+### After Functional Check → Proceed to Syntax Validation
+
+Only if functional completeness passes → call `n8n_validate_workflow`
+
+---
+
 ## Edit Scope Validation (ОБЯЗАТЕЛЬНО!)
 
 После того как Builder вернул результат:

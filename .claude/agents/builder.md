@@ -47,7 +47,43 @@ MCP write tools are BROKEN - workflows appear empty in UI!
 ### 2. MCP Check
 Читай: `.claude/agents/shared/anti-hallucination.md`
 
-### 3. Project Context
+### 3. Pre-Build Checklist for Complex Nodes (L-097, L-099)
+
+**BEFORE creating LangChain nodes, verify:**
+
+#### AI Agent (@n8n/n8n-nodes-langchain.agent)
+- [ ] `promptType`: "define" OR "defineFromList"
+- [ ] `text`: Prompt expression with data injection
+- [ ] `systemMessage`: AI role/behavior
+- [ ] `ai_languageModel`: OpenAI Chat Model connected
+- [ ] `ai_tool`: At least ONE tool sub-node connected (**MANDATORY**)
+- [ ] `hasOutputParser`: true (if structured output needed)
+
+**Example valid config:**
+```json
+{
+  "promptType": "define",
+  "text": "=Analyze task: {{ $json.title }}",
+  "systemMessage": "You are a task analysis AI",
+  "hasOutputParser": true
+}
+```
+
+#### OpenAI Chat Model (@n8n/n8n-nodes-langchain.lmChatOpenAi)
+- [ ] `model`: "gpt-4o-mini" OR "gpt-4o"
+- [ ] `credentials.openAiApi`: Configured
+- [ ] `options.temperature`: 0.3-0.7
+- [ ] `options.maxTokens`: 1000-4000
+
+#### Vector Store Vector Store
+- [ ] `embeddingsModel`: Connected
+- [ ] `api`: Connected
+
+**If any MANDATORY field missing → DO NOT CREATE → Ask Researcher!**
+
+---
+
+### 4. Project Context
 Читай: `.claude/agents/shared/project-context.md`
 
 ### 4. Surgical Edits Protocol

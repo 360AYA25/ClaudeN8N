@@ -34,13 +34,13 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 ## 📊 Index Statistics
 
-- **Total Entries:** 82 (Added L-079 to L-083, L-091 to L-096, L-099 to L-101)
+- **Total Entries:** 86 (Added L-097 to L-100, L-079 to L-083, L-091 to L-096, L-099 to L-101)
 - **Categories:** 13
 - **Node Types Covered:** 15+
 - **Error Types Cataloged:** 31+
 - **File Size:** 7,630+ lines (~228,000 tokens)
 - **Index Size:** ~1,100 tokens (99.5% reduction)
-- **Last Updated:** 2025-12-10
+- **Last Updated:** 2025-12-27
 
 ---
 
@@ -139,9 +139,13 @@ const entry = await read('LEARNINGS.md', {offset: lineNumber, limit: 50});
 
 | Date | Title | Line | Category |
 |------|-------|------|----------|
+| 2025-12-27 | 🔴 L-100: QA Functional Completeness Checklist (HIGH) | 8300+ | QA Process / Validation |
+| 2025-12-27 | 🔴 L-099: Builder Must Research Complex Nodes (HIGH) | 8250+ | Builder Process / Research |
+| 2025-12-27 | 🔴 L-098: Validation ≠ Functional Completeness (CRITICAL) | 8200+ | QA Process / Validation |
+| 2025-12-27 | 🔴 L-097: AI Agent Functional Completeness (CRITICAL) | 8150+ | LangChain / Node Config |
 | 2025-12-10 | 🔴 L-101: HTTP Request Credential Expression Not Resolved (CRITICAL) | 172 | HTTP Request / Credentials |
-| 2025-12-10 | 🔴 L-100: n8n Telegram Node Doesn't Support Reply Keyboard (CRITICAL) | 244 | Telegram / Node Limitation |
-| 2025-12-10 | 🔴 L-099: Telegram Reply Keyboard RAW Array Format (CRITICAL) | 6820 | Telegram / Node Configuration |
+| 2025-12-10 | 🔴 L-096: n8n Telegram Node Doesn't Support Reply Keyboard (CRITICAL) | 244 | Telegram / Node Limitation |
+| 2025-12-10 | 🔴 L-095: Telegram Reply Keyboard RAW Array Format (CRITICAL) | 6820 | Telegram / Node Configuration |
 | 2025-12-04 | 🔥 L-096: Validation ≠ Execution Success (CRITICAL) | 6532 | Testing / QA |
 | 2025-12-04 | L-095: Code Node Injection for AI Context | 6345 | n8n Workflows / AI Agent |
 | 2025-12-04 | 🛡️ L-094: Progressive Escalation Enforcement | 6192 | Orchestration / Process |

@@ -84,6 +84,59 @@ See Permission Matrix in `.claude/CLAUDE.md`.
 
 ---
 
+## 🔬 GATE 4.5: LangChain Deep-Dive Protocol (L-097)
+
+**CRITICAL:** When blueprint contains LangChain nodes (AI Agent, Vector Store, etc.)
+
+### BEFORE handing off to Builder:
+
+```
+STEP 1: Identify LangChain nodes in blueprint
+→ Scan for: @n8n/n8n-nodes-langchain.* node types
+
+STEP 2: For EACH LangChain node, call get_node(mode=docs)
+→ Extract: required parameters, mandatory connections
+
+STEP 3: Document MANDATORY requirements
+→ AI Agent: promptType, text, systemMessage, ai_tool (at least 1)
+→ Vector Store: embeddingsModel, api
+→ OpenAI Chat Model: model, credentials
+
+STEP 4: Add to build_guidance.json
+{
+  "langchain_requirements": {
+    "ai_agent": {
+      "mandatory": ["promptType", "text", "systemMessage", "ai_tool"],
+      "connections": {
+        "ai_languageModel": "OpenAI Chat Model",
+        "ai_tool": "At least 1 tool sub-node REQUIRED"
+      }
+    }
+  }
+}
+
+STEP 5: Return to Orchestrator
+→ If requirements unclear → flag for Architect clarification
+→ If complete → hand off to Builder
+```
+
+### Reference: AI Agent Node Requirements
+
+**From n8n docs (get_node mode=docs):**
+> "You must connect at least one tool sub-node to an AI Agent node"
+
+**Mandatory fields:**
+- `promptType`: "define" | "defineFromList"
+- `text`: Prompt expression (inject data via `={{ }}`)
+- `systemMessage`: AI behavior/role
+- `hasOutputParser`: true (for structured JSON output)
+
+**Mandatory connections:**
+- `ai_languageModel`: OpenAI Chat Model OR other LLM
+- `ai_tool`: HTTP Request Tool, Search Tool, etc. (min 1)
+
+---
+
 ## Project Context Detection (🗂️ UPDATED - Distributed Architecture)
 
 > **Full protocol:** `.claude/agents/shared/project-context-detection.md`

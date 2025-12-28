@@ -169,6 +169,198 @@ ls .claude/agents/*.md | wc -l
 
 ## n8n Workflows
 
+## L-100: QA Functional Completeness Checklist (2025-12-27)
+
+**Category:** QA / Validation / Functional Completeness
+**Severity:** 🟡 **MEDIUM** - Critical for complex nodes
+**Date:** 2025-12-27
+**Impact:** QA focused on syntax validation instead of functional completeness → incomplete AI Agent node passed validation
+
+**Problem:** QA validated syntax (expressions, structure) but didn't check functional completeness of LangChain nodes. AI Agent missing promptType, text, systemMessage, ai_tool connections → workflow appeared empty in UI.
+
+**Evidence:**
+- QA Cycle 1-6: Focused on Code node false positives
+- AI Agent had only `hasOutputParser: false` in parameters
+- Missing: promptType, text, systemMessage, ai_tool connections
+- n8n UI refused to render workflow (functional protection)
+
+**Solution:**
+```yaml
+QA Phase 1.5: Functional Completeness Check
+  BEFORE syntax validation:
+
+  For LangChain Nodes:
+    AI Agent:
+      □ promptType exists?
+      □ text exists?
+      □ systemMessage exists?
+      □ ai_languageModel connected?
+      □ ai_tool connected? (MANDATORY)
+
+    If any missing → FUNCTIONAL_FAIL → Block validation
+```
+
+**Prevention:**
+- Add Phase 1.5 Functional Completeness to `qa.md`
+- Priority: Functional > Syntax
+- Block validation if LangChain nodes incomplete
+
+**Related:**
+- L-097: AI Agent requires promptType + text + ai_tool
+- L-098: Validation ≠ Functional Completeness
+
+**Tags:** #qa #validation #langchain #functional-completeness
+
+---
+
+## L-099: Builder Must Research Complex Nodes (2025-12-27)
+
+**Category:** Builder / Research / Pre-Build Validation
+**Severity:** 🟠 **HIGH** - Directly causes empty workflows
+**Date:** 2025-12-27
+**Impact:** Builder created AI Agent node without checking requirements → incomplete configuration → empty UI workflow
+
+**Problem:** Builder created LangChain node (AI Agent) without researching mandatory parameters and connections. Missing promptType, text, systemMessage, ai_tool connections.
+
+**Evidence:**
+- AI Agent parameters: `{hasOutputParser: false}` only
+- No promptType, text, systemMessage
+- No ai_tool connections
+- build_guidance didn't specify AI Agent requirements
+
+**Solution:**
+```yaml
+Builder Pre-Build Checklist for Complex Nodes:
+  BEFORE creating LangChain nodes:
+
+  1. Read build_guidance.langchain_requirements
+  2. If missing → Ask Researcher
+  3. Verify ALL mandatory fields present
+  4. Verify ALL mandatory connections
+  5. Only then create node
+```
+
+**Prevention:**
+- Add pre-build checklist to `builder.md`
+- Section 3: "Pre-Build Checklist for Complex Nodes"
+- Check AI Agent: promptType, text, systemMessage, ai_tool
+
+**Related:**
+- L-097: AI Agent node requirements
+- L-098: Validation ≠ Functional Completeness
+
+**Tags:** #builder #langchain #pre-build #research
+
+---
+
+## L-098: Validation ≠ Functional Completeness (2025-12-27)
+
+**Category:** QA / Validation / Philosophy
+**Severity:** 🟡 **MEDIUM** - Foundational principle
+**Date:** 2025-12-27
+**Impact:** 35K tokens (44%) wasted on Code node false positives while real issue (incomplete AI Agent) was missed
+
+**Problem:** QA focused on syntax validation (expression format, brackets) instead of functional completeness. Valid syntax ≠ working node.
+
+**Evidence:**
+- 6 QA cycles on Code node "false positives"
+- AI Agent functional completeness never checked
+- Validator: `syntax: ok` → UI: `empty workflow`
+
+**Truth Table:**
+| Syntax | Functional | Result |
+|--------|------------|--------|
+| ✅ Valid | ✅ Complete | PASS |
+| ❌ Invalid | ✅ Complete | FIX SYNTAX |
+| ✅ Valid | ❌ Incomplete | **FAIL (BLOCK)** |
+| ❌ Invalid | ❌ Incomplete | FAIL |
+
+**Solution:**
+```yaml
+QA Priority Order:
+  1. Functional Completeness (L-100)
+     - LangChain nodes have required params?
+     - Connections configured?
+  2. Syntax Validation
+     - Expressions valid?
+     - Types correct?
+  3. False Positive Detection
+     - Distinguish real errors vs validator bugs
+```
+
+**Prevention:**
+- Add to `qa.md`: "Priority: Functional > Syntax"
+- Add to `LEARNINGS-INDEX.md`: L-098 reference
+
+**Related:**
+- L-097: AI Agent functional requirements
+- L-100: Functional completeness checklist
+
+**Tags:** #qa #validation #philosophy #functional-completeness
+
+---
+
+## L-097: AI Agent Node Requires promptType + text + ai_tool (2025-12-27)
+
+**Category:** n8n / LangChain / AI Agent
+**Severity:** 🔴 **CRITICAL** - Directly causes empty workflows
+**Date:** 2025-12-27
+**Impact:** AI Agent created without mandatory parameters/connections → n8n UI refused to render workflow → appeared empty
+
+**Problem:** Builder created AI Agent node with incomplete configuration. Missing promptType, text (prompt), systemMessage, and ai_tool connections.
+
+**Evidence:**
+```json
+// Created (INCOMPLETE):
+{
+  "parameters": {
+    "hasOutputParser": false
+  }
+}
+
+// Required (COMPLETE):
+{
+  "promptType": "define",
+  "text": "=Analyze task: {{ $json.title }}",
+  "systemMessage": "You are a task analysis AI",
+  "hasOutputParser": true
+}
+
+// Connections required:
+ai_languageModel → OpenAI Chat Model
+ai_tool → HTTP Request Tool (at least 1)
+```
+
+**n8n Documentation:**
+> "You must connect at least one tool sub-node to an AI Agent node"
+
+**Solution:**
+```yaml
+Researcher GATE 4.5: LangChain Deep-Dive
+  When blueprint contains AI Agent:
+
+  1. Call get_node(mode=docs) for AI Agent
+  2. Extract mandatory requirements:
+     - promptType, text, systemMessage
+     - ai_tool connections (MANDATORY)
+  3. Document in build_guidance.json
+  4. Builder MUST verify before creating
+```
+
+**Prevention:**
+- Add GATE 4.5 to `researcher.md`
+- Add pre-build checklist to `builder.md`
+- Add Phase 1.5 functional check to `qa.md`
+
+**Related:**
+- L-098: Validation ≠ Functional Completeness
+- L-099: Builder must research complex nodes
+- L-100: QA functional completeness checklist
+
+**Tags:** #langchain #ai-agent #n8n #critical #connections
+
+---
+
 ## L-105: API Timeout Requires Manual Escalation (2025-12-16)
 
 **Category:** Process / Debugging / Tool Limitations

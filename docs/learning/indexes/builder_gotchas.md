@@ -148,6 +148,38 @@ if (before_version === after_version) {
 - [ ] Large workflows (>10 nodes): Use mode="structure" (L-067)
 - [ ] IF nodes with binary: Restore binary data (L-068)
 - [ ] Switch nodes: Add mode="rules" (L-056)
+- [ ] **AI Agent nodes: Check functional completeness (L-097)** 🔴 NEW
+
+---
+
+## 🔴 NEW: AI Agent Functional Completeness (L-097)
+
+**Problem:** AI Agent nodes created without promptType, text, or ai_tool connections → empty UI
+
+**CRITICAL Check BEFORE creating ANY LangChain node:**
+
+```javascript
+// AI Agent (@n8n/n8n-nodes-langchain.agent)
+if (nodeType === "@n8n/n8n-nodes-langchain.agent") {
+  // MANDATORY checks:
+  assert(node.parameters.promptType, "promptType required (define|combine)");
+  assert(node.parameters.text || node.parameters.systemMessage, "text OR systemMessage required");
+  assert(workflow.connections[node.name].ai_tool?.length > 0, "ai_tool connection required");
+  assert(workflow.connections[node.name].ai_languageModel?.length > 0, "ai_languageModel connection required");
+}
+```
+
+**Before building AI Agent:**
+1. Read build_guidance.langchain_requirements (from Researcher)
+2. Verify ALL 4 requirements present
+3. Only create node when complete
+
+**If requirements missing:**
+- STOP building
+- Request Researcher to provide build_guidance with langchain_requirements
+- Do NOT create incomplete node
+
+**Full docs:** SYSTEM-IMPROVEMENTS-2025-12-27.md (Section 1.2)
 
 ---
 
