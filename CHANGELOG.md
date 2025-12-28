@@ -10,10 +10,13 @@ All notable changes to ClaudeN8N (5-Agent n8n Workflow Orchestration System).
 ### Critical Fixes
 
 **🔴 CRITICAL: GATE 1 was missing!**
-- Added `check_gate_1()` function to `gate-enforcement.sh`
+- Added `check_gate_1()` function to `gate-enforcement.sh` (+63 lines)
 - Cycle 4-5: Requires Researcher FIRST (alternative approach)
 - Cycle 6-7: Requires Analyst FIRST (root cause diagnosis)
 - Cycle 8+: BLOCKED (hard cap)
+- Added GATE 1 to `check_all_gates()` execution order
+- Before: GATE 1 was completely missing from enforcement!
+- After: All 7 gates now enforced (0, 1, 2, 3, 4, 5, 6)
 
 **🔴 CRITICAL: orch.md wrong agent for cycles 6-7**
 - Before: Called Researcher for cycles 6-7
