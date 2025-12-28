@@ -30,6 +30,70 @@ function check_gate_0() {
 }
 
 ###############################################################################
+# GATE 1: Progressive Escalation
+# Rule: Cycles 4-5 require Researcher, Cycles 6-7 require Analyst
+###############################################################################
+function check_gate_1() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  local cycle_count=$(jq -r '.cycle_count // 0' "$run_state")
+  local stage=$(jq -r '.stage // "unknown"' "$run_state")
+
+  # Only check in build/validate stages
+  if [ "$stage" != "build" ] && [ "$stage" != "validate" ]; then
+    return 0
+  fi
+
+  # Cycle 4-5: MUST call Researcher FIRST
+  if [ "$cycle_count" -ge 4 ] && [ "$cycle_count" -le 5 ]; then
+    if [ "$target_agent" = "builder" ]; then
+      local researcher_called=$(jq -r "[.agent_log[] | select(.agent==\"researcher\" and .cycle==$cycle_count)] | length" "$run_state")
+
+      if [ "$researcher_called" = "0" ]; then
+        echo "🚨 GATE 1 VIOLATION: Cycle $cycle_count requires Researcher FIRST!" >&2
+        echo "" >&2
+        echo "Builder cannot be called directly in cycles 4-5." >&2
+        echo "Required: Delegate to Researcher for alternative approach." >&2
+        echo "" >&2
+        echo "Reference: PROGRESSIVE-ESCALATION.md (cycles 4-5)" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  # Cycle 6-7: MUST call Analyst FIRST
+  if [ "$cycle_count" -ge 6 ] && [ "$cycle_count" -le 7 ]; then
+    if [ "$target_agent" = "builder" ] || [ "$target_agent" = "researcher" ]; then
+      local analyst_called=$(jq -r "[.agent_log[] | select(.agent==\"analyst\" and .cycle==$cycle_count)] | length" "$run_state")
+
+      if [ "$analyst_called" = "0" ]; then
+        echo "🚨 GATE 1 VIOLATION: Cycle $cycle_count requires Analyst FIRST!" >&2
+        echo "" >&2
+        echo "$target_agent cannot be called directly in cycles 6-7." >&2
+        echo "Required: Delegate to Analyst for root cause diagnosis (L4 escalation)." >&2
+        echo "" >&2
+        echo "Reference: PROGRESSIVE-ESCALATION.md (cycles 6-7)" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  # Cycle 8+: BLOCKED
+  if [ "$cycle_count" -ge 8 ]; then
+    echo "🚨 GATE 1 VIOLATION: Cycle $cycle_count blocked!" >&2
+    echo "" >&2
+    echo "Hard cap reached: 7 cycles maximum." >&2
+    echo "Setting stage = blocked, requesting user intervention..." >&2
+    echo "" >&2
+    jq '.stage = "blocked" | .block_reason = "7 QA cycles exhausted"' "$run_state" > "$run_state.tmp" && mv "$run_state.tmp" "$run_state"
+    return 1
+  fi
+
+  return 0
+}
+
+###############################################################################
 # GATE 2: Execution Analysis Required
 # Rule: Cannot fix workflow without analyzing execution logs
 ###############################################################################
@@ -225,6 +289,7 @@ function check_all_gates() {
 
   # Check all gates in order
   check_gate_0 "$target_agent" "$run_state" || return 1
+  check_gate_1 "$target_agent" "$run_state" || return 1
   check_gate_2 "$target_agent" "$run_state" || return 1
   check_gate_3 "$target_agent" "$run_state" || return 1
   check_gate_4 "$target_agent" "$run_state" || return 1

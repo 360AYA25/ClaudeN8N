@@ -353,10 +353,12 @@ elif [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
   # Then Builder
   Task({ prompt: "## ROLE: Builder\nImplement alternative..." })
 elif [ "$cycle" -ge 6 ] && [ "$cycle" -le 7 ]; then
-  # Researcher FIRST (GATE 1 enforces this) - deep dive
-  Task({ prompt: "## ROLE: Researcher\nDeep dive root cause analysis..." })
-  # Then Builder
-  Task({ prompt: "## ROLE: Builder\nFix based on root cause..." })
+  # Analyst FIRST (GATE 1 enforces this) - root cause diagnosis (L4)
+  Task({ prompt: "## ROLE: Analyst\nDeep root cause diagnosis (L4 escalation)\nRead: .claude/agents/analyst.md\n\n## TASK: Analyze all failed attempts, identify SYSTEMIC issue, propose structural fix" })
+  # Then Researcher finds solution for root cause
+  Task({ prompt: "## ROLE: Researcher\nFind solution for root cause identified by Analyst\nRead: .claude/agents/researcher.md\n\n## TASK: Research solution for systemic issue from Analyst diagnosis" })
+  # Then Builder implements structural fix
+  Task({ prompt: "## ROLE: Builder\nImplement structural fix per Analyst+Researcher guidance\nRead: .claude/agents/builder.md\n\n## TASK: Implement structural fix (NOT parameter tweak!)" })
 fi
 ```
 
