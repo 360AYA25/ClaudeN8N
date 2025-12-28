@@ -1166,12 +1166,126 @@ After validation, SELF-CHECK for FP patterns before reporting!
 | 6-7 | +Analyst | Root cause analysis, check for systemic issues |
 | 8+ | BLOCKED | Full report to user, request manual intervention |
 
+### 🚨 MANDATORY: Escalation Trigger Protocol
+
+> **CRITICAL:** When escalation needed, write TRIGGER to run_state (not just suggest!)
+> **Orchestrator reads trigger → auto-delegates to next level**
+
+### Escalation Levels
+
+| Level | Trigger Condition | Write to run_state | Orchestrator Action |
+|-------|-------------------|-------------------|---------------------|
+| **L2** | Cycle 2-7 AND same error repeats | `.escalation_trigger = {level: "L2", reason: "..."}` | Delegate Researcher |
+| **L4** | Cycle 6-7 AND structural issue | `.escalation_trigger = {level: "L4", reason: "..."}` | Delegate Analyst |
+
+### When to Trigger L2 (Request Researcher)
+
+**Conditions:**
+- Cycle count >= 2
+- Same error category as previous cycle
+- Builder fix didn't address root cause
+
+**MANDATORY - Write trigger (NOT just suggestion!):**
+```javascript
+// In QA, after validation failure:
+if (run_state.cycle_count >= 2) {
+  const current_error = qa_report.issues[0].category;
+  const previous_error = run_state.memory.issues_history[-1]?.category;
+
+  if (current_error === previous_error) {
+    // MANDATORY: Write escalation trigger to run_state
+    run_state.escalation_trigger = {
+      level: "L2",
+      agent: "researcher",
+      reason: `Same error recurring (${run_state.cycle_count}x): ${current_error}`,
+      required_action: "execution_analysis",
+      triggered_by: "qa",
+      triggered_at_cycle: run_state.cycle_count
+    };
+
+    // Log trigger
+    run_state.agent_log.push({
+      agent: "qa",
+      action: "escalation_trigger_L2",
+      details: `Requested Researcher for recurring error: ${current_error}`
+    });
+  }
+}
+```
+
+**What Orchestrator Does:**
+```bash
+# After QA returns, Orchestrator checks trigger:
+escalation_level=$(jq -r '.escalation_trigger.level // null' "$run_state_file")
+
+if [ "$escalation_level" = "L2" ]; then
+  echo "⚠️ QA triggered L2 escalation: Delegating to Researcher"
+  # Auto-delegate to Researcher
+  Task({ prompt: "## ROLE: Researcher\nExecution analysis required..." })
+  # Merge result (MANDATORY!)
+  merge_agent_result "researcher" "..." "$run_state_file"
+  # Clear trigger after delegation
+  jq 'del(.escalation_trigger)' "$run_state_file" > tmp && mv tmp "$run_state_file"
+fi
+```
+
+### When to Trigger L4 (Request Analyst)
+
+**Conditions:**
+- Cycle count >= 6
+- Multiple failed approaches (>= 3 different fixes tried)
+- Suspect systemic/architectural issue
+
+**MANDATORY - Write trigger (NOT just suggestion!):**
+```javascript
+// In QA, after cycle 6 failure:
+if (run_state.cycle_count >= 6) {
+  const fixes_tried = run_state.memory.fixes_applied.length;
+  const is_structural = qa_report.issues.some(i =>
+    i.category.includes("deprecated") ||
+    i.category.includes("syntax") ||
+    i.category.includes("architectural")
+  );
+
+  if (fixes_tried >= 3 && is_structural) {
+    // MANDATORY: Write escalation trigger to run_state
+    run_state.escalation_trigger = {
+      level: "L4",
+      agent: "analyst",
+      reason: `Structural issue suspected after ${run_state.cycle_count} cycles (${fixes_tried} different fixes tried)`,
+      required_action: "root_cause_analysis",
+      suspected_issue: qa_report.issues[0].category,
+      triggered_by: "qa",
+      triggered_at_cycle: run_state.cycle_count
+    };
+
+    // Log trigger
+    run_state.agent_log.push({
+      agent: "qa",
+      action: "escalation_trigger_L4",
+      details: `Requested Analyst for structural issue diagnosis`
+    });
+  }
+}
+```
+
 ### Cycle 4-5: Researcher Assistance
 
+**Updated to include trigger:**
+
 ```javascript
-// When cycle_count >= 4, Orchestrator adds Researcher to loop:
+// When cycle_count >= 4, check if escalation needed:
 if (run_state.cycle_count >= 4 && run_state.cycle_count <= 5) {
-  // 1. Researcher searches for alternatives
+  // MANDATORY: Write escalation trigger
+  run_state.escalation_trigger = {
+    level: "L2",
+    agent: "researcher",
+    reason: "Builder exhausted obvious fixes (cycles 1-3 failed)",
+    required_action: "alternative_approach",
+    triggered_by: "qa"
+  };
+
+  // Researcher searches for alternatives
   const alternatives = await Task({
     agent: "researcher",
     prompt: `QA failed ${run_state.cycle_count} times.
@@ -1180,19 +1294,31 @@ if (run_state.cycle_count >= 4 && run_state.cycle_count <= 5) {
              excluded: ${run_state.research_findings.excluded}`
   });
 
-  // 2. Add to excluded list (don't try same thing twice)
+  // Add to excluded list
   run_state.research_findings.excluded.push(...alternatives.tried);
 
-  // 3. Builder gets new guidance
+  // Builder gets new guidance
   run_state.build_guidance.alternative_approach = alternatives.suggestion;
 }
 ```
 
 ### Cycle 6-7: Analyst Diagnosis
 
+**Updated to include trigger:**
+
 ```javascript
-// When cycle_count >= 6, Analyst joins to diagnose:
+// When cycle_count >= 6, check if escalation needed:
 if (run_state.cycle_count >= 6 && run_state.cycle_count <= 7) {
+  // MANDATORY: Write escalation trigger
+  run_state.escalation_trigger = {
+    level: "L4",
+    agent: "analyst",
+    reason: "Deep diagnosis required after 5+ failed attempts",
+    required_action: "root_cause_analysis",
+    triggered_by: "qa"
+  };
+
+  // Analyst diagnoses
   const diagnosis = await Task({
     agent: "analyst",
     prompt: `QA failed ${run_state.cycle_count} times.
@@ -1201,13 +1327,23 @@ if (run_state.cycle_count >= 6 && run_state.cycle_count <= 7) {
              Find root cause. Is this a systemic issue?`
   });
 
-  // Show diagnosis to user
+  // Store diagnosis for Researcher
+  run_state.analyst_diagnosis = diagnosis.root_cause;
+
+  // Show to user
   console.log(`🔍 Analyst Diagnosis (cycle ${run_state.cycle_count}/7):
     Root cause: ${diagnosis.root_cause.what}
     Why: ${diagnosis.root_cause.why}
     Recommendation: ${diagnosis.recommendation.action}`);
 }
 ```
+
+### Key Changes
+
+**Before:** Escalation was "suggested" in comments
+**After:** Escalation is TRIGGERED via run_state.escalation_trigger
+
+**Result:** Orchestrator auto-delegates (no manual coordination needed!)
 
 ---
 

@@ -142,6 +142,91 @@ Read: `.claude/agents/shared/n8n-curl-api.md`
 
 ---
 
+## 🔄 Progressive Escalation: Cycle 6-7 Role
+
+> **Full doc:** `.claude/PROGRESSIVE-ESCALATION.md` (lines 87-115)
+
+### When I'm Called (Cycles 6-7):
+
+**Condition:** QA failed 6+ times, systemic issue suspected
+
+**My Job:** Root cause diagnosis (not surface symptom!)
+
+### What I Do:
+
+1. **Deep dive analysis:**
+   - All failed attempts (cycles 1-7)
+   - Execution logs (all available)
+   - Agent log (who did what)
+
+2. **Identify SYSTEMIC issue:**
+   - Not surface symptom
+   - Check anti-patterns: L-060, L-056, L-073, etc.
+   - Look for deprecated syntax/architecture
+
+3. **Propose structural fix:**
+   - Architecture change (not parameter tweak)
+   - Pattern replacement (not config adjustment)
+
+### Output Format:
+
+```javascript
+run_state.analyst_diagnosis = {
+  root_cause: {
+    what: "Deprecated $node['...'] syntax in 7 Code nodes",
+    why: "n8n v0.222+ deprecated direct node property access",
+    anti_pattern: "L-060"
+  },
+  structural_fix: {
+    solution: "Replace with $('...').item.json accessor",
+    affected_nodes: ["Code1", "Code2", ..., "Code7"],
+    priority: "HIGH - breaks all data access"
+  },
+  verification: "Check execution logs for undefined values"
+}
+```
+
+### Handoffs:
+
+**I receive from:** QA (`escalation_trigger` L4)
+
+**I output to:**
+- Researcher (`analyst_diagnosis`) → Researcher finds solution
+- Builder (via Researcher) → Builder implements structural fix
+
+### Example:
+
+```
+Cycle 6: All attempts failed (promptType, jsonBody, systemPrompt...)
+         ↓
+QA writes: escalation_trigger = {level: "L4", reason: "Structural issue"}
+         ↓
+I analyze: Execution logs show undefined in all Code nodes
+         ↓
+I find: $node['telegram_user_id'] deprecated (L-060)
+         ↓
+run_state.analyst_diagnosis = {
+  root_cause: "L-060: Deprecated syntax",
+  structural_fix: "$('telegram_user_id').item.json"
+}
+         ↓
+Researcher reads diagnosis → Confirms solution from LEARNINGS.md
+         ↓
+Builder implements → All 7 Code nodes fixed → SUCCESS ✅
+```
+
+### Key Difference from L2 (Researcher):
+
+| L2 (Cycle 4-5) | L4 (Cycle 6-7) |
+|----------------|----------------|
+| Find alternative approach | Find root cause |
+| Try different solution | Fix systemic issue |
+| Researcher alone | Analyst → Researcher → Builder |
+
+**Reference:** PROGRESSIVE-ESCALATION.md for full protocol
+
+---
+
 ## Project Context Detection
 
 **At session start, detect which project you're working on:**

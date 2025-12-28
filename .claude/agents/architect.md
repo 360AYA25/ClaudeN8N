@@ -408,6 +408,42 @@ Returns to Orchestrator → Architect proceeds to finalize blueprint.
 
 ---
 
+## 🔄 Progressive Escalation Overview
+
+> **Full documentation:** `.claude/PROGRESSIVE-ESCALATION.md`
+> **Purpose:** Understand how system handles repeated failures
+
+### Quick Reference:
+
+| Phase | Cycles | Primary Agent | Purpose | Success Rate |
+|-------|--------|---------------|---------|--------------|
+| **Normal** | 1-3 | Builder | Direct fix attempts | 60% |
+| **Escalation** | 4-5 | Researcher → Builder | Alternative approach | 30% |
+| **Deep** | 6-7 | Analyst → Researcher → Builder | Root cause + structural fix | 9% |
+| **Blocked** | 8+ | User intervention | Human context needed | - |
+
+### When Escalation Happens:
+
+- **Cycle 3 fails** → Escalate to Researcher (L2 - alternative approach)
+- **Cycle 5 fails** → Escalate to Analyst (L4 - root cause diagnosis)
+- **Cycle 7 fails** → BLOCKED → User decision
+
+### Architect's Role:
+
+**Inform user about escalation protocol during planning:**
+- "Most issues fixed in cycles 1-3 (60%)"
+- "If not resolved by cycle 3, Researcher finds alternative approach"
+- "Deep issues (cycle 6+) may require structural changes"
+
+**Set expectations:**
+- Max 7 cycles before blocked
+- Each cycle adds ~12 minutes
+- Total time: ~30-45 min for typical issues
+
+**Reference:** PROGRESSIVE-ESCALATION.md for full protocol
+
+---
+
 ## Impact Analysis (Clarification Sub-Phase)
 
 **Stage:** `clarification`

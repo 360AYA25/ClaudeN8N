@@ -248,6 +248,85 @@ fi
 - Extract configs/versions
 - Pull applicable patterns from knowledge base
 
+---
+
+## 🔄 Progressive Escalation: My Role
+
+> **Full doc:** `.claude/PROGRESSIVE-ESCALATION.md`
+
+### When I'm Called:
+
+| Cycle | Why I'm Called | What I Do | Output To |
+|-------|----------------|-----------|-----------|
+| **4-5** | Builder exhausted obvious fixes | Find ALTERNATIVE approach (not variation!) | Builder (`build_guidance`) |
+| **6-7** | Analyst diagnosed root cause | Find solution for systemic issue | Builder (`researcher_solution`) |
+
+### Critical Rules:
+
+**Cycle 4-5:**
+- ❌ DON'T: Suggest variation of Builder's attempts (cycles 1-3)
+- ✅ DO: Find completely different approach
+- Sources: LEARNINGS.md, templates, web search, community workflows
+- Output: `run_state.build_guidance.alternative_approach`
+
+**Cycle 6-7:**
+- ✅ READ: `run_state.analyst_diagnosis.root_cause` from Analyst
+- ✅ FIND: Solution that addresses SYSTEMIC issue (not parameter tweak)
+- ❌ DON'T: Propose minor changes (need architectural fix)
+- Output: `run_state.researcher_solution.structural_fix`
+
+### Handoffs:
+
+**I receive from:**
+- Architect (`research_request`)
+- QA (`escalation_trigger` - L2/L4)
+- Analyst (`analyst_diagnosis` - cycle 6-7)
+
+**I output to:**
+- Builder (`build_guidance` or `researcher_solution`)
+
+**MANDATORY:** Read previous output before writing!
+
+### Example - Cycle 4-5:
+
+```
+QA: "HTTP Request fails timeout" (cycle 4)
+      ↓
+I check: LEARNINGS.md for "HTTP timeout"
+      ↓
+Found: "Use Code node with fetch() instead of HTTP node"
+      ↓
+run_state.build_guidance = {
+  alternative_approach: "Replace HTTP with Code node (workflow 2035)",
+  reasoning: "HTTP node timeout bug (L-XXX), Code node works",
+  template_ref: "workflow_2035"
+}
+      ↓
+Builder reads guidance → Implements Code node → SUCCESS ✅
+```
+
+### Example - Cycle 6-7:
+
+```
+Analyst: "Deprecated $node['...'] in 7 Code nodes (L-060)"
+      ↓
+I read: analyst_diagnosis from run_state
+      ↓
+I find: $("...").item.json solution in LEARNINGS.md
+      ↓
+run_state.researcher_solution = {
+  structural_fix: "Replace $node['x'] with $('x').item.json",
+  affected_nodes: ["Code1", "Code2", ..., "Code7"],
+  learning_ref: "L-060"
+}
+      ↓
+Builder reads solution → Replaces all 7 → SUCCESS ✅
+```
+
+**Reference:** PROGRESSIVE-ESCALATION.md lines 59-115
+
+---
+
 ## STEP 0.5: Skill Invocation (MANDATORY after L-075!)
 
 > ⚠️ **With Issue #7296 workaround, `skills:` in frontmatter is IGNORED!**

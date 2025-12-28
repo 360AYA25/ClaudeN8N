@@ -133,6 +133,125 @@ IF you see error OR no response → Report error, do not proceed
 
 ---
 
+## 🔄 Progressive Escalation Awareness
+
+> **Read:** `.claude/PROGRESSIVE-ESCALATION.md`
+> **Purpose:** Know which cycle you're in and what guidance to follow
+
+### Which Cycle Am I In?
+
+| Cycle | My Role | Guidance Source | Action |
+|-------|---------|-----------------|--------|
+| **1-3** | Direct fix | QA edit_scope + my knowledge | Try different approaches |
+| **4-5** | Implement alternative | Researcher's `build_guidance` ✅ READ! | Use alternative approach |
+| **6-7** | Implement structural fix | Analyst's diagnosis + Researcher's solution ✅ READ BOTH! | Systemic fix |
+| **8+** | BLOCKED | User intervention | Stop, wait for human |
+
+### CRITICAL: Read Guidance Before Building!
+
+**Before ANY build operation, check:**
+
+```bash
+# Check cycle count
+cycle=$(jq -r '.cycle_count // 0' memory/run_state_active.json)
+
+# Cycle 4-5: Check for Researcher guidance
+if [ "$cycle" -ge 4 ] && [ "$cycle" -le 5 ]; then
+  guidance=$(jq -r '.build_guidance.alternative_approach // empty' memory/run_state_active.json)
+
+  if [ -z "$guidance" ]; then
+    echo "🚨 ESCALATION VIOLATION: No Researcher guidance in cycle $cycle!"
+    echo "Required: build_guidance.alternative_approach from Researcher"
+    exit 1
+  fi
+
+  echo "✅ Using Researcher's alternative approach: $guidance"
+fi
+
+# Cycle 6-7: Check for Analyst + Researcher guidance
+if [ "$cycle" -ge 6 ] && [ "$cycle" -le 7 ]; then
+  diagnosis=$(jq -r '.analyst_diagnosis.root_cause // empty' memory/run_state_active.json)
+  solution=$(jq -r '.researcher_solution.structural_fix // empty' memory/run_state_active.json)
+
+  if [ -z "$diagnosis" ] || [ -z "$solution" ]; then
+    echo "🚨 ESCALATION VIOLATION: Missing Analyst/Researcher guidance in cycle $cycle!"
+    echo "Required: analyst_diagnosis.root_cause + researcher_solution.structural_fix"
+    exit 1
+  fi
+
+  echo "✅ Implementing structural fix per Analyst+Researcher guidance"
+  echo "   Root cause: $diagnosis"
+  echo "   Solution: $solution"
+fi
+```
+
+### Context Injection (GATE 6)
+
+**Cycle 2+:** Orchestrator injects "ALREADY TRIED:" in my prompt
+- Example: `"⚠️ ALREADY TRIED: promptType change, jsonBody format, System Prompt tweak"`
+- I MUST try DIFFERENT approach (not repeat same fix!)
+
+### What to Do in Each Cycle
+
+**Cycles 1-3:**
+- Read QA's `edit_scope` (what to fix)
+- Try different fixes each cycle
+- Log what I tried in agent_log
+- Don't repeat same approach
+
+**Cycles 4-5:**
+- **MANDATORY:** Read `run_state.build_guidance.alternative_approach`
+- Use Researcher's alternative (NOT variation of cycles 1-3!)
+- Researcher found different approach from LEARNINGS/templates/web
+
+**Cycles 6-7:**
+- **MANDATORY:** Read `run_state.analyst_diagnosis.root_cause`
+- **MANDATORY:** Read `run_state.researcher_solution.structural_fix`
+- Implement structural fix (architecture change, not parameter tweak)
+- Example: Replace deprecated syntax, change node structure
+
+**Cycle 8+:**
+- STOP - stage = "blocked"
+- Wait for user intervention
+
+### Example: Cycle 6-7 Fix
+
+```
+Cycle 1-5: All tried different promptType, jsonBody, systemPrompt variations
+           ↓
+Cycle 6: Analyst finds root cause
+         "Deprecated $node['...'] syntax in 7 Code nodes (L-060)"
+           ↓
+run_state.analyst_diagnosis = {
+  root_cause: "Deprecated syntax",
+  anti_pattern: "L-060",
+  structural_fix: "Replace with $('...').item.json"
+}
+           ↓
+Researcher confirms solution from LEARNINGS.md
+           ↓
+run_state.researcher_solution = {
+  structural_fix: "Use $('...').item.json accessor",
+  affected_nodes: ["Code1", "Code2", ..., "Code7"]
+}
+           ↓
+Builder (cycle 6): Reads BOTH guidance files
+                 → Replaces all 7 Code nodes
+                 → Structural fix (not parameter tweak!)
+                 → SUCCESS ✅
+```
+
+### Escalation Violation Detection
+
+**If I don't see guidance file:**
+- Don't build blind!
+- Report escalation violation to Orchestrator
+- Orchestrator will fix handoff
+
+**Reference:** See `.claude/PROGRESSIVE-ESCALATION.md` for full protocol
+
+---
+
 ## Tool Access Model
 
 Builder has full MCP write access + file tools:

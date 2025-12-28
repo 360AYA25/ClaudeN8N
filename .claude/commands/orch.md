@@ -364,6 +364,68 @@ fi
 
 ---
 
+## 🔒 Handoff Enforcement (MANDATORY!)
+
+> **Protocol:** `.claude/agents/shared/handoff-protocol.md`
+> **Purpose:** Ensure every agent output reaches next agent
+
+### After EVERY Task Delegation:
+
+```bash
+# MANDATORY: Merge agent output to run_state
+source .claude/agents/shared/run-state-lib.sh
+
+# Agent result file (created by agent)
+agent_result="memory/agent_results/${workflow_id}/${agent}_result.json"
+
+# Merge to run_state
+merge_agent_result "$agent" "$agent_result" "$run_state_file"
+
+# CRITICAL: Verify merge succeeded
+if ! jq -e '.agent_log[] | select(.agent=="'$agent'")' "$run_state_file" >/dev/null 2>&1; then
+  echo "🚨 HANDOFF FAILURE: $agent output not merged to run_state!"
+  echo "Agent output file: $agent_result"
+  echo "run_state file: $run_state_file"
+  exit 1
+fi
+
+echo "✅ Handoff verified: $agent → run_state"
+```
+
+### Include Previous Output in Next Prompt:
+
+```bash
+# Read previous agent output from run_state
+previous_output=$(jq -r '.'"${previous_agent}"'_result // empty' "$run_state_file")
+
+if [ -z "$previous_output" ]; then
+  echo "🚨 HANDOFF FAILURE: No output from $previous_agent in run_state!"
+  exit 1
+fi
+
+# Build prompt with context
+next_prompt="## CONTEXT FROM PREVIOUS AGENT ($previous_agent):
+
+$previous_output
+
+## YOUR TASK:
+..."
+```
+
+### Quick Reference for Common Handoffs:
+
+| From | To | Run State Key | Verification |
+|------|-----|---------------|--------------|
+| Researcher | Builder | `build_guidance` | Check `.build_guidance.alternative_approach` |
+| Analyst | Researcher | `analyst_diagnosis` | Check `.analyst_diagnosis.root_cause` |
+| Researcher | Builder (cycle 6-7) | `researcher_solution` | Check `.researcher_solution.structural_fix` |
+| QA | Orchestrator | `qa_report` | Check escalation triggers |
+| Builder | QA | `build_result` | Check `.build_result.mcp_calls` |
+
+**Failure Mode:** If merge fails → STOP, report handoff failure, don't continue
+
+---
+
 ## 📸 Canonical Snapshot Protocol
 
 **NOT IMPLEMENTED HERE!** Orchestrator delegates snapshot operations to Researcher.
