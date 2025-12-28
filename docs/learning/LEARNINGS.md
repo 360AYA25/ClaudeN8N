@@ -8390,3 +8390,48 @@ When creating Telegram keyboard:
 **Severity:** CRITICAL (blocks user features, wastes hours)
 **Category:** node-configuration
 **Tags:** telegram, keyboard, reply_markup, n8n
+
+---
+
+## L-101: GATE 2 False Positive Fix (2025-12-28)
+
+**Category:** Validation Gates / Orchestrator
+
+**Problem:**
+GATE 2 blocked Builder for validation errors (not execution errors), causing unnecessary escalations.
+
+**Symptoms:**
+- QA finds `parameter_validation` errors
+- GATE 2 blocks Builder: "execution analysis required"
+- But these are NOT execution errors!
+
+**Root Cause:**
+GATE 2 didn't distinguish between:
+- **Validation errors:** parameter_validation, expression_syntax, node_configuration
+- **Execution errors:** execution_runtime, execution_timeout, data_flow
+
+**Solution:**
+Updated `gate-enforcement.sh` v1.2.0 to check error category first:
+
+```bash
+# Check error category from QA report
+error_category=$(jq -r '.errors[0].category' qa_report.json)
+
+# Validation errors → bypass GATE 2 (L1 direct fix OK)
+if [[ "$error_category" =~ ^(parameter_validation|expression_syntax)$ ]]; then
+  return 0  # Allow Builder direct fix
+fi
+
+# Execution errors → require analysis (L2+ escalation)
+if [[ "$error_category" =~ ^(execution_runtime|execution_timeout)$ ]]; then
+  require_execution_analysis()
+fi
+```
+
+**Impact:**
+- Faster fixes for validation errors (skip unnecessary escalation)
+- Correct escalation for execution errors (still requires analysis)
+- False positives eliminated
+
+**Reference:** RETROSPECTIVE-2025-12-28.md (GATE 2 section)
+

@@ -348,3 +348,17 @@ node scripts/generate-learnings-index.js
 - L-083: Researcher MUST verify credential types match node requirements
 
 **Keywords:** `builder-verification`, `execution-testing`, `canonical-snapshot`, `cross-path-testing`, `credential-verification`, `foodtracker`, `v111-failure`, `post-change-verification`, `runtime-validation`, `context-preservation`
+
+### L-101: GATE 2 False Positive
+- **Line:** ~7000 (end of file)
+- **Category:** Validation Gates
+- **Keywords:** GATE 2, false positive, validation, execution, error category
+- **Node:** All (gate logic)
+
+
+### L-101: GATE 2 False Positive
+- **Line:** ~7000 (end of file)
+- **Category:** Validation Gates
+- **Keywords:** GATE 2, false positive, validation, execution, error category
+- **Node:** All (gate logic)
+

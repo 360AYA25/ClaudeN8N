@@ -1,6 +1,6 @@
 #!/bin/bash
 # Validation Gate Enforcement Functions
-# Version: 1.1.0 (2025-12-27) - Added GATE 6.5 for LangChain functional completeness
+# Version: 1.2.0 (2025-12-28) - GATE 2 now distinguishes validation vs execution errors
 # Purpose: Code-based enforcement of validation gates (prevents FAILURE-ANALYSIS disasters)
 # Usage: source .claude/agents/shared/gate-enforcement.sh
 
@@ -94,8 +94,9 @@ function check_gate_1() {
 }
 
 ###############################################################################
-# GATE 2: Execution Analysis Required
-# Rule: Cannot fix workflow without analyzing execution logs
+# GATE 2: Execution Analysis Required (v2.0 - 2025-12-28)
+# Rule: Cannot fix EXECUTION errors without analyzing execution logs
+# UPDATE: Now distinguishes validation vs execution errors (fixes false positive)
 ###############################################################################
 function check_gate_2() {
   local target_agent="$1"
@@ -103,21 +104,55 @@ function check_gate_2() {
 
   local stage=$(jq -r '.stage // "unknown"' "$run_state")
   local cycle_count=$(jq -r '.cycle_count // 0' "$run_state")
+  local workflow_id=$(jq -r '.workflow_id // ""' "$run_state")
+  local project_path=$(jq -r '.project_path // "/Users/sergey/Projects/ClaudeN8N"' "$run_state")
 
   # Check if this is a fix/debug task
   local is_fix_task=false
-
   if [ "$stage" = "build" ] && [ "$cycle_count" -gt 0 ]; then
     is_fix_task=true
   fi
 
-  # If fixing broken workflow, execution analysis REQUIRED
+  # If fixing broken workflow, check error category FIRST
   if [ "$is_fix_task" = true ] && [ "$target_agent" = "builder" ]; then
+    # Try to get error category from QA report
+    local qa_report_file="${project_path}/memory/agent_results/${workflow_id}/qa_report.json"
+
+    if [ -f "$qa_report_file" ]; then
+      # Check first error's category
+      local error_category=$(jq -r '.errors[0].category // "unknown"' "$qa_report_file")
+
+      # VALIDATION errors don't need execution analysis (L1 direct fix OK)
+      if [[ "$error_category" =~ ^(parameter_validation|expression_syntax|ai_agent_functionality|node_configuration)$ ]]; then
+        # GATE 2 bypass: Validation errors can be fixed directly by Builder
+        return 0
+      fi
+
+      # EXECUTION errors require analysis (L2+ escalation)
+      if [[ "$error_category" =~ ^(execution_runtime|execution_timeout|execution_error|data_flow)$ ]]; then
+        local analysis_completed=$(jq -r '.execution_analysis.completed // false' "$run_state")
+
+        if [ "$analysis_completed" != "true" ]; then
+          echo "🚨 GATE 2 VIOLATION: Execution errors require execution analysis" >&2
+          echo "" >&2
+          echo "Error category: $error_category" >&2
+          echo "CRITICAL: You MUST analyze execution logs before attempting fix!" >&2
+          echo "" >&2
+          echo "Delegate to Researcher/Analyst FIRST to analyze executions" >&2
+          echo "" >&2
+          echo "Reference: FAILURE-ANALYSIS-2025-12-10.md (GATE 2 violation caused 6-hour disaster)" >&2
+          return 1
+        fi
+      fi
+    fi
+
+    # Fallback: If no QA report found, require analysis (safer default)
     local analysis_completed=$(jq -r '.execution_analysis.completed // false' "$run_state")
 
     if [ "$analysis_completed" != "true" ]; then
       echo "🚨 GATE 2 VIOLATION: Cannot fix without execution analysis" >&2
       echo "" >&2
+      echo "No QA report found - defaulting to require analysis" >&2
       echo "CRITICAL: You MUST analyze execution logs before attempting fix!" >&2
       echo "" >&2
       echo "Delegate to Analyst FIRST to analyze executions" >&2

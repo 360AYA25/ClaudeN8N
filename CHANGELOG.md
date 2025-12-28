@@ -3205,3 +3205,23 @@ Fixed MCP tool names from `mcp__n8n__` to `mcp__n8n-mcp__`.
 - `d4ba720` feat: add Claude Code instructions and update documentation
 - `b2aaadc` feat: add knowledge base and update architecture
 - `e224cf7` chore: initial project structure
+
+## [1.2.0] - 2025-12-28
+
+### Added
+- L-101: GATE 2 false positive fix (validation vs execution errors)
+
+### Changed
+- **GATE 2** (gate-enforcement.sh v1.2.0): Now distinguishes validation errors from execution errors
+  - Validation errors (parameter_validation, expression_syntax) → L1 direct fix allowed
+  - Execution errors (execution_runtime, execution_timeout) → L2+ analysis required
+  - Eliminates false positives that caused unnecessary escalations
+
+### Fixed
+- GATE 2 false positive issue that blocked Builder for validation errors
+  - Reference: RETROSPECTIVE-2025-12-28.md (GATE 2 section)
+
+### Performance
+- Token efficiency: 70% savings with Index-First protocol maintained
+- QA Loop: L2 escalation success rate 100% for schema issues
+
