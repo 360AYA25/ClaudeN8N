@@ -1,4 +1,0 @@
-telethon==1.35.0
-quart==0.19.4
-hypercorn==0.16.0
-python-dotenv==1.0.0

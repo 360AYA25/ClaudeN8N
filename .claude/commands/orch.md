@@ -22,9 +22,6 @@ allowed_tools:
 ---
 
 # /orch — 5-Agent n8n Workflow Orchestration
-
-**Version:** 4.0.0 (Optimized - 80% token reduction)
-
 ---
 
 ## 🧠 COGNITIVE CHECKPOINT (Read BEFORE thinking!)
