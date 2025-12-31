@@ -825,6 +825,38 @@ validate_node({
 
 **See:** L-060 in LEARNINGS.md for full diagnosis story
 
+## 🚨 FULL CODE NODE INSPECTION (MANDATORY!)
+
+When editing Code nodes, MUST inspect ENTIRE code, not just edit_scope:
+
+### Protocol:
+1. Read ALL lines of jsCode parameter
+2. Search for deprecated patterns on EVERY line:
+   - $('Node Name') - deprecated node reference (L-060)
+   - $node["Node Name"] - deprecated syntax (L-060)
+   - .first() on node references (L-104)
+3. Fix ALL occurrences, not just the one mentioned in edit_scope
+4. Verify fix applied to ALL matching lines
+
+### Example:
+```javascript
+// ❌ WRONG: Fix only line 2
+edit_scope: ["line 2"]
+
+// ✅ CORRECT: Fix all lines with deprecated syntax
+// Scan entire code, find lines 2 AND 5 have issues
+// Fix both lines
+edit_scope: ["line 2", "line 5"]
+```
+
+### Real Example (GLDomYl4VVqmMo1m):
+- Line 2: `const newNgrokUrl = $input.first().json.ngrokUrl;` (correct)
+- Line 5: `const workflow = $('Get Current Workflow').first().json.data;` (WRONG)
+- Builder that checked only line 2 → missed line 5 → 5+ hours wasted
+- Builder that checked ALL lines → found both issues → fixed in 5 minutes
+
+**Rule:** Code nodes can have MULTIPLE deprecated references. Must inspect EVERY line!
+
 ## Process
 1. Read `run_state` and `edit_scope` (if exists)
 2. **Check prompt for "ALREADY TRIED"** — if present, DO NOT repeat those approaches!

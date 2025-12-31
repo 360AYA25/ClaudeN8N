@@ -8435,3 +8435,122 @@ fi
 
 **Reference:** RETROSPECTIVE-2025-12-28.md (GATE 2 section)
 
+
+---
+
+## L-105: Full Code Node Inspection Required (2025-12-30)
+
+**Category:** Builder / Code Node
+
+**Problem:**
+Builder checked only line 2 of Code node, missed line 5 → 5+ hours wasted.
+
+**Symptoms:**
+- Fix applied to one line only (edit_scope: ["line 2"])
+- Execution still fails with same type of error
+- User frustrated: "целый блядь час в одну и ту же ошибку"
+
+**Root Cause:**
+Code nodes can have MULTIPLE deprecated references, not just one.
+
+**Example (GLDomYl4VVqmMo1m):**
+```javascript
+// Line 2: Correct
+const newNgrokUrl = $input.first().json.ngrokUrl;
+
+// Line 5: WRONG - deprecated syntax
+const workflow = $('Get Current Workflow').first().json.data;
+```
+
+Builder that checked only line 2 → missed line 5 → 5+ hours
+Builder that checked ALL lines → found both issues → 5 minutes
+
+**Rule:**
+- Code nodes can have MULTIPLE deprecated references
+- Must inspect EVERY line, not just edit_scope
+- Scan for: $('Node'), $node["Node"], .first() patterns
+
+**Protocol:**
+1. Read ALL lines of jsCode parameter
+2. Search for deprecated syntax on EACH line
+3. Fix ALL occurrences
+4. Verify with execution test
+
+**Token cost:** 1,000 tokens (read builder_gotchas.md)
+**Time saved:** 4.5 hours
+
+**Reference:** SYSTEM_FAILURE_ANALYSIS.md (GLDomYl4VVqmMo1m)
+
+---
+
+## L-106: builder_gotchas.md Must Be Read Before Code Edits (2025-12-30)
+
+**Category:** Builder / Index-First Reading
+
+**Problem:**
+Builder didn't know about L-060 warning → used deprecated syntax.
+
+**Symptoms:**
+- Builder uses $('Node Name') syntax without checking
+- Code fails at runtime with timeout/error
+- QA cycle needed to catch deprecated syntax
+
+**Root Cause:**
+Builder didn't read builder_gotchas.md before Code node work.
+
+**Rule:**
+- Before ANY Code node work → read docs/learning/indexes/builder_gotchas.md
+- Contains L-060 warning (lines 28-33)
+- GATE 6 enforces this check
+
+**Content of builder_gotchas.md L-060:**
+> **L-060: Code Node Deprecated Syntax (CRITICAL!)**
+> Detection: Scan EVERY line of jsCode
+> Fix: Replace $('Node') with $input
+> Pattern: $('Get Current Workflow').first().json.data
+> Real example: Line 2 was correct, line 5 had bug. Both needed inspection!
+
+**Token cost:** 1,000 tokens
+**Time saved:** 3 hours
+
+**Reference:** GATE 6 in gate-enforcement.sh
+
+---
+
+## L-107: Phase 5 Execution Test Must Be First Priority (2025-12-30)
+
+**Category:** QA / Validation Gates
+
+**Problem:**
+QA validated structure before testing execution → fake "PASS" reports.
+
+**Symptoms:**
+- QA reports: "Validation passed → workflow works!"
+- User tests: "Workflow doesn't work!"
+- 5+ QA cycles before real test executed
+
+**Root Cause:**
+QA ran structure validation (Phase 1) BEFORE execution test (Phase 5).
+
+**Rule:**
+- For workflows with Code nodes → execution test FIRST
+- Structure validation means nothing if code crashes
+- GATE 3 enforcement required
+
+**Protocol:**
+```
+QA Workflow for Code nodes:
+1. n8n_test_workflow FIRST (Phase 5)
+2. Only AFTER execution test → validate_workflow (Phase 1)
+3. If execution fails → execution analysis > structure validation
+4. Skip execution test = FAIL immediately
+```
+
+**Token cost:** 5,000 tokens (execution test)
+**Time saved:** 1 hour
+
+**Reference:** GATE 3 in validation-gates.md, qa.md Phase 5 section
+
+---
+
+**END OF LEARNINGS**

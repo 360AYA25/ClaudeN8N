@@ -1,6 +1,6 @@
 #!/bin/bash
 # Validation Gate Enforcement Functions
-# Version: 1.2.0 (2025-12-28) - GATE 2 now distinguishes validation vs execution errors
+# Version: 1.2.1 (2025-12-30) - Added GATE 6 (builder_gotchas.md mandatory read)
 # Purpose: Code-based enforcement of validation gates (prevents FAILURE-ANALYSIS disasters)
 # Usage: source .claude/agents/shared/gate-enforcement.sh
 
@@ -306,6 +306,42 @@ function check_gate_6() {
         echo "Never propose untested solutions!" >&2
         return 1
       fi
+    fi
+  fi
+
+  return 0
+}
+
+###############################################################################
+# GATE 6: builder_gotchas.md Mandatory Read (L-106)
+# Rule: Builder must read builder_gotchas.md before Code node work
+###############################################################################
+function check_gate_6() {
+  local target_agent="$1"
+  local run_state="$2"
+
+  # Only check when Builder is being called
+  if [ "$target_agent" != "builder" ]; then
+    return 0
+  fi
+
+  # Check if workflow has Code nodes in edit_scope
+  local has_code_nodes=$(jq -r '.edit_scope[]? | select(.issue | contains("Code node") or .node_name | contains("Code")) | .node_id' "$run_state" 2>/dev/null)
+
+  if [ -n "$has_code_nodes" ]; then
+    # Verify Builder read builder_gotchas.md
+    local gotchas_read=$(jq -r '[.agent_log[] | select(.agent=="builder" and (.details | contains("builder_gotchas") or .details | contains("FULL CODE NODE INSPECTION")))] | length' "$run_state" 2>/dev/null)
+
+    if [ "$gotchas_read" = "0" ] || [ -z "$gotchas_read" ]; then
+      echo "🚨 GATE 6 VIOLATION: Builder must read builder_gotchas.md before Code node edits!" >&2
+      echo "" >&2
+      echo "Required:" >&2
+      echo "  1. Read: docs/learning/indexes/builder_gotchas.md" >&2
+      echo "  2. Check L-060 section (deprecated syntax warning)" >&2
+      echo "  3. Follow FULL CODE NODE INSPECTION protocol" >&2
+      echo "" >&2
+      echo "Reference: L-106 (builder_gotchas.md prevents 3-hour debug sessions)" >&2
+      return 1
     fi
   fi
 

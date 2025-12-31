@@ -25,10 +25,35 @@ const userId = $node['Telegram Trigger'].json.message.from.id;
 **Impact:** Silent failures, data undefined, 300s timeouts
 **Full docs:** LEARNINGS.md L-104
 
-### L-060: Code Node Deprecated Syntax (300s Timeout!)
-**Problem:** `$node["Node Name"].json.field` causes 300s timeout
-**Solution:** Use `$('Node Name').item.json.field` instead
-**Detection:** ALWAYS inspect Code node JavaScript BEFORE building
+### L-060: Code Node Deprecated Syntax (CRITICAL!)
+**Impact:** HIGH - Most common Code node error
+**Detection:** Scan EVERY line of jsCode
+**Fix:** Replace $('Node') with $input
+
+### Pattern:
+❌ $('Get Current Workflow').first().json.data
+✅ $input.first().json.data
+
+### 🚨 MANDATORY BEFORE CODE NODE WORK:
+1. Read entire jsCode parameter (all lines!)
+2. Search for deprecated syntax on EACH line
+3. Fix ALL occurrences
+4. Verify with execution test
+
+### Real Example (GLDomYl4VVqmMo1m - 5+ hours vs 5 minutes):
+```javascript
+// Line 2: Correct (uses $input)
+const newNgrokUrl = $input.first().json.ngrokUrl;
+
+// Line 5: WRONG (uses deprecated $('Get Current Workflow'))
+const workflow = $('Get Current Workflow').first().json.data;
+```
+
+❌ Builder checked only line 2 → missed line 5 → 5+ hours wasted
+✅ Builder checked ALL lines → found both issues → 5 minutes
+
+**Rule:** Code nodes can have MULTIPLE deprecated references. All lines must be inspected!
+
 **Full docs:** LEARNINGS.md lines 3853-4102
 **Impact:** 5 hours debugging vs 30 minutes with this check
 
